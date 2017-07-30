@@ -9,8 +9,14 @@ cache:
 
 matrix:
   include:
+    - env: CABALVER=1.24 GHCVER=7.8.4
+      addons: {apt: {packages: [cabal-install-1.24,ghc-7.8.4], sources: [hvr-ghc]}}
+    - env: CABALVER=1.24 GHCVER=7.10.3
+      addons: {apt: {packages: [cabal-install-1.24,ghc-7.10.3],sources: [hvr-ghc]}}
     - env: CABALVER=1.24 GHCVER=8.0.2
       addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.2], sources: [hvr-ghc]}}
+    - env: CABALVER=1.24 GHCVER=8.2.1
+      addons: {apt: {packages: [cabal-install-1.24,ghc-8.2.1], sources: [hvr-ghc]}}
 
 before_install:
   - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
@@ -27,12 +33,13 @@ script:
  - cabal build
  - cabal test --show-details=always
  - cabal sdist
- - cabal haddock | grep "100%" | wc -l | grep "6"
+ - cabal haddock | grep "100%" | wc -l | grep "4"
 
 after_script:
  - export PATH=~/.cabal/bin:$PATH
  - hpc-coveralls --coverage-mode=StrictlyFullLines
                  --exclude-dir=tests
+                 --exclude-dir=
                  tests
 
 notifications:

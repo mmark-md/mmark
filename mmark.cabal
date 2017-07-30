@@ -1,7 +1,7 @@
 name:                 mmark
 version:              0.1.0
-cabal-version:        >= 1.10
-tested-with:          GHC==8.0.2
+cabal-version:        >= 1.18
+tested-with:          GHC==7.8.4, GHC==7.10.3, GHC==8.0.2, GHC==8.2.1
 license:              BSD3
 license-file:         LICENSE.md
 author:               Mark Karpov <markkarpov92@gmail.com>
@@ -9,9 +9,9 @@ maintainer:           Mark Karpov <markkarpov92@gmail.com>
 homepage:             https://github.com/mrkkrp/mmark
 bug-reports:          https://github.com/mrkkrp/mmark/issues
 category:             Text
-synopsis:             A flexible markdown processor for writers and bloggers
+synopsis:             Strict markdown processor for writers
 build-type:           Simple
-description:          A flexible markdown processor for writers and bloggers.
+description:          Strict markdown processor for writers.
 extra-doc-files:      CHANGELOG.md
                     , README.md
 
@@ -27,14 +27,12 @@ flag dev
 library
   build-depends:      base             >= 4.7 && < 5.0
                     , lucid            >= 2.6 && < 3.0
-                    , megaparsec
+                    , megaparsec       >= 6.0 && < 7.0
                     , text             >= 0.2 && < 1.3
   exposed-modules:    Text.MMark
-                    , Text.MMark.Document
-                    , Text.MMark.Highlight.Haskell.Code
-                    , Text.MMark.Highlight.Haskell.GHCi
+                    , Text.MMark.Extension
+                    , Text.MMark.Internal
                     , Text.MMark.Parser
-                    , Text.MMark.Render
   if flag(dev)
     ghc-options:      -Wall -Werror
   else
@@ -50,6 +48,32 @@ test-suite tests
                     , mmark
   if flag(dev)
     ghc-options:      -Wall -Werror
+  else
+    ghc-options:      -O2 -Wall
+  default-language:   Haskell2010
+
+benchmark bench-speed
+  main-is:            Main.hs
+  hs-source-dirs:     bench/speed
+  type:               exitcode-stdio-1.0
+  build-depends:      base             >= 4.7 && < 5.0
+                    , criterion        >= 0.6.2.1 && < 1.3
+                    , mmark
+  if flag(dev)
+    ghc-options:      -O2 -Wall -Werror
+  else
+    ghc-options:      -O2 -Wall
+  default-language:   Haskell2010
+
+benchmark bench-memory
+  main-is:            Main.hs
+  hs-source-dirs:     bench/memory
+  type:               exitcode-stdio-1.0
+  build-depends:      base             >= 4.7 && < 5.0
+                    , mmark
+                    , weigh            >= 0.0.4
+  if flag(dev)
+    ghc-options:      -O2 -Wall -Werror
   else
     ghc-options:      -O2 -Wall
   default-language:   Haskell2010
