@@ -12,5 +12,28 @@
 -- TODO Proper description pending.
 
 module Text.MMark
-  (  )
+  ( MMark
+  , Extension
+  , Block (..)
+  , Inline (..)
+  , parseMMark
+  , mmarkYaml
+  , useExtension
+  , useExtensions
+  , renderMMark
+  , quickMMark )
 where
+
+import Data.Aeson
+import Data.Text (Text)
+import Data.Void
+import Text.MMark.Internal
+import Text.MMark.Parser
+import Text.Megaparsec
+import qualified Data.Text.Lazy as TL
+
+mmarkYaml :: MMark -> Maybe Value
+mmarkYaml = mmarkYaml_
+
+quickMMark :: [Extension] -> Text -> Either (ParseError Char Void) TL.Text
+quickMMark exts = fmap (renderMMark . useExtensions exts) . parseMMark
