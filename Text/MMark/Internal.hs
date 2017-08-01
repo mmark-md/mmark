@@ -11,8 +11,12 @@
 -- instead.
 
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE RecordWildCards    #-}
 
 module Text.MMark.Internal
   ( MMark (..)
@@ -26,9 +30,11 @@ module Text.MMark.Internal
   , defaultInlineRender )
 where
 
+import Control.DeepSeq
 import Control.Monad
 import Data.Aeson
 import Data.Data (Data)
+import Data.Function (on)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Data.Semigroup
@@ -36,22 +42,17 @@ import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
 import Lucid
-import qualified Data.Text.Lazy as TL
 
 -- | Representation of complete markdown document.
 
 data MMark = MMark
-  { mmarkYaml_       :: Maybe Value
+  { mmarkYaml_ :: Maybe Value
     -- ^ Parsed YAML document at the beginning (optional)
-  , mmarkBlocks      :: [Block Inline]
+  , mmarkBlocks :: [Block Inline]
     -- ^
-  , mmarkBlockTrans  :: Endo (Block Inline)
-  , mmarkBlockRender :: Render (Block Inline)
-  , mmarkInlineTrans :: Endo Inline
-  , mmarkInlineRender :: Render Inline
+  , mmarkExtension :: Extension
+    -- ^ Extension specifying how to process and render the blocks
   }
-
--- | TODO We should allow the process optionally fail perhaps?
 
 newtype Render a = Render (a -> Html () -> Html ())
 
@@ -63,40 +64,47 @@ instance Monoid (Render a) where
   mempty  = Render (const id)
   mappend = (<>)
 
--- TODO this stuff should be moved from here
-
-data Extension -- FIXME not quite right for being a monoid
-  = TransformBlock (Endo (Block Inline))
-  | RenderBlock (Render (Block Inline))
-  | TransformInline (Endo Inline)
-  | RenderInline (Render Inline)
+data Extension = Extension
+  { extBlockTrans   :: forall a. Endo (Block a)
+  , extBlockRender  :: Render (Block (Html ()))
+  , extInlineTrans  :: Endo Inline
+  , extInlineRender :: Render Inline
+  }
 
 instance Semigroup Extension where
-  (<>) = undefined -- TODO
+  x <> y = Extension
+    { extBlockTrans   = on (<>) extBlockTrans   x y
+    , extBlockRender  = on (<>) extBlockRender  x y
+    , extInlineTrans  = on (<>) extInlineTrans  x y
+    , extInlineRender = on (<>) extInlineRender x y }
 
 instance Monoid Extension where
-  mempty = undefined -- TODO
+  mempty = Extension
+    { extBlockTrans   = mempty
+    , extBlockRender  = mempty
+    , extInlineTrans  = mempty
+    , extInlineRender = mempty }
   mappend = (<>)
 
 useExtension :: Extension -> MMark -> MMark
 useExtension ext mmark =
-  case ext of
-    TransformBlock f ->
-      mmark { mmarkBlockTrans = mmarkBlockTrans mmark <> f }
-    RenderBlock f ->
-      mmark { mmarkBlockRender = mmarkBlockRender mmark <> f }
-    TransformInline f ->
-      mmark { mmarkInlineTrans = mmarkInlineTrans mmark <> f }
-    RenderInline f ->
-      mmark { mmarkInlineRender = mmarkInlineRender mmark <> f }
+  mmark { mmarkExtension = mmarkExtension mmark <> ext }
 
 useExtensions :: [Extension] -> MMark -> MMark
 useExtensions exts = useExtension (mconcat exts)
 
--- | Render a 'MMark' markdown document as a lazy 'TL.Text' value.
+-- | Render a 'MMark' markdown document.
 
-renderMMark :: MMark -> TL.Text
-renderMMark = undefined -- TODO
+renderMMark :: MMark -> Html ()
+renderMMark MMark {..} =
+  -- NOTE Here we have the potential for parallel processing, although we
+  -- need NFData for Html () for this to work.
+  mapM_ produceBlock mmarkBlocks
+  where
+    Extension {..} = mmarkExtension
+    produceBlock   = renderBlock extBlockRender
+      . appEndo extBlockTrans
+      . fmap (renderInline extInlineRender . appEndo extInlineTrans)
 
 -- | We can think of a markdown document as a collection of
 -- blocks—structural elements like paragraphs, block quotations, lists,
@@ -134,7 +142,9 @@ data Block a
     -- ^ Ordered list, container block
   | UnorderedList (NonEmpty (Block a))
     -- ^ Unordered list, container block
-  deriving (Show, Eq, Ord, Data, Typeable, Generic)
+  deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor)
+
+instance NFData a => NFData (Block a)
 
 -- TODO LinkReferenceDefiniton Text Text (Maybe Text)
 --   -- ^ Line reference definition with name, destination, and optionally title
@@ -153,6 +163,8 @@ data Inline
   | HtmlInline Text
     -- ^ Inline HTML
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
+
+instance NFData Inline
 
 -- TODO ReferenceLink Text Text
 --    -- ^ Reference link with text and label
@@ -196,6 +208,11 @@ defaultBlockRender = Render $ \block _ ->
     renderSubBlock x =
       let (Render f) = defaultBlockRender in f x (return ())
 
+renderBlock :: Render (Block (Html ())) -> Block (Html ()) -> Html ()
+renderBlock (Render f) x = f x (g x (return ()))
+  where
+    Render g = defaultBlockRender
+
 defaultInlineRender :: Render Inline
 defaultInlineRender = Render $ \inline _ ->
   case inline of
@@ -211,3 +228,8 @@ defaultInlineRender = Render $ \inline _ ->
       in img_ (alt_ alt : src_ src : title)
     HtmlInline txt ->
       toHtmlRaw txt
+
+renderInline :: Render Inline -> Inline -> Html ()
+renderInline (Render f) x = f x (g x (return ()))
+  where
+    Render g = defaultInlineRender

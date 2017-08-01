@@ -31,9 +31,11 @@ import Text.MMark.Internal
 import Text.MMark.Parser
 import Text.Megaparsec
 import qualified Data.Text.Lazy as TL
+import qualified Lucid          as L
 
 mmarkYaml :: MMark -> Maybe Value
 mmarkYaml = mmarkYaml_
 
 quickMMark :: [Extension] -> Text -> Either (ParseError Char Void) TL.Text
-quickMMark exts = fmap (renderMMark . useExtensions exts) . parseMMark
+quickMMark exts =
+  fmap (L.renderText . renderMMark . useExtensions exts) . parseMMark
