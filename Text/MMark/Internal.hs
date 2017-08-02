@@ -21,6 +21,8 @@
 module Text.MMark.Internal
   ( MMark (..)
   , Extension (..)
+  , Scanner (..)
+  , runScanner
   , useExtension
   , useExtensions
   , renderMMark
@@ -43,26 +45,25 @@ import Data.Typeable (Typeable)
 import GHC.Generics
 import Lucid
 
--- | Representation of complete markdown document.
+-- | Representation of complete markdown document. You can't look inside of
+-- 'MMark' on purpose. The only way to influence an 'MMark' document you
+-- obtain as a result of parsing is via the extension mechanism.
 
 data MMark = MMark
   { mmarkYaml_ :: Maybe Value
     -- ^ Parsed YAML document at the beginning (optional)
-  , mmarkBlocks :: [Block Inline]
-    -- ^
+  , mmarkBlocks :: [Block (NonEmpty Inline)]
+    -- ^ Actual contents of the document
   , mmarkExtension :: Extension
     -- ^ Extension specifying how to process and render the blocks
   }
 
-newtype Render a = Render (a -> Html () -> Html ())
-
-instance Semigroup (Render a) where
-  Render f <> Render g = Render $ \elt html ->
-    g elt (f elt html)
-
-instance Monoid (Render a) where
-  mempty  = Render (const id)
-  mappend = (<>)
+-- | An extension. You can apply extensions with 'useExtension' and
+-- 'useExtensions' functions. The "Text.MMark.Extension" provides tools for
+-- extension creation.
+--
+-- Note that 'Extension' is an instance of 'Semigroup' and 'Monoid', i.e.
+-- you can combine several extensions into one.
 
 data Extension = Extension
   { extBlockTrans   :: forall a. Endo (Block a)
@@ -86,14 +87,50 @@ instance Monoid Extension where
     , extInlineRender = mempty }
   mappend = (<>)
 
+-- | Apply an 'Extension' to an 'MMark' document. The order in which you
+-- apply 'Extension's /does matter/. Extensions you apply first take effect
+-- first. In many cases it doesn't matter, but sometimes the difference is
+-- important.
+
 useExtension :: Extension -> MMark -> MMark
 useExtension ext mmark =
   mmark { mmarkExtension = mmarkExtension mmark <> ext }
 
+-- | Apply several 'Extension's to an 'MMark' document.
+--
+-- This is a simple shortcut:
+--
+-- > useExtensions exts = useExtension (mconcat exts)
+--
+-- As mentioned in the docs for 'useExtension', the order in which you apply
+-- extensions matters. Extensions from the list are applied in the order
+-- they appear in the list.
+
 useExtensions :: [Extension] -> MMark -> MMark
 useExtensions exts = useExtension (mconcat exts)
 
--- | Render a 'MMark' markdown document.
+-- | A scanner. Scanner is something that can extract information from an
+-- 'MMark' document.
+
+data Scanner a = Scanner (a -> Block (NonEmpty Inline) -> a)
+
+-- TODO Hell, Scanner is not going to be composable as applicative. We need
+-- to come up with something else.
+
+-- | Run a 'Scanner' on an 'MMark'. It's desirable to run it only once
+-- because running a scanner is typically an expensive traversal. Exploit
+-- the fact that 'Scanner' is an 'Applicative' and combine all scanners you
+-- need to run into one, then run that.
+
+runScanner :: MMark -> Scanner a -> a
+runScanner = undefined -- TODO
+
+-- | Render a 'MMark' markdown document. You can then render @'Html' ()@ to
+-- various things:
+--
+--     * to lazy 'Data.Taxt.Lazy.Text' with 'renderText'
+--     * to lazy 'Data.ByteString.Lazy.ByteString' with 'renderBS'
+--     * directly to file with 'renderToFile'
 
 renderMMark :: MMark -> Html ()
 renderMMark MMark {..} =
@@ -104,7 +141,7 @@ renderMMark MMark {..} =
     Extension {..} = mmarkExtension
     produceBlock   = renderBlock extBlockRender
       . appEndo extBlockTrans
-      . fmap (renderInline extInlineRender . appEndo extInlineTrans)
+      . fmap (renderInlines extInlineRender . fmap (appEndo extInlineTrans))
 
 -- | We can think of a markdown document as a collection of
 -- blocks—structural elements like paragraphs, block quotations, lists,
@@ -146,9 +183,6 @@ data Block a
 
 instance NFData a => NFData (Block a)
 
--- TODO LinkReferenceDefiniton Text Text (Maybe Text)
---   -- ^ Line reference definition with name, destination, and optionally title
-
 -- | Inline markdown content.
 
 data Inline
@@ -166,14 +200,29 @@ data Inline
 
 instance NFData Inline
 
--- TODO ReferenceLink Text Text
---    -- ^ Reference link with text and label
-
--- NOTE We must simplify all links as part of parsing so we have normalized
--- links later.
-
 ----------------------------------------------------------------------------
--- Default renders
+-- Renders
+
+-- | An internal type that captures the extensible rendering process we use.
+-- The first argument @a@ of the inner function is the thing to render. The
+-- second argument is that thing @a@ already rendered (i.e. default
+-- rendering of @a@ or result of rendering so far, but actually these things
+-- are the same). This may seem a bit weird, but it works really well.
+
+newtype Render a = Render (a -> Html () -> Html ())
+
+instance Semigroup (Render a) where
+  Render f <> Render g = Render $ \elt html ->
+    g elt (f elt html)
+
+instance Monoid (Render a) where
+  mempty  = Render (const id)
+  mappend = (<>)
+
+-- | The default 'Block' render. Note that it does not care about what we
+-- have rendered so far because it always starts rendering. Thus it's OK to
+-- just pass it something dummy as the second argument of the inner
+-- function.
 
 defaultBlockRender :: Render (Block (Html ()))
 defaultBlockRender = Render $ \block _ ->
@@ -208,10 +257,15 @@ defaultBlockRender = Render $ \block _ ->
     renderSubBlock x =
       let (Render f) = defaultBlockRender in f x (return ())
 
+-- | Apply a render to a given 'Block'.
+
 renderBlock :: Render (Block (Html ())) -> Block (Html ()) -> Html ()
 renderBlock (Render f) x = f x (g x (return ()))
   where
     Render g = defaultBlockRender
+
+-- | The default render for 'Inline' elements. Comments about
+-- 'defaultBlockRender' apply here just as well.
 
 defaultInlineRender :: Render Inline
 defaultInlineRender = Render $ \inline _ ->
@@ -229,7 +283,9 @@ defaultInlineRender = Render $ \inline _ ->
     HtmlInline txt ->
       toHtmlRaw txt
 
-renderInline :: Render Inline -> Inline -> Html ()
-renderInline (Render f) x = f x (g x (return ()))
+-- | Apply a render to a given 'Inline'.
+
+renderInlines :: Render Inline -> NonEmpty Inline -> Html ()
+renderInlines (Render f) = mapM_ $ \x -> f x (g x (return ()))
   where
     Render g = defaultInlineRender
