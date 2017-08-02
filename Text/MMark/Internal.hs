@@ -28,6 +28,7 @@ module Text.MMark.Internal
   , renderMMark
   , Block (..)
   , Inline (..)
+  , Render (..)
   , defaultBlockRender
   , defaultInlineRender )
 where
