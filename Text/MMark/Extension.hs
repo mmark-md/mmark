@@ -58,7 +58,10 @@ inlineTrans f = mempty { extInlineTrans = Endo f }
 inlineRender :: (Inline -> Html () -> Html ()) -> Extension
 inlineRender f = mempty { extInlineRender = Render f }
 
--- | Create a 'Scanner' from a folding function.
+-- | Create a 'Scanner' from a folding function. Note that the scanning
+-- context is passed around being evaluated to weak head normal form on
+-- every iteration. If you have a deep data structure in @a@ this may be not
+-- enough to fight space leaks though.
 
 scanner :: (a -> Block (NonEmpty Inline) -> a) -> Scanner a
 scanner = Scanner

@@ -67,12 +67,14 @@ module Text.MMark
   ( -- * Parsing
     MMark
   , parseMMark
-    -- * Extensions and scanning
+    -- * Extensions
   , Extension
   , useExtension
   , useExtensions
+    -- * Scanning
   , Scanner
   , runScanner
+  , (.&+)
   , mmarkYaml
     -- * Rendering
   , renderMMark )

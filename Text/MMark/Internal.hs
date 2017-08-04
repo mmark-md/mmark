@@ -10,6 +10,7 @@
 -- Internal definitions you really shouldn't import. Import "Text.MMark"
 -- instead.
 
+{-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE DeriveGeneric      #-}
@@ -23,6 +24,7 @@ module Text.MMark.Internal
   , Extension (..)
   , Scanner (..)
   , runScanner
+  , (.&+)
   , useExtension
   , useExtensions
   , renderMMark
@@ -38,6 +40,7 @@ import Control.Monad
 import Data.Aeson
 import Data.Data (Data)
 import Data.Function (on)
+import Data.List (foldl')
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Data.Semigroup
@@ -60,8 +63,8 @@ data MMark = MMark
   }
 
 -- | An extension. You can apply extensions with 'useExtension' and
--- 'useExtensions' functions. The "Text.MMark.Extension" provides tools for
--- extension creation.
+-- 'useExtensions' functions. The "Text.MMark.Extension" module provides
+-- tools for extension creation.
 --
 -- Note that 'Extension' is an instance of 'Semigroup' and 'Monoid', i.e.
 -- you can combine several extensions into one.
@@ -110,21 +113,32 @@ useExtension ext mmark =
 useExtensions :: [Extension] -> MMark -> MMark
 useExtensions exts = useExtension (mconcat exts)
 
--- | A scanner. Scanner is something that can extract information from an
--- 'MMark' document.
+-- | A scanner. 'Scanner' is something that can extract information from an
+-- 'MMark' document. You can compose 'Scanner's using the @('.&+')@
+-- operator. The "Text.MMark.Extension" module provides tools for creation
+-- of scanners.
 
 data Scanner a = Scanner (a -> Block (NonEmpty Inline) -> a)
 
--- TODO Hell, Scanner is not going to be composable as applicative. We need
--- to come up with something else.
-
 -- | Run a 'Scanner' on an 'MMark'. It's desirable to run it only once
--- because running a scanner is typically an expensive traversal. Exploit
--- the fact that 'Scanner' is an 'Applicative' and combine all scanners you
--- need to run into one, then run that.
+-- because running a scanner is typically an expensive traversal. Combine
+-- all scanners you need to run into one using the @('.&+')@ operator, then
+-- run that.
 
-runScanner :: MMark -> Scanner a -> a
-runScanner = undefined -- TODO
+runScanner
+  :: MMark             -- ^ Document to scan
+  -> Scanner a         -- ^ Scanner to use
+  -> a                 -- ^ Starting value
+  -> a                 -- ^ Result of scanning
+runScanner MMark {..} (Scanner f) x = foldl' f x mmarkBlocks
+
+-- | Combine two 'Scanner's into one composite scanner.
+
+infixl 2 .&+
+
+(.&+) :: Scanner a -> Scanner b -> Scanner (a, b)
+Scanner f .&+ Scanner g = Scanner $ \(!a, !b) block ->
+  (f a block, g b block)
 
 -- | Render a 'MMark' markdown document. You can then render @'Html' ()@ to
 -- various things:
