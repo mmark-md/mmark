@@ -48,7 +48,7 @@ spec = do
         describe section $
           forM_ es $ \Example {..} ->
             it ("example " ++ show exampleIndex) $
-              case parseMMark exampleMarkdown of
+              case parseMMark "" exampleMarkdown of
                 Left err -> expectationFailure . concat $
                   (++ "\n") . parseErrorPretty <$> err
                 Right mmark ->
