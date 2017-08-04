@@ -26,7 +26,10 @@ import Text.Megaparsec
 -- errors.
 
 parseMMark :: Text -> Either (NonEmpty (ParseError Char Void)) MMark
-parseMMark = undefined -- TODO
+parseMMark _ = Right MMark -- TODO
+  { mmarkYaml_     = Nothing
+  , mmarkBlocks    = []
+  , mmarkExtension = mempty }
 
 -- NOTE We'll need intermediate representation data types for this.
 -- NOTE Not sure about Void.
