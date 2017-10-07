@@ -198,11 +198,34 @@ data Block a
 
 instance NFData a => NFData (Block a)
 
+instance Foldable Block where
+  foldr f z = \case
+    ThematicBreak -> z
+    Heading1 x    -> f x z
+    Heading2 x    -> f x z
+    Heading3 x    -> f x z
+    Heading4 x    -> f x z
+    Heading5 x    -> f x z
+    Heading6 x    -> f x z
+    CodeBlock _ _ -> z
+    HtmlBlock _   -> z
+    Paragraph x   -> f x z
+    Blockquote xs ->
+      foldr (flip (foldr f)) z xs
+    OrderedList xs ->
+      foldr (flip (foldr f)) z xs
+    UnorderedList xs ->
+      foldr (flip (foldr f)) z xs
+
 -- | Inline markdown content.
 
 data Inline
   = Plain Text
     -- ^ Plain text
+  | Emphasis (NonEmpty Inline)
+    -- ^ Emphasis
+  | Strong (NonEmpty Inline)
+    -- ^ Strong emphasis
   | CodeSpan Text
     -- ^ Code span
   | Link Text Text (Maybe Text)
@@ -243,25 +266,25 @@ defaultBlockRender :: Render (Block (Html ()))
 defaultBlockRender = Render $ \block _ ->
   case block of
     ThematicBreak ->
-      br_ []
+      toHtmlRaw ("<hr />\n" :: Text) -- to pass Common Mark examples
     Heading1 html ->
-      h1_ html
+      h1_ html >> newline
     Heading2 html ->
-      h2_ html
+      h2_ html >> newline
     Heading3 html ->
-      h3_ html
+      h3_ html >> newline
     Heading4 html ->
-      h4_ html
+      h4_ html >> newline
     Heading5 html ->
-      h5_ html
+      h5_ html >> newline
     Heading6 html ->
-      h6_ html
+      h6_ html >> newline
     CodeBlock _ txt ->
-      (pre_ . code_ . toHtmlRaw) txt
+      (pre_ . code_ . toHtml) txt >> newline
     HtmlBlock txt ->
       toHtmlRaw txt
     Paragraph html ->
-      p_ html
+      p_ html >> newline
     Blockquote blocks ->
       blockquote_ (mapM_ renderSubBlock blocks)
     OrderedList items ->
@@ -271,6 +294,7 @@ defaultBlockRender = Render $ \block _ ->
   where
     renderSubBlock x =
       let (Render f) = defaultBlockRender in f x (return ())
+    newline = "\n"
 
 -- | Apply a render to a given 'Block'.
 
@@ -287,6 +311,10 @@ defaultInlineRender = Render $ \inline _ ->
   case inline of
     Plain txt ->
       toHtml txt
+    Emphasis inner ->
+      em_ (mapM_ renderSubInline inner)
+    Strong inner ->
+      strong_ (mapM_ renderSubInline inner)
     CodeSpan txt ->
       code_ (toHtmlRaw txt)
     Link txt dest mtitle ->
@@ -297,6 +325,9 @@ defaultInlineRender = Render $ \inline _ ->
       in img_ (alt_ alt : src_ src : title)
     HtmlInline txt ->
       toHtmlRaw txt
+  where
+    renderSubInline x =
+      let (Render f) = defaultInlineRender in f x (return ())
 
 -- | Apply a render to a given 'Inline'.
 
