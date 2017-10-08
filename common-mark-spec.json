@@ -3665,7 +3665,7 @@
   },
   {
     "markdown": "[link]()\n",
-    "html": "<p><a href=\"\">link</a></p>\n",
+    "html": "<p><a href>link</a></p>\n",
     "example": 459,
     "start_line": 7212,
     "end_line": 7216,
@@ -3673,7 +3673,7 @@
   },
   {
     "markdown": "[link](<>)\n",
-    "html": "<p><a href=\"\">link</a></p>\n",
+    "html": "<p><a href>link</a></p>\n",
     "example": 460,
     "start_line": 7219,
     "end_line": 7223,

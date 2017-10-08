@@ -10,6 +10,7 @@
 -- MMark parser. You probably want to import "Text.MMark" instead.
 
 {-# LANGUAGE CPP               #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies      #-}
@@ -23,6 +24,7 @@ import Control.Monad
 import Control.Monad.State.Strict
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (isJust)
+import Data.Monoid ((<>))
 import Data.Text (Text)
 import Data.Void
 import Text.MMark.Internal
@@ -79,7 +81,7 @@ parseMMark file input =
   case parse pBlocks file input of
     Left err -> Left (nes err)
     Right blocks ->
-      let parsed = fmap (runIsp (pInlines <* eof)) <$> blocks
+      let parsed = fmap (runIsp (pInlines True <* eof)) <$> blocks
           getErrs (Left e) es = replaceEof e : es
           getErrs _        es = es
           fromRight (Right x) = x
@@ -224,12 +226,13 @@ runIsp p (Isp startPos input) =
 
 -- | Parse a stream of 'Inline's.
 
-pInlines :: IParser (NonEmpty Inline)
-pInlines = nes (Plain "") <$ eof <|> stuff
+pInlines :: Bool -> IParser (NonEmpty Inline)
+pInlines allowLinks = nes (Plain "") <$ eof <|> stuff
   where
-    stuff = NE.some $ choice
-      [ pCodeSpan -- NOTE order matters here
-      , pEnclosedInline
+    stuff = NE.some . choice $ -- NOTE order matters here
+      [ pCodeSpan ] <>
+      [pInlineLink | allowLinks] <>
+      [ pEnclosedInline
       , pPlain ]
 
 pCodeSpan :: IParser Inline
@@ -243,6 +246,33 @@ pCodeSpan = do
   put LastNonSpace
   return r
 
+pInlineLink :: IParser Inline
+pInlineLink = do
+  xs <- between (char '[') (char ']') (pInlines False)
+  void (char '(') <* sc
+  -- TODO use just normal escaping technique here, allow escape all ASCII
+  -- punctuation as usual
+  let enclosedLink = fmap T.pack . between (char '<') (char '>') . many $
+        (try (char '\\' *> char '<') <?> "escaped '<'") <|>
+        (try (char '\\' *> char '>') <?> "escaped '>'") <|>
+        (satisfy (linkChar '<' '>')  <?> "unescaped link character")
+      normalLink   = fmap T.pack . many $
+        (try (char '\\' *> char '(') <?> "escaped '('") <|>
+        (try (char '\\' *> char ')') <?> "escaped ')'") <|>
+        (satisfy (linkChar '(' ')')  <?> "unescaped link character")
+      linkChar x y ch = not (isSpaceN ch) && ch /= x && ch /= y
+  dest <- enclosedLink <|> normalLink
+  let enclosedWithEscape start end name =
+        fmap T.pack . between (char start) (char end) . many $
+          (try (char '\\' *> char end) <?> ("escaped " ++ name))
+          <|> (satisfy (/= end) <?> "unescaped character")
+  mtitle <- optional $ sc1 *> choice
+    [ enclosedWithEscape '\"' '\"' "double quote"
+    , enclosedWithEscape '\'' '\'' "single quote"
+    , enclosedWithEscape '(' ')'   "parentheses" ]
+  sc <* char ')'
+  return (Link xs dest mtitle)
+
 pEnclosedInline :: IParser Inline
 pEnclosedInline = do
   -- TODO this approach does not allow to support *** stuff properly
@@ -254,7 +284,7 @@ pEnclosedInline = do
     , pLfdr StrikeoutFrame
     , pLfdr SubscriptFrame
     , pLfdr SuperscriptFrame ]
-  xs <- pInlines <* pRfdr frame
+  xs <- pInlines True <* pRfdr frame
   return $ case frame of
     StrongFrame      -> Strong      xs
     EmphasisFrame    -> Emphasis    xs
@@ -318,6 +348,8 @@ isMarkupChar = \case
   '_' -> True
   '`' -> True
   '^' -> True
+  '[' -> True
+  ']' -> True
   _   -> False
 
 ----------------------------------------------------------------------------
@@ -329,14 +361,14 @@ casualLevel = L.indentGuard sc LT (mkPos 5)
 codeBlockLevel :: Parser Pos
 codeBlockLevel = L.indentGuard sc GT (mkPos 4)
 
-sc :: Parser ()
+sc :: MonadParsec Void Text m => m ()
 sc = space
+
+sc1 :: MonadParsec Void Text m => m ()
+sc1 = void $ takeWhile1P (Just "white space") isSpaceN
 
 sc' :: Parser ()
 sc' = void $ takeWhileP Nothing spaceNoNewline
-
--- sc1' :: Parser ()
--- sc1' = void $ takeWhile1P (Just "white space") spaceNoNewline
 
 spaceNoNewline :: Char -> Bool
 spaceNoNewline x = x == '\t' || x == ' '
@@ -403,6 +435,9 @@ stripIndent indent txt = T.drop m txt
 
 isSpace :: Char -> Bool
 isSpace x = x == ' ' || x == '\t'
+
+isSpaceN :: Char -> Bool
+isSpaceN x = isSpace x || x == '\n' || x == '\r'
 
 collapseWhiteSpace :: Text -> Text
 collapseWhiteSpace =

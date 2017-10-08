@@ -234,7 +234,7 @@ data Inline
     -- ^ Superscript
   | CodeSpan Text
     -- ^ Code span
-  | Link Text Text (Maybe Text)
+  | Link (NonEmpty Inline) Text (Maybe Text)
     -- ^ Link with text, destination, and optionally title
   | Image Text Text (Maybe Text)
     -- ^ Image with description, URL, and optionally title
@@ -318,26 +318,27 @@ defaultInlineRender = Render $ \inline _ ->
     Plain txt ->
       toHtml txt
     Emphasis inner ->
-      em_ (mapM_ renderSubInline inner)
+      em_ (renderSubInlines inner)
     Strong inner ->
-      strong_ (mapM_ renderSubInline inner)
+      strong_ (renderSubInlines inner)
     Strikeout inner ->
-      del_ (mapM_ renderSubInline inner)
+      del_ (renderSubInlines inner)
     Subscript inner ->
-      sub_ (mapM_ renderSubInline inner)
+      sub_ (renderSubInlines inner)
     Superscript inner ->
-      sup_ (mapM_ renderSubInline inner)
+      sup_ (renderSubInlines inner)
     CodeSpan txt ->
       code_ (toHtmlRaw txt)
-    Link txt dest mtitle ->
+    Link inner dest mtitle ->
       let title = maybe [] (pure . title_) mtitle
-      in a_ (href_ dest : title) (toHtml txt)
+      in a_ (href_ dest : title) (renderSubInlines inner)
     Image alt src mtitle ->
       let title = maybe [] (pure . title_) mtitle
       in img_ (alt_ alt : src_ src : title)
     HtmlInline txt ->
       toHtmlRaw txt
   where
+    renderSubInlines = mapM_ renderSubInline
     renderSubInline x =
       let (Render f) = defaultInlineRender in f x (return ())
 
