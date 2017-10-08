@@ -58,6 +58,7 @@ data InlineFrame
   | StrongFrame
   | StrongFrame_
   | StrikeoutFrame
+  | SubscriptFrame
   | SuperscriptFrame
   deriving (Eq, Ord, Show)
 
@@ -251,6 +252,7 @@ pEnclosedInline = do
     , pLfdr StrongFrame_
     , pLfdr EmphasisFrame_
     , pLfdr StrikeoutFrame
+    , pLfdr SubscriptFrame
     , pLfdr SuperscriptFrame ]
   xs <- pInlines <* pRfdr frame
   return $ case frame of
@@ -259,6 +261,7 @@ pEnclosedInline = do
     StrongFrame_     -> Strong      xs
     EmphasisFrame_   -> Emphasis    xs
     StrikeoutFrame   -> Strikeout   xs
+    SubscriptFrame   -> Subscript   xs
     SuperscriptFrame -> Superscript xs
 
 pLfdr :: InlineFrame -> IParser InlineFrame
@@ -423,6 +426,7 @@ inlineFrameDel = \case
   StrongFrame      -> "**"
   StrongFrame_     -> "__"
   StrikeoutFrame   -> "~~"
+  SubscriptFrame   -> "~"
   SuperscriptFrame -> "^"
 
 inlineFramePretty :: InlineFrame -> String
@@ -432,6 +436,7 @@ inlineFramePretty = \case
   StrongFrame      -> "**strong emphasis**"
   StrongFrame_     -> "__strong emphasis__"
   StrikeoutFrame   -> "~~strikeout~~"
+  SubscriptFrame   -> "~subscript~"
   SuperscriptFrame -> "^superscript^"
 
 replaceEof :: ParseError Char Void -> ParseError Char Void

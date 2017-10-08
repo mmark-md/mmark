@@ -228,6 +228,8 @@ data Inline
     -- ^ Strong emphasis
   | Strikeout (NonEmpty Inline)
     -- ^ Strikeout
+  | Subscript (NonEmpty Inline)
+    -- ^ Subscript
   | Superscript (NonEmpty Inline)
     -- ^ Superscript
   | CodeSpan Text
@@ -321,6 +323,8 @@ defaultInlineRender = Render $ \inline _ ->
       strong_ (mapM_ renderSubInline inner)
     Strikeout inner ->
       del_ (mapM_ renderSubInline inner)
+    Subscript inner ->
+      sub_ (mapM_ renderSubInline inner)
     Superscript inner ->
       sup_ (mapM_ renderSubInline inner)
     CodeSpan txt ->
