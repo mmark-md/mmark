@@ -58,6 +58,7 @@ data InlineFrame
   | StrongFrame
   | StrongFrame_
   | StrikeoutFrame
+  | SuperscriptFrame
   deriving (Eq, Ord, Show)
 
 -- | Parse a markdown document in the form of a strict 'Text' value and
@@ -249,14 +250,16 @@ pEnclosedInline = do
     , pLfdr EmphasisFrame
     , pLfdr StrongFrame_
     , pLfdr EmphasisFrame_
-    , pLfdr StrikeoutFrame ]
+    , pLfdr StrikeoutFrame
+    , pLfdr SuperscriptFrame ]
   xs <- pInlines <* pRfdr frame
   return $ case frame of
-    StrongFrame    -> Strong   xs
-    EmphasisFrame  -> Emphasis xs
-    StrongFrame_   -> Strong   xs
-    EmphasisFrame_ -> Emphasis xs
-    StrikeoutFrame -> Strikeout xs
+    StrongFrame      -> Strong      xs
+    EmphasisFrame    -> Emphasis    xs
+    StrongFrame_     -> Strong      xs
+    EmphasisFrame_   -> Emphasis    xs
+    StrikeoutFrame   -> Strikeout   xs
+    SuperscriptFrame -> Superscript xs
 
 pLfdr :: InlineFrame -> IParser InlineFrame
 pLfdr frame = try $ do
@@ -311,6 +314,7 @@ isMarkupChar = \case
   '~' -> True
   '_' -> True
   '`' -> True
+  '^' -> True
   _   -> False
 
 ----------------------------------------------------------------------------
@@ -414,19 +418,21 @@ collapseWhiteSpace =
 
 inlineFrameDel :: InlineFrame -> Text
 inlineFrameDel = \case
-  EmphasisFrame  -> "*"
-  EmphasisFrame_ -> "_"
-  StrongFrame    -> "**"
-  StrongFrame_   -> "__"
-  StrikeoutFrame -> "~~"
+  EmphasisFrame    -> "*"
+  EmphasisFrame_   -> "_"
+  StrongFrame      -> "**"
+  StrongFrame_     -> "__"
+  StrikeoutFrame   -> "~~"
+  SuperscriptFrame -> "^"
 
 inlineFramePretty :: InlineFrame -> String
 inlineFramePretty = \case
-  EmphasisFrame  -> "*emphasis*"
-  EmphasisFrame_ -> "_emphasis_"
-  StrongFrame    -> "**strong emphasis**"
-  StrongFrame_   -> "__strong emphasis__"
-  StrikeoutFrame -> "~~strikeout~~"
+  EmphasisFrame    -> "*emphasis*"
+  EmphasisFrame_   -> "_emphasis_"
+  StrongFrame      -> "**strong emphasis**"
+  StrongFrame_     -> "__strong emphasis__"
+  StrikeoutFrame   -> "~~strikeout~~"
+  SuperscriptFrame -> "^superscript^"
 
 replaceEof :: ParseError Char Void -> ParseError Char Void
 replaceEof = \case

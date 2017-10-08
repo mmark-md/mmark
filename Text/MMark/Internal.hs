@@ -228,6 +228,8 @@ data Inline
     -- ^ Strong emphasis
   | Strikeout (NonEmpty Inline)
     -- ^ Strikeout
+  | Superscript (NonEmpty Inline)
+    -- ^ Superscript
   | CodeSpan Text
     -- ^ Code span
   | Link Text Text (Maybe Text)
@@ -319,6 +321,8 @@ defaultInlineRender = Render $ \inline _ ->
       strong_ (mapM_ renderSubInline inner)
     Strikeout inner ->
       del_ (mapM_ renderSubInline inner)
+    Superscript inner ->
+      sup_ (mapM_ renderSubInline inner)
     CodeSpan txt ->
       code_ (toHtmlRaw txt)
     Link txt dest mtitle ->
