@@ -57,6 +57,7 @@ data InlineFrame
   | EmphasisFrame_
   | StrongFrame
   | StrongFrame_
+  | StrikeoutFrame
   deriving (Eq, Ord, Show)
 
 -- | Parse a markdown document in the form of a strict 'Text' value and
@@ -242,17 +243,20 @@ pCodeSpan = do
 
 pEnclosedInline :: IParser Inline
 pEnclosedInline = do
+  -- TODO this approach does not allow to support *** stuff properly
   frame <- choice -- NOTE order matters here
     [ pLfdr StrongFrame
     , pLfdr EmphasisFrame
     , pLfdr StrongFrame_
-    , pLfdr EmphasisFrame_ ]
+    , pLfdr EmphasisFrame_
+    , pLfdr StrikeoutFrame ]
   xs <- pInlines <* pRfdr frame
   return $ case frame of
     StrongFrame    -> Strong   xs
     EmphasisFrame  -> Emphasis xs
     StrongFrame_   -> Strong   xs
     EmphasisFrame_ -> Emphasis xs
+    StrikeoutFrame -> Strikeout xs
 
 pLfdr :: InlineFrame -> IParser InlineFrame
 pLfdr frame = try $ do
@@ -265,7 +269,7 @@ pLfdr frame = try $ do
       forM_ mpos setPosition
       -- FIXME improve errors later
       fail ("can't open " ++ inlineFramePretty frame ++ " here")
-  notFollowedBy (space1 <|> eol)
+  notFollowedBy (space1 <|> eol) -- FIXME parse error sucks because of this
   return frame
 
 pRfdr :: InlineFrame -> IParser ()
@@ -298,9 +302,16 @@ pAsciiPunctuation = satisfy f
 
 pNonEscapedChar :: IParser Char
 pNonEscapedChar = label "unescaped non-markup character" $
-  (spaceChar <* put LastSpace) <|> (satisfy f <* put LastNonSpace)
-  where
-    f x = x /= '*' && x /= '_' && x /= '`'
+  (spaceChar <* put LastSpace) <|>
+  (satisfy (not . isMarkupChar) <* put LastNonSpace)
+
+isMarkupChar :: Char -> Bool
+isMarkupChar = \case
+  '*' -> True
+  '~' -> True
+  '_' -> True
+  '`' -> True
+  _   -> False
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -407,6 +418,7 @@ inlineFrameDel = \case
   EmphasisFrame_ -> "_"
   StrongFrame    -> "**"
   StrongFrame_   -> "__"
+  StrikeoutFrame -> "~~"
 
 inlineFramePretty :: InlineFrame -> String
 inlineFramePretty = \case
@@ -414,6 +426,7 @@ inlineFramePretty = \case
   EmphasisFrame_ -> "_emphasis_"
   StrongFrame    -> "**strong emphasis**"
   StrongFrame_   -> "__strong emphasis__"
+  StrikeoutFrame -> "~~strikeout~~"
 
 replaceEof :: ParseError Char Void -> ParseError Char Void
 replaceEof = \case
