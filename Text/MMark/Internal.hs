@@ -7,8 +7,9 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Internal definitions you really shouldn't import. Import "Text.MMark"
--- instead.
+-- Internal definitions you shouldn't import. Everything useful for end user
+-- is re-exported from other modules, so import "Text.MMark" or
+-- "Text.MMark.Extension" instead.
 
 {-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -93,7 +94,8 @@ instance Monoid Extension where
 
 -- | Apply an 'Extension' to an 'MMark' document. The order in which you
 -- apply 'Extension's /does matter/. Extensions you apply first take effect
--- first. In many cases it doesn't matter, but sometimes the difference is
+-- first. The extension system is designed so that in many cases the order
+-- doesn't matter to improve composability, but sometimes the difference is
 -- important.
 
 useExtension :: Extension -> MMark -> MMark
@@ -121,9 +123,9 @@ useExtensions exts = useExtension (mconcat exts)
 data Scanner a = Scanner (a -> Block (NonEmpty Inline) -> a)
 
 -- | Run a 'Scanner' on an 'MMark'. It's desirable to run it only once
--- because running a scanner is typically an expensive traversal. Combine
--- all scanners you need to run into one using the @('.&+')@ operator, then
--- run that.
+-- because running a scanner is typically an expensive traversal of the
+-- whole document. Combine all scanners you need to run into one using the
+-- @('.&+')@ operator, then run that.
 
 runScanner
   :: MMark             -- ^ Document to scan
@@ -149,14 +151,13 @@ Scanner f .&+ Scanner g = Scanner $ \(!a, !b) block ->
 
 renderMMark :: MMark -> Html ()
 renderMMark MMark {..} =
-  -- NOTE Here we have the potential for parallel processing, although we
-  -- need NFData for Html () for this to work.
   mapM_ produceBlock mmarkBlocks
   where
     Extension {..} = mmarkExtension
-    produceBlock   = renderBlock extBlockRender
+    produceBlock   = applyBlockRender extBlockRender
       . appEndo extBlockTrans
-      . fmap (renderInlines extInlineRender . fmap (appEndo extInlineTrans))
+      . fmap (mapM_ (applyInlineRender extInlineRender) .
+              fmap  (appEndo extInlineTrans))
 
 -- | We can think of a markdown document as a collection of
 -- blocks—structural elements like paragraphs, block quotations, lists,
@@ -250,18 +251,28 @@ instance NFData Inline
 -- | An internal type that captures the extensible rendering process we use.
 -- The first argument @a@ of the inner function is the thing to render. The
 -- second argument is that thing @a@ already rendered (i.e. default
--- rendering of @a@ or result of rendering so far, but actually these things
--- are the same). This may seem a bit weird, but it works really well.
+-- rendering of @a@ or result of rendering so far).
 
-newtype Render a = Render (a -> Html () -> Html ())
+newtype Render a = Render { getRender :: a -> Html () -> Html () }
 
 instance Semigroup (Render a) where
-  Render f <> Render g = Render $ \elt html ->
-    g elt (f elt html)
+  Render f <> Render g = Render $ \elt ->
+    g elt . f elt
 
 instance Monoid (Render a) where
   mempty  = Render (const id)
   mappend = (<>)
+
+-- | Render a block using just the default render.
+
+renderBlock :: Block (Html ()) -> Html ()
+renderBlock = applyBlockRender mempty
+
+-- | Apply a render to a given 'Block'.
+
+applyBlockRender :: Render (Block (Html ())) -> Block (Html ()) -> Html ()
+applyBlockRender r x = getRender (defaultBlockRender <> r) x $
+  error "Text.MMark.Internal.applyBlockRender: impossible happened"
 
 -- | The default 'Block' render. Note that it does not care about what we
 -- have rendered so far because it always starts rendering. Thus it's OK to
@@ -272,7 +283,7 @@ defaultBlockRender :: Render (Block (Html ()))
 defaultBlockRender = Render $ \block _ ->
   case block of
     ThematicBreak ->
-      toHtmlRaw ("<hr />\n" :: Text) -- to pass Common Mark examples
+      hr_ []
     Heading1 html ->
       h1_ html >> newline
     Heading2 html ->
@@ -292,22 +303,24 @@ defaultBlockRender = Render $ \block _ ->
     Paragraph html ->
       p_ html >> newline
     Blockquote blocks ->
-      blockquote_ (mapM_ renderSubBlock blocks)
+      blockquote_ (mapM_ renderBlock blocks)
     OrderedList items ->
-      ol_ $ forM_ items (li_ . renderSubBlock)
+      ol_ $ forM_ items (li_ . renderBlock)
     UnorderedList items ->
-      ul_ $ forM_ items (li_ . renderSubBlock)
+      ul_ $ forM_ items (li_ . renderBlock)
   where
-    renderSubBlock x =
-      let (Render f) = defaultBlockRender in f x (return ())
     newline = "\n"
 
--- | Apply a render to a given 'Block'.
+-- | Render an inline using just the default render.
 
-renderBlock :: Render (Block (Html ())) -> Block (Html ()) -> Html ()
-renderBlock (Render f) x = f x (g x (return ()))
-  where
-    Render g = defaultBlockRender
+renderInline :: Inline -> Html ()
+renderInline = applyInlineRender mempty
+
+-- | Apply a render to a given 'Inline'.
+
+applyInlineRender :: Render Inline -> Inline -> Html ()
+applyInlineRender r x = getRender (defaultInlineRender <> r) x $
+  error "Text.MMark.Internal.applyInlineRender: impossible happened"
 
 -- | The default render for 'Inline' elements. Comments about
 -- 'defaultBlockRender' apply here just as well.
@@ -318,33 +331,22 @@ defaultInlineRender = Render $ \inline _ ->
     Plain txt ->
       toHtml txt
     Emphasis inner ->
-      em_ (renderSubInlines inner)
+      em_ (mapM_ renderInline inner)
     Strong inner ->
-      strong_ (renderSubInlines inner)
+      strong_ (mapM_ renderInline inner)
     Strikeout inner ->
-      del_ (renderSubInlines inner)
+      del_ (mapM_ renderInline inner)
     Subscript inner ->
-      sub_ (renderSubInlines inner)
+      sub_ (mapM_ renderInline inner)
     Superscript inner ->
-      sup_ (renderSubInlines inner)
+      sup_ (mapM_ renderInline inner)
     CodeSpan txt ->
       code_ (toHtmlRaw txt)
     Link inner dest mtitle ->
       let title = maybe [] (pure . title_) mtitle
-      in a_ (href_ dest : title) (renderSubInlines inner)
+      in a_ (href_ dest : title) (mapM_ renderInline inner)
     Image alt src mtitle ->
       let title = maybe [] (pure . title_) mtitle
       in img_ (alt_ alt : src_ src : title)
     HtmlInline txt ->
       toHtmlRaw txt
-  where
-    renderSubInlines = mapM_ renderSubInline
-    renderSubInline x =
-      let (Render f) = defaultInlineRender in f x (return ())
-
--- | Apply a render to a given 'Inline'.
-
-renderInlines :: Render Inline -> NonEmpty Inline -> Html ()
-renderInlines (Render f) = mapM_ $ \x -> f x (g x (return ()))
-  where
-    Render g = defaultInlineRender
