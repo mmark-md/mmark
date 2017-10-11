@@ -41,7 +41,6 @@ library
     build-depends:    semigroups       == 0.18.*
   exposed-modules:    Text.MMark
                     , Text.MMark.Extension
-                    , Text.MMark.Extension.Common
   other-modules:      Text.MMark.Internal
                     , Text.MMark.Parser
   if flag(dev)
