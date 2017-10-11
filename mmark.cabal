@@ -58,8 +58,6 @@ test-suite tests
                     , mmark
   other-modules:      Text.MMarkSpec
                     , Text.MMark.ExtensionSpec
-                    , Text.MMark.InternalSpec
-                    , Text.MMark.ParserSpec
   if flag(dev)
     ghc-options:      -Wall -Werror
   else
