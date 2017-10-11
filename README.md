@@ -38,16 +38,38 @@ Another difference between Common Mark and MMark is that the latter supports
 more common markdown extensions out-of-the-box. In particular, MMark
 supports:
 
-* parsing of optional YAML metadata block
-* automatic turning of bare URIs into links
+* parsing of optional YAML metadata block (NOT YET)
+* automatic turning of bare URIs into links (NOT YET)
 * strikeout using `~~this~~` syntax
 * superscript using `^this^` syntax
 * subscript using `~this~` syntax
-* PHP-style footnotes, e.g. `[^1]`
-* “pipe” tables (as used on GitHub)
+* PHP-style footnotes, e.g. `[^1]` (NOT YET)
+* “pipe” tables (as used on GitHub) (NOT YET)
 
 You do not need to enable or tweak anything for these to work, they are
 built-in features.
+
+## Features to implement before the first release
+
+Up-to-date list of features we need to add (in order of importance):
+
+* inline images
+* inline autolinks
+* hard line breaks
+* setext headings
+* HTML blocks
+* HTML inline blocks
+* link reference definitions (also adjust link parser so references work)
+* blockquotes
+* unordered lists
+* ordered lists
+* parsing of optional YAML metadata block
+* automatic turning of bare URIs into links
+* PHP-style footnotes, e.g. `[^1]`
+* “pipe” table (as used on GitHub)
+* entity and numeric character references
+* decide on URL manipulation (should we correct “bad” characters using
+  URL-encoding automatically?)
 
 ## Contribution
 
