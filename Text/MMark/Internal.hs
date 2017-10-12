@@ -13,6 +13,7 @@
 
 {-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFoldable     #-}
 {-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE LambdaCase         #-}
@@ -213,28 +214,9 @@ data Block a
     -- ^ Ordered list, container block
   | UnorderedList (NonEmpty (Block a))
     -- ^ Unordered list, container block
-  deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor)
+  deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor, Foldable)
 
 instance NFData a => NFData (Block a)
-
-instance Foldable Block where
-  foldr f z = \case
-    ThematicBreak -> z
-    Heading1 x    -> f x z
-    Heading2 x    -> f x z
-    Heading3 x    -> f x z
-    Heading4 x    -> f x z
-    Heading5 x    -> f x z
-    Heading6 x    -> f x z
-    CodeBlock _ _ -> z
-    HtmlBlock _   -> z
-    Paragraph x   -> f x z
-    Blockquote xs ->
-      foldr (flip (foldr f)) z xs
-    OrderedList xs ->
-      foldr (flip (foldr f)) z xs
-    UnorderedList xs ->
-      foldr (flip (foldr f)) z xs
 
 -- | Inline markdown content.
 
