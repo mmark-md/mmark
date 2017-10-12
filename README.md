@@ -10,29 +10,39 @@
 MMark (read “em-mark”) is a strict markdown processor for writers. “Strict”
 means that not every input is considered valid markdown and parse errors are
 possible and even desirable, so one can know that something is not quite
-right before looking at an incorrect (or rather simply unexpected) result of
+right before looking at incorrect (or rather simply unexpected) result of
 rendering. This feature makes it a good choice for writers and bloggers.
 
 ## MMark and Common Mark
 
-MMark is mostly compatible with the Common Mark specification as given here:
-<https://github.com/jgm/CommonMark>. However, in some cases it rejects
-(arguably) questionable input and reports parse errors. Here is the full
-list of cases when MMark diverges from Common Mark:
+MMark tries to follow the Common Mark specification as given here:
 
-* TODO
+<https://github.com/jgm/CommonMark>
 
-We have a test suite called `common-mark-spec` that runs examples from the
-spec and ensures that MMark produces correct results.
-
-The `common-mark-spec.json` file has been obtained from the original spec by
-running:
+However, due to the fact that we do not allow inputs that do not make sense,
+MMark obviously can't follow the specification precisely. In particular,
+parsing of inlines differs considerably from Common Mark. For example, some
+characters like `*`, `_`, etc. that must appear in markup in what is called
+left- and right-flanking delimiter runs are allowed only in those positions:
 
 ```
-$ python test/spec_tests.py --dump-tests > common-mark-spec.json
+*Something* is not right.
+Something __is__ not right.
 ```
 
-We'll try to keep the spec in this repo up to date.
+This produces a parse error:
+
+```
+*Something * is not right.
+Something __is __ not right.
+```
+
+Here is the full list of so-called **markup characters**: `*`, `~`, `_`, ``
+` ``, `^`, `[`, `]`. When they appear without escaping, they must form
+correct markup structures, otherwise parse errors will be reported.
+
+The same applies to the syntax of links, images, etc. For example, it's a
+parse error to put a link into text of another link.
 
 Another difference between Common Mark and MMark is that the latter supports
 more common markdown extensions out-of-the-box. In particular, MMark
