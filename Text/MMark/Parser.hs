@@ -106,7 +106,7 @@ parseMMark file input =
 pBlocks :: Parser [Block Isp]
 pBlocks = do
   setTabWidth (mkPos 4)
-  between sc eof (many pBlock)
+  between sc eof (manyTill pBlock eof)
 
 pBlock :: Parser (Block Isp)
 pBlock = choice
@@ -127,8 +127,19 @@ pThematicBreak = try $ do
 pAtxHeading :: Parser (Block Isp)
 pAtxHeading = try $ do
   void casualLevel
-  startPos <- getPosition
   hlevel   <- atxOpening
+  finished <- grabNewline
+  (startPos, heading) <-
+    if finished
+      then (,) <$> getPosition <*> pure ""
+      else do
+        sc1'
+        startPos <- getPosition
+        let justClosing = "" <$ some (char '#') <* sc' <* (eof <|> eol)
+            normHeading = T.pack <$> manyTill anyChar
+              (optional (try $ char ' ' *> some (char '#') *> sc') *> (eof <|> eol))
+        r <- try justClosing <|> normHeading
+        return (startPos, r)
   let toBlock = case hlevel of
         1 -> Heading1
         2 -> Heading2
@@ -136,16 +147,6 @@ pAtxHeading = try $ do
         4 -> Heading4
         5 -> Heading5
         _ -> Heading6
-  finished <- grabNewline
-  heading <-
-    if finished
-      then return ""
-      else do
-        void (char ' ')
-        let justClosing = "" <$ some (char '#') <* sc' <* eol
-            normHeading = T.pack <$> manyTill anyChar
-              (try $ optional (try $ char ' ' *> some (char '#') *> sc') *> eol)
-        try justClosing <|> normHeading
   toBlock (Isp startPos (T.strip heading)) <$ sc
 
 pParagraph :: Parser (Block Isp)
@@ -381,7 +382,10 @@ sc1 :: MonadParsec Void Text m => m ()
 sc1 = void $ takeWhile1P (Just "white space") isSpaceN
 
 sc' :: Parser ()
-sc' = void $ takeWhileP Nothing spaceNoNewline
+sc' = void $ takeWhileP (Just "white space") spaceNoNewline
+
+sc1' :: Parser ()
+sc1' = void $ takeWhileP (Just "white space") spaceNoNewline
 
 spaceNoNewline :: Char -> Bool
 spaceNoNewline x = x == '\t' || x == ' '
@@ -427,6 +431,7 @@ grabNewline :: Parser Bool
 grabNewline = choice
   [ True <$ char '\n'
   , True <$ char '\r'
+  , True <$ eof
   , pure False ]
 
 assembleParagraph :: [Text] -> Text

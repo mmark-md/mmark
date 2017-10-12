@@ -53,9 +53,12 @@ test-suite tests
   main-is:            Spec.hs
   hs-source-dirs:     tests
   type:               exitcode-stdio-1.0
-  build-depends:      base             >= 4.7 && < 5.0
-                    , hspec            >= 2.0 && < 3.0
+  build-depends:      base             >= 4.8  && < 5.0
+                    , hspec            >= 2.0  && < 3.0
+                    , lucid            >= 2.6  && < 3.0
+                    , megaparsec       >= 6.0  && < 7.0
                     , mmark
+                    , text             >= 0.2  && < 1.3
   other-modules:      Text.MMarkSpec
                     , Text.MMark.ExtensionSpec
   if flag(dev)
@@ -86,7 +89,7 @@ benchmark bench-speed
   main-is:            Main.hs
   hs-source-dirs:     bench/speed
   type:               exitcode-stdio-1.0
-  build-depends:      base             >= 4.7 && < 5.0
+  build-depends:      base             >= 4.8 && < 5.0
                     , criterion        >= 0.6.2.1 && < 1.3
                     , mmark
   if flag(dev)
@@ -99,7 +102,7 @@ benchmark bench-memory
   main-is:            Main.hs
   hs-source-dirs:     bench/memory
   type:               exitcode-stdio-1.0
-  build-depends:      base             >= 4.7 && < 5.0
+  build-depends:      base             >= 4.8 && < 5.0
                     , mmark
                     , weigh            >= 0.0.4
   if flag(dev)
