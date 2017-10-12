@@ -36,6 +36,9 @@ import qualified Data.Set                                 as E
 import qualified Data.Text                                as T
 import qualified Text.Megaparsec.Char.Lexer               as L
 
+----------------------------------------------------------------------------
+-- Data types
+
 -- | Parser type we use internally.
 
 type Parser = Parsec Void Text
@@ -43,6 +46,8 @@ type Parser = Parsec Void Text
 -- | Parser type for inlines.
 
 type IParser = StateT LastChar (Parsec Void Text)
+
+-- | Type of last parsed character: white space or not?
 
 data LastChar = LastSpace | LastNonSpace
 
@@ -64,6 +69,9 @@ data InlineFrame
   | SuperscriptFrame
   deriving (Eq, Ord, Show)
 
+----------------------------------------------------------------------------
+-- Block parser
+
 -- | Parse a markdown document in the form of a strict 'Text' value and
 -- either report parse errors or return a 'MMark' document. The parser is an
 -- efficient parallel parser (meaning it can actually divide the work
@@ -79,13 +87,15 @@ parseMMark
      -- ^ Parse errors or resulting document
 parseMMark file input =
   case parse pBlocks file input of
+    -- NOTE This parse error only happens when document structure on block
+    -- level cannot be parsed, which should not normally happen.
     Left err -> Left (nes err)
     Right blocks ->
       let parsed = fmap (runIsp (pInlines True <* eof)) <$> blocks
           getErrs (Left e) es = replaceEof e : es
           getErrs _        es = es
           fromRight (Right x) = x
-          fromRight _         = error "Oops!" -- should not happen
+          fromRight _         = error "Text.MMark.Parser: impossible happened"
       in case concatMap (foldr getErrs []) parsed of
            [] -> Right MMark
              { mmarkYaml_     = Nothing
@@ -93,7 +103,7 @@ parseMMark file input =
              , mmarkExtension = mempty }
            es -> (Left . NE.fromList . reverse) es
 
-pBlocks :: Parser [Block Isp] -- TODO use withRecovery here if possible?
+pBlocks :: Parser [Block Isp]
 pBlocks = do
   setTabWidth (mkPos 4)
   between sc eof (many pBlock)
@@ -208,6 +218,9 @@ pIndentedCodeBlock = try $ do
             (l :) <$> if continue then go else return []
   ls <- go
   CodeBlock Nothing (assembleCodeBlock (mkPos 5) ls) <$ sc
+
+----------------------------------------------------------------------------
+-- Inline parser
 
 -- | Run given parser on 'Isp'.
 

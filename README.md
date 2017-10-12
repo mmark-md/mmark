@@ -49,7 +49,7 @@ supports:
 You do not need to enable or tweak anything for these to work, they are
 built-in features.
 
-## Features to implement before the first release
+## Features to implement before 1.0.0.0
 
 Up-to-date list of features we need to add (in order of importance):
 
@@ -70,6 +70,10 @@ Up-to-date list of features we need to add (in order of importance):
 * entity and numeric character references
 * decide on URL manipulation (should we correct “bad” characters using
   URL-encoding automatically?)
+
+Other:
+
+* benchmarking and optimization.
 
 ## Contribution
 

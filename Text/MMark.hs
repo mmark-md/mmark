@@ -59,9 +59,6 @@
 -- proliferation of third-party extensions is to be expected and encouraged.
 -- To write an extension of your own import the "Text.MMark.Extension"
 -- module, which has its own documentation focusing on extension writing.
---
--- Finally, the library comes with a collection of extensions that can be
--- found in the "Text.MMark.Extension.Common".
 
 module Text.MMark
   ( -- * Parsing
