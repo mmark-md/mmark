@@ -7,31 +7,30 @@ import Data.Text (Text)
 import Test.Hspec
 import Text.MMark
 import Text.MMark.Extension
-import Text.Megaparsec
-import qualified Data.Text.Lazy as TL
-import qualified Lucid          as L
+import Text.MMark.TestUtils
+import qualified Lucid as L
 
 spec :: Spec
 spec = do
   describe "blockTrans" $
     it "works" $ do
       doc <- mkDoc "# My heading"
-      renderToText (useExtension h1_to_h2 doc)
+      toText (useExtension h1_to_h2 doc)
         `shouldBe` "<h2>My heading</h2>\n"
   describe "blockRender" $
     it "works" $ do
       doc <- mkDoc "# My heading"
-      renderToText (useExtension (add_h1_id "foo") doc)
+      toText (useExtension (add_h1_id "foo") doc)
         `shouldBe` "<h1 id=\"foo\">My heading</h1>\n"
   describe "inlineTrans" $
     it "works" $ do
       doc <- mkDoc "# My *heading*"
-      renderToText (useExtension em_to_strong doc)
+      toText (useExtension em_to_strong doc)
         `shouldBe` "<h1>My <strong>heading</strong></h1>\n"
   describe "inlineRender" $
     it "works" $ do
       doc <- mkDoc "# My *heading*"
-      renderToText (useExtension (add_em_class "foo") doc)
+      toText (useExtension (add_em_class "foo") doc)
         `shouldBe` "<h1>My <em class=\"foo\">heading</em></h1>\n"
 
 ----------------------------------------------------------------------------
@@ -66,22 +65,3 @@ add_em_class given = inlineRender $ \old inline ->
   case inline of
     Emphasis inner -> L.with (old (Emphasis inner)) [L.class_ given]
     other          -> old other
-
-----------------------------------------------------------------------------
--- Helpers
-
--- | Create an 'MMark' document from given input reporting an expectation
--- failure if it cannot be parsed.
-
-mkDoc :: Text -> IO MMark
-mkDoc input =
-  case parseMMark "" input of
-    Left errs -> do
-      expectationFailure (concatMap (parseErrorPretty' input) errs)
-      undefined
-    Right x -> return x
-
--- | Render an 'MMark' document to 'Text'.
-
-renderToText :: MMark -> Text
-renderToText = TL.toStrict . L.renderText . renderMMark
