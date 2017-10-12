@@ -68,13 +68,32 @@ data MMark = MMark
 -- tools for extension creation.
 --
 -- Note that 'Extension' is an instance of 'Semigroup' and 'Monoid', i.e.
--- you can combine several extensions into one.
+-- you can combine several extensions into one. Since the @('<>')@ operator
+-- is right-associative and 'mconcat' is a right fold under the hood, the
+-- expression
+--
+-- > l <> r
+--
+-- means that the extension @r@ will be applied before the extension @l@,
+-- similar to how 'Endo' works. This may seem counter-intuitive, but only
+-- with this logic we get consistency of ordering with more complex
+-- expressions:
+--
+-- > e2 <> e1 <> e0 == e2 <> (e1 <> e0)
+--
+-- Here, @e0@ will be applied first, then @e1@, then @e2@. The same applies
+-- to expressions involving 'mconcat'—extensions closer to beginning of the
+-- list passed to 'mconcat' will be applied later.
 
 data Extension = Extension
-  { extBlockTrans   :: forall a. Endo (Block a)
-  , extBlockRender  :: Render (Block (Html ()))
-  , extInlineTrans  :: Endo Inline
+  { extBlockTrans :: forall a. Endo (Block a)
+    -- ^ Block transformation
+  , extBlockRender :: Render (Block (Html ()))
+    -- ^ Block render
+  , extInlineTrans :: Endo Inline
+    -- ^ Inline transformation
   , extInlineRender :: Render Inline
+    -- ^ Inline render
   }
 
 instance Semigroup Extension where
@@ -94,13 +113,12 @@ instance Monoid Extension where
 
 -- | Apply an 'Extension' to an 'MMark' document. The order in which you
 -- apply 'Extension's /does matter/. Extensions you apply first take effect
--- first. The extension system is designed so that in many cases the order
--- doesn't matter to improve composability, but sometimes the difference is
--- important.
+-- first. The extension system is designed in such a way that in many cases
+-- the order doesn't matter, but sometimes the difference is important.
 
 useExtension :: Extension -> MMark -> MMark
 useExtension ext mmark =
-  mmark { mmarkExtension = mmarkExtension mmark <> ext }
+  mmark { mmarkExtension = ext <> mmarkExtension mmark }
 
 -- | Apply several 'Extension's to an 'MMark' document.
 --
@@ -109,8 +127,8 @@ useExtension ext mmark =
 -- > useExtensions exts = useExtension (mconcat exts)
 --
 -- As mentioned in the docs for 'useExtension', the order in which you apply
--- extensions matters. Extensions from the list are applied in the order
--- they appear in the list.
+-- extensions matters. Extensions closer to beginning of the list are
+-- applied later, i.e. the last extension in the list is applied first.
 
 useExtensions :: [Extension] -> MMark -> MMark
 useExtensions exts = useExtension (mconcat exts)
@@ -249,104 +267,89 @@ instance NFData Inline
 -- Renders
 
 -- | An internal type that captures the extensible rendering process we use.
--- The first argument @a@ of the inner function is the thing to render. The
--- second argument is that thing @a@ already rendered (i.e. default
--- rendering of @a@ or result of rendering so far).
+-- 'Render' has a function inside which transforms a rendering function of
+-- the type @a -> Html ()@.
 
-newtype Render a = Render { getRender :: a -> Html () -> Html () }
+newtype Render a = Render
+  { getRender :: (a -> Html ()) -> a -> Html () }
 
 instance Semigroup (Render a) where
-  Render f <> Render g = Render $ \elt ->
-    g elt . f elt
+  Render f <> Render g = Render $ \h -> f (g h)
 
 instance Monoid (Render a) where
-  mempty  = Render (const id)
+  mempty  = Render id
   mappend = (<>)
 
--- | Render a block using just the default render.
-
-renderBlock :: Block (Html ()) -> Html ()
-renderBlock = applyBlockRender mempty
-
--- | Apply a render to a given 'Block'.
+-- | Apply a 'Render' to a given @'Block' 'Html' ()@.
 
 applyBlockRender :: Render (Block (Html ())) -> Block (Html ()) -> Html ()
-applyBlockRender r x = getRender (defaultBlockRender <> r) x $
-  error "Text.MMark.Internal.applyBlockRender: impossible happened"
+applyBlockRender r = getRender r defaultBlockRender
 
 -- | The default 'Block' render. Note that it does not care about what we
 -- have rendered so far because it always starts rendering. Thus it's OK to
 -- just pass it something dummy as the second argument of the inner
 -- function.
 
-defaultBlockRender :: Render (Block (Html ()))
-defaultBlockRender = Render $ \block _ ->
-  case block of
-    ThematicBreak ->
-      hr_ []
-    Heading1 html ->
-      h1_ html >> newline
-    Heading2 html ->
-      h2_ html >> newline
-    Heading3 html ->
-      h3_ html >> newline
-    Heading4 html ->
-      h4_ html >> newline
-    Heading5 html ->
-      h5_ html >> newline
-    Heading6 html ->
-      h6_ html >> newline
-    CodeBlock _ txt ->
-      (pre_ . code_ . toHtml) txt >> newline
-    HtmlBlock txt ->
-      toHtmlRaw txt
-    Paragraph html ->
-      p_ html >> newline
-    Blockquote blocks ->
-      blockquote_ (mapM_ renderBlock blocks)
-    OrderedList items ->
-      ol_ $ forM_ items (li_ . renderBlock)
-    UnorderedList items ->
-      ul_ $ forM_ items (li_ . renderBlock)
+defaultBlockRender :: Block (Html ()) -> Html ()
+defaultBlockRender = \case
+  ThematicBreak ->
+    hr_ []
+  Heading1 html ->
+    h1_ html >> newline
+  Heading2 html ->
+    h2_ html >> newline
+  Heading3 html ->
+    h3_ html >> newline
+  Heading4 html ->
+    h4_ html >> newline
+  Heading5 html ->
+    h5_ html >> newline
+  Heading6 html ->
+    h6_ html >> newline
+  CodeBlock _ txt ->
+    (pre_ . code_ . toHtml) txt >> newline
+  HtmlBlock txt ->
+    toHtmlRaw txt
+  Paragraph html ->
+    p_ html >> newline
+  Blockquote blocks ->
+    blockquote_ (mapM_ defaultBlockRender blocks)
+  OrderedList items ->
+    ol_ $ forM_ items (li_ . defaultBlockRender)
+  UnorderedList items ->
+    ul_ $ forM_ items (li_ . defaultBlockRender)
   where
     newline = "\n"
-
--- | Render an inline using just the default render.
-
-renderInline :: Inline -> Html ()
-renderInline = applyInlineRender mempty
 
 -- | Apply a render to a given 'Inline'.
 
 applyInlineRender :: Render Inline -> Inline -> Html ()
-applyInlineRender r x = getRender (defaultInlineRender <> r) x $
-  error "Text.MMark.Internal.applyInlineRender: impossible happened"
+applyInlineRender r = getRender r defaultInlineRender
 
 -- | The default render for 'Inline' elements. Comments about
 -- 'defaultBlockRender' apply here just as well.
 
-defaultInlineRender :: Render Inline
-defaultInlineRender = Render $ \inline _ ->
-  case inline of
-    Plain txt ->
-      toHtml txt
-    Emphasis inner ->
-      em_ (mapM_ renderInline inner)
-    Strong inner ->
-      strong_ (mapM_ renderInline inner)
-    Strikeout inner ->
-      del_ (mapM_ renderInline inner)
-    Subscript inner ->
-      sub_ (mapM_ renderInline inner)
-    Superscript inner ->
-      sup_ (mapM_ renderInline inner)
-    CodeSpan txt ->
-      code_ (toHtmlRaw txt)
-    Link inner dest mtitle ->
-      let title = maybe [] (pure . title_) mtitle
-      in a_ (href_ dest : title) (mapM_ renderInline inner)
-    Image alt src mtitle ->
-      let title = maybe [] (pure . title_) mtitle
-      in img_ (alt_ alt : src_ src : title)
-    HtmlInline txt ->
-      toHtmlRaw txt
+defaultInlineRender :: Inline -> Html ()
+defaultInlineRender = \case
+  Plain txt ->
+    toHtml txt
+  Emphasis inner ->
+    em_ (mapM_ defaultInlineRender inner)
+  Strong inner ->
+    strong_ (mapM_ defaultInlineRender inner)
+  Strikeout inner ->
+    del_ (mapM_ defaultInlineRender inner)
+  Subscript inner ->
+    sub_ (mapM_ defaultInlineRender inner)
+  Superscript inner ->
+    sup_ (mapM_ defaultInlineRender inner)
+  CodeSpan txt ->
+    code_ (toHtmlRaw txt)
+  Link inner dest mtitle ->
+    let title = maybe [] (pure . title_) mtitle
+    in a_ (href_ dest : title) (mapM_ defaultInlineRender inner)
+  Image alt src mtitle ->
+    let title = maybe [] (pure . title_) mtitle
+    in img_ (alt_ alt : src_ src : title)
+  HtmlInline txt ->
+    toHtmlRaw txt

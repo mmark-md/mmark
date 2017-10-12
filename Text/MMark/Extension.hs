@@ -31,19 +31,26 @@ import Lucid
 import Text.MMark.Internal
 
 -- | Create an extension that performs a transformation on 'Block's of
--- markdown document.
+-- markdown document. Note that this transformation can only change
+-- 'Block's, not their 'Inline' contents which are denoted here as a
+-- universally quantified variable @a@.
 
 blockTrans :: (forall a. Block a -> Block a) -> Extension
 blockTrans f = mempty { extBlockTrans = Endo f }
 
 -- | Create an extension that replaces or augments rendering of 'Block's of
--- markdown document. The first argument of the function you must provide is
--- the block to render. The second argument is default rendition or
--- rendition we have so far. If you discard the second argument you can
--- replace rendering logic altogether, otherwise you may wrap\/add something
--- at the beginning or end.
+-- markdown document. The argument of 'blockRender' will be given rendering
+-- function constructed so far @'Block' ('Html' ()) -> 'Html' ()@ as well as
+-- actual block to render—@'Block' ('Html' ())@. You can then decide whether
+-- to replace\/reuse that function to get the final rendering of the type
+-- @'Html' ()@. The argument of 'blockRender' can also be thought of as a
+-- function that transforms rendering function constructed so far:
+--
+-- > (Block (Html ()) -> Html ()) -> (Block (Html ()) -> Html ())
 
-blockRender :: (Block (Html ()) -> Html () -> Html ()) -> Extension
+blockRender
+  :: ((Block (Html ()) -> Html ()) -> Block (Html ()) -> Html ())
+  -> Extension
 blockRender f = mempty { extBlockRender = Render f }
 
 -- | Create an extension that performs a transformation on 'Inline'
@@ -53,9 +60,11 @@ inlineTrans :: (Inline -> Inline) -> Extension
 inlineTrans f = mempty { extInlineTrans = Endo f }
 
 -- | Create an extension that replaces or augments rendering of 'Inline's of
--- markdown document. This works much like 'blockRender'.
+-- markdown document. This works like 'blockRender'.
 
-inlineRender :: (Inline -> Html () -> Html ()) -> Extension
+inlineRender
+  :: ((Inline -> Html ()) -> Inline -> Html ())
+  -> Extension
 inlineRender f = mempty { extInlineRender = Render f }
 
 -- | Create a 'Scanner' from a folding function. Note that the scanning
