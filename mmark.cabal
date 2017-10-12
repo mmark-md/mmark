@@ -14,7 +14,6 @@ build-type:           Simple
 description:          Strict markdown processor for writers.
 extra-doc-files:      CHANGELOG.md
                     , README.md
-data-files:           common-mark-spec.json
 
 source-repository head
   type:               git
@@ -62,24 +61,6 @@ test-suite tests
   other-modules:      Text.MMarkSpec
                     , Text.MMark.ExtensionSpec
                     , Text.MMark.TestUtils
-  if flag(dev)
-    ghc-options:      -Wall -Werror
-  else
-    ghc-options:      -O2 -Wall
-  default-language:   Haskell2010
-
-test-suite common-mark-spec
-  main-is:            Spec.hs
-  hs-source-dirs:     common-mark-spec
-  type:               exitcode-stdio-1.0
-  build-depends:      aeson            >= 0.11 && < 1.3
-                    , base             >= 4.7 && < 5.0
-                    , bytestring       >= 0.2 && < 0.11
-                    , hspec            >= 2.0 && < 3.0
-                    , lucid            >= 2.6 && < 3.0
-                    , megaparsec       >= 6.0 && < 7.0
-                    , mmark
-                    , text             >= 0.2 && < 1.3
   if flag(dev)
     ghc-options:      -Wall -Werror
   else
