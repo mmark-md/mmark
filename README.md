@@ -39,7 +39,8 @@ Something __is __ not right.
 
 Here is the full list of so-called **markup characters**: `*`, `~`, `_`, ``
 ` ``, `^`, `[`, `]`. When they appear without escaping, they must form
-correct markup structures, otherwise parse errors will be reported.
+correct markup structures in inlines, otherwise parse errors will be
+reported.
 
 The same applies to the syntax of links, images, etc. For example, it's a
 parse error to put a link into text of another link.

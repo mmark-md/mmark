@@ -37,7 +37,8 @@
 --
 -- Here is the full list of so-called __markup characters__: @*@, @~@, @_@,
 -- @`@, @^@, @[@, @]@. When they appear without escaping, they must form
--- correct markup structures, otherwise parse errors will be reported.
+-- correct markup structures in inlines, otherwise parse errors will be
+-- reported.
 --
 -- The same applies to the syntax of links, images, etc. For example, it's a
 -- parse error to put a link into text of another link.
@@ -59,6 +60,11 @@
 --
 -- === How to use the library
 --
+-- The module is intended to be imported qualified:
+--
+-- > import Text.MMark (MMark, (.&+))
+-- > import qualified Text.MMark as MMark
+--
 -- Working with MMark happens in three stages:
 --
 --     1. Parsing of markdown document.
@@ -77,12 +83,12 @@
 -- your own extensions which stay highly composable (if done right), so
 -- proliferation of third-party extensions is to be expected and encouraged.
 -- To write an extension of your own import the "Text.MMark.Extension"
--- module, which has its own documentation focusing on extension writing.
+-- module, which has some documentation focusing on extension writing.
 
 module Text.MMark
   ( -- * Parsing
     MMark
-  , parseMMark
+  , parse
     -- * Extensions
   , Extension
   , useExtension
@@ -91,9 +97,9 @@ module Text.MMark
   , Scanner
   , runScanner
   , (.&+)
-  , mmarkYaml
+  , projectYaml
     -- * Rendering
-  , renderMMark )
+  , render )
 where
 
 import Data.Aeson
@@ -102,5 +108,5 @@ import Text.MMark.Parser
 
 -- | Extract contents of optional YAML block that may have been parsed.
 
-mmarkYaml :: MMark -> Maybe Value
-mmarkYaml = mmarkYaml_
+projectYaml :: MMark -> Maybe Value
+projectYaml = mmarkYaml

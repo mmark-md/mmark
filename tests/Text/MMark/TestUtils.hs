@@ -12,12 +12,13 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import Data.Void
 import Test.Hspec
-import Text.MMark
+import Text.MMark (MMark)
 import Text.Megaparsec
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
 import qualified Data.Text.Lazy     as TL
 import qualified Lucid              as L
+import qualified Text.MMark         as MMark
 
 ----------------------------------------------------------------------------
 -- Document creation and rendering
@@ -27,7 +28,7 @@ import qualified Lucid              as L
 
 mkDoc :: Text -> IO MMark
 mkDoc input =
-  case parseMMark "" input of
+  case MMark.parse "" input of
     Left errs -> do
       expectationFailure $
         "while parsing a document, parse error(s) occurred:\n" ++
@@ -38,7 +39,7 @@ mkDoc input =
 -- | Render an 'MMark' document to 'Text'.
 
 toText :: MMark -> Text
-toText = TL.toStrict . L.renderText . renderMMark
+toText = TL.toStrict . L.renderText . MMark.render
 
 ----------------------------------------------------------------------------
 -- Parser expectations
@@ -50,14 +51,15 @@ shouldFailWith
   :: Text              -- ^ Input for parser
   -> [ParseError Char Void] -- ^ Expected collection of parse errors, in order
   -> Expectation
-input `shouldFailWith` errs'' = case parseMMark "" input of
-  Left errs' -> unless (errs == errs') . expectationFailure $
-    "the parser is expected to fail with:\n" ++
-    showParseErrors input errs               ++
-    "but it failed with:\n"                  ++
-    showParseErrors input errs'
-  Right x -> expectationFailure $
-    "the parser is expected to fail, but it parsed: " ++ T.unpack (toText x)
+input `shouldFailWith` errs'' =
+  case MMark.parse "" input of
+    Left errs' -> unless (errs == errs') . expectationFailure $
+      "the parser is expected to fail with:\n" ++
+      showParseErrors input errs               ++
+      "but it failed with:\n"                  ++
+      showParseErrors input errs'
+    Right x -> expectationFailure $
+      "the parser is expected to fail, but it parsed: " ++ T.unpack (toText x)
   where
     errs = NE.fromList errs''
 
@@ -68,11 +70,12 @@ shouldProduce
   :: Text              -- ^ Input for MMark parser
   -> Text              -- ^ Output of render to match against
   -> Expectation
-shouldProduce input expected = case parseMMark "" input of
-  Left errs -> expectationFailure $
-    "the parser is expected to succeed, but it failed with:\n" ++
-    showParseErrors input errs
-  Right factual -> toText factual `shouldBe` expected
+shouldProduce input expected =
+  case MMark.parse "" input of
+    Left errs -> expectationFailure $
+      "the parser is expected to succeed, but it failed with:\n" ++
+      showParseErrors input errs
+    Right factual -> toText factual `shouldBe` expected
 
 ----------------------------------------------------------------------------
 -- Helpers

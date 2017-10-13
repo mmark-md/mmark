@@ -14,9 +14,11 @@
 module Text.MMark.Extension
   ( -- * Extension construction
     Extension
+    -- ** Block-level manipulation
   , Block (..)
   , blockTrans
   , blockRender
+    -- ** Inline-level manipulation
   , Inline (..)
   , inlineTrans
   , inlineRender

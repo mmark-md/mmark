@@ -7,7 +7,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- MMark parser. You probably want to import "Text.MMark" instead.
+-- MMark parser.
 
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE FlexibleContexts  #-}
@@ -16,7 +16,7 @@
 {-# LANGUAGE TypeFamilies      #-}
 
 module Text.MMark.Parser
-  ( parseMMark )
+  ( parse )
 where
 
 import Control.Applicative
@@ -28,7 +28,7 @@ import Data.Monoid ((<>))
 import Data.Text (Text)
 import Data.Void
 import Text.MMark.Internal
-import Text.Megaparsec
+import Text.Megaparsec hiding (parse)
 import Text.Megaparsec.Char hiding (eol)
 import qualified Control.Applicative.Combinators.NonEmpty as NE
 import qualified Data.List.NonEmpty                       as NE
@@ -78,15 +78,15 @@ data InlineFrame
 -- between several threads) with the ability to report multiple parse
 -- errors.
 
-parseMMark
+parse
   :: String
      -- ^ File name (only to be used in error messages), may be empty
   -> Text
      -- ^ Input to parse
   -> Either (NonEmpty (ParseError Char Void)) MMark
      -- ^ Parse errors or resulting document
-parseMMark file input =
-  case parse pBlocks file input of
+parse file input =
+  case runParser pBlocks file input of
     -- NOTE This parse error only happens when document structure on block
     -- level cannot be parsed, which should not normally happen.
     Left err -> Left (nes err)
@@ -95,10 +95,11 @@ parseMMark file input =
           getErrs (Left e) es = replaceEof e : es
           getErrs _        es = es
           fromRight (Right x) = x
-          fromRight _         = error "Text.MMark.Parser: impossible happened"
+          fromRight _         =
+            error "Text.MMark.Parser.parse: impossible happened"
       in case concatMap (foldr getErrs []) parsed of
            [] -> Right MMark
-             { mmarkYaml_     = Nothing
+             { mmarkYaml      = Nothing
              , mmarkBlocks    = fmap fromRight <$> parsed
              , mmarkExtension = mempty }
            es -> (Left . NE.fromList . reverse) es

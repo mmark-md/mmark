@@ -7,9 +7,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Internal definitions you shouldn't import. Everything useful for end user
--- is re-exported from other modules, so import "Text.MMark" or
--- "Text.MMark.Extension" instead.
+-- Internal definitions.
 
 {-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -29,7 +27,7 @@ module Text.MMark.Internal
   , (.&+)
   , useExtension
   , useExtensions
-  , renderMMark
+  , render
   , Block (..)
   , Inline (..)
   , Render (..)
@@ -56,7 +54,7 @@ import Lucid
 -- obtain as a result of parsing is via the extension mechanism.
 
 data MMark = MMark
-  { mmarkYaml_ :: Maybe Value
+  { mmarkYaml :: Maybe Value
     -- ^ Parsed YAML document at the beginning (optional)
   , mmarkBlocks :: [Block (NonEmpty Inline)]
     -- ^ Actual contents of the document
@@ -168,8 +166,8 @@ Scanner f .&+ Scanner g = Scanner $ \(!a, !b) block ->
 --     * to lazy 'Data.ByteString.Lazy.ByteString' with 'renderBS'
 --     * directly to file with 'renderToFile'
 
-renderMMark :: MMark -> Html ()
-renderMMark MMark {..} =
+render :: MMark -> Html ()
+render MMark {..} =
   mapM_ produceBlock mmarkBlocks
   where
     Extension {..} = mmarkExtension
