@@ -12,7 +12,7 @@ import qualified Text.MMark           as MMark
 import qualified Text.MMark.Extension as Ext
 
 spec :: Spec
-spec = do
+spec = parallel $ do
   describe "blockTrans" $
     it "works" $ do
       doc <- mkDoc "# My heading"
