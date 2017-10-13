@@ -8,6 +8,11 @@
 -- Portability :  portable
 --
 -- This module provides building blocks for extension creation.
+--
+-- We suggest using a qualified import, like this:
+--
+-- > import Text.MMark.Extension (Block (..), Inline (..))
+-- > import qualified Text.MMark.Extension as Ext
 
 {-# LANGUAGE RankNTypes #-}
 
