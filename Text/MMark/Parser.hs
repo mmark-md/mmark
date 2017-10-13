@@ -133,7 +133,7 @@ pAtxHeading :: Parser (Block Isp)
 pAtxHeading = try $ do
   void casualLevel
   hlevel   <- atxOpening
-  finished <- grabNewline
+  finished <- True <$ eof <|> grabNewline
   (startPos, heading) <-
     if finished
       then (,) <$> getPosition <*> pure ""
@@ -410,7 +410,7 @@ isThematicBreak l' = T.length l >= 3 &&
    T.all (== '-') l ||
    T.all (== '_') l)
   where
-    l = T.filter (/= ' ') l'
+    l = T.filter (not . spaceNoNewline) l'
 
 atxOpening :: Parser Int
 atxOpening = length <$> count' 1 6 (char '#')
@@ -436,7 +436,6 @@ grabNewline :: Parser Bool
 grabNewline = choice
   [ True <$ char '\n'
   , True <$ char '\r'
-  , True <$ eof
   , pure False ]
 
 assembleParagraph :: [Text] -> Text

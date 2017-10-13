@@ -1,10 +1,13 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Text.MMark.TestUtils
   ( -- * Document creation and rendering
     mkDoc
   , toText
     -- * Parser expectations
-  , shouldFailWith
-  , shouldProduce )
+  , (~->)
+  , (=->)
+  , (==->) )
 where
 
 import Control.Monad
@@ -47,11 +50,13 @@ toText = TL.toStrict . L.renderText . MMark.render
 -- | Create an expectation that parser should fail producing a certain
 -- collection of 'ParseError's.
 
-shouldFailWith
+infix 2 ~->
+
+(~->)
   :: Text              -- ^ Input for parser
   -> [ParseError Char Void] -- ^ Expected collection of parse errors, in order
   -> Expectation
-input `shouldFailWith` errs'' =
+input ~-> errs'' =
   case MMark.parse "" input of
     Left errs' -> unless (errs == errs') . expectationFailure $
       "the parser is expected to fail with:\n" ++
@@ -66,16 +71,31 @@ input `shouldFailWith` errs'' =
 -- | Test parser and render by specifying input for parser and expected
 -- output of render.
 
-shouldProduce
+infix 2 =->
+
+(=->)
   :: Text              -- ^ Input for MMark parser
   -> Text              -- ^ Output of render to match against
   -> Expectation
-shouldProduce input expected =
+input =-> expected =
   case MMark.parse "" input of
     Left errs -> expectationFailure $
       "the parser is expected to succeed, but it failed with:\n" ++
       showParseErrors input errs
     Right factual -> toText factual `shouldBe` expected
+
+-- | Just like @('=->')@, but also appends newline to given input and tries
+-- with that as well.
+
+infix ==->
+
+(==->)
+  :: Text              -- ^ Input for MMark parser
+  -> Text              -- ^ Output of render to match against
+  -> Expectation
+input ==-> expected = do
+  input              =-> expected
+  mappend input "\n" =-> expected
 
 ----------------------------------------------------------------------------
 -- Helpers

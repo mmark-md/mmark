@@ -273,7 +273,7 @@ applyBlockRender r = getRender r defaultBlockRender
 defaultBlockRender :: Block (Html ()) -> Html ()
 defaultBlockRender = \case
   ThematicBreak ->
-    hr_ []
+    hr_ [] >> newline
   Heading1 html ->
     h1_ html >> newline
   Heading2 html ->

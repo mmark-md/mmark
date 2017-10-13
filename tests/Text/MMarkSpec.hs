@@ -15,10 +15,40 @@ import qualified Text.MMark           as MMark
 import qualified Text.MMark.Extension as Ext
 
 spec :: Spec
-spec = do
-  describe "parse and render" $ do
-    it "" pending -- TODO Adjust the Common Mark spec for features that
-      -- we've implemented already.
+spec = parallel $ do
+  describe "parse and render" $
+    context "2.2 Tabs" $ do
+      it "CM1" $
+        "\tfoo\tbaz\t\tbim" ==->
+          "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n"
+      it "CM2" $
+        "  \tfoo\tbaz\t\tbim" ==->
+          "<pre><code>foo\tbaz\t\tbim\n</code></pre>\n"
+      it "CM3" $
+        "    a\ta\n    ὐ\ta" ==->
+          "<pre><code>a\ta\nὐ\ta\n</code></pre>\n"
+      xit "CM4" $ -- FIXME pending lists
+        "  - foo\n\n\tbar" ==->
+          "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n"
+      xit "CM5" $ -- FIXME pending lists
+        "- foo\n\n\t\tbar" ==->
+          "<ul>\n<li>\n<p>foo</p>\n<pre><code>  bar\n</code></pre>\n</li>\n</ul>\n"
+      xit "CM6" $ -- FIXME pending blockquotes
+        ">\t\tfoo" ==->
+          "<blockquote>\n<pre><code>  foo\n</code></pre>\n</blockquote>\n"
+      xit "CM7" $ -- FIXME pending lists
+        "-\t\tfoo" ==->
+          "<ul>\n<li>\n<pre><code>  foo\n</code></pre>\n</li>\n</ul>\n"
+      it "CM8" $
+        "    foo\n\tbar" ==->
+          "<pre><code>foo\nbar\n</code></pre>\n"
+      xit "CM9" $ -- FIXME pending lists
+        " - foo\n   - bar\n\t - baz" ==->
+          "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n"
+      it "CM10" $
+        "#\tFoo" ==-> "<h1>Foo</h1>\n"
+      it "CM11" $
+        "*\t*\t*\t" ==-> "<hr>\n"
   describe "useExtension" $
     it "applies given extension" $ do
       doc <- mkDoc "Here we go."
