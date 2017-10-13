@@ -77,6 +77,10 @@ data InlineFrame
 -- efficient parallel parser (meaning it can actually divide the work
 -- between several threads) with the ability to report multiple parse
 -- errors.
+--
+-- __Pro tip__: use @'parseErrorPretty_' ('mkPos' 4)@ to pretty print parse
+-- errors, because Common Mark suggests that we should assume tab width 4,
+-- and that's what we do in the parser.
 
 parse
   :: String

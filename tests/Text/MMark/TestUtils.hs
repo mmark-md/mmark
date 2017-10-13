@@ -86,4 +86,4 @@ showParseErrors
   :: Text              -- ^ Original parser input
   -> NonEmpty (ParseError Char Void) -- ^ Collection of parse errors to show
   -> String            -- ^ Rendered errors
-showParseErrors input = concatMap (parseErrorPretty' input)
+showParseErrors input = concatMap (parseErrorPretty_ (mkPos 4) input)
