@@ -60,32 +60,6 @@ supports:
 You do not need to enable or tweak anything for these to work, they are
 built-in features.
 
-## Features to implement before 1.0.0.0
-
-Up-to-date list of features we need to add (in order of importance):
-
-* inline images
-* inline autolinks
-* hard line breaks
-* setext headings
-* HTML blocks
-* HTML inline blocks
-* link reference definitions (also adjust link parser so references work)
-* blockquotes
-* unordered lists
-* ordered lists
-* parsing of optional YAML metadata block
-* automatic turning of bare URIs into links
-* PHP-style footnotes, e.g. `[^1]`
-* “pipe” table (as used on GitHub)
-* entity and numeric character references
-* decide on URL manipulation (should we correct “bad” characters using
-  URL-encoding automatically?)
-
-Other:
-
-* benchmarking and optimization.
-
 ## Contribution
 
 Issues, bugs, and questions may be reported in
