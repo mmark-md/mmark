@@ -9,6 +9,7 @@
 --
 -- MMark parser.
 
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
@@ -447,12 +448,12 @@ assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)
 stripIndent :: Pos -> Text -> Text
 stripIndent indent txt = T.drop m txt
   where
-    m = T.foldl' f 0 (T.takeWhile isSpace txt)
-    f n ch
-      | n >= i     = n
-      | ch == ' '  = n + 1
-      | ch == '\t' = n + 4
-      | otherwise  = n
+    m = snd $ T.foldl' f (0, 0) (T.takeWhile isSpace txt)
+    f (!j, !n) ch
+      | j  >= i    = (j, n)
+      | ch == ' '  = (j + 1, n + 1)
+      | ch == '\t' = (j + 4, n + 1)
+      | otherwise  = (j, n)
     i = unPos indent - 1
 
 isSpace :: Char -> Bool
