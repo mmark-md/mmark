@@ -204,8 +204,6 @@ data Block a
     -- ^ Heading (level 6), leaf block
   | CodeBlock (Maybe Text) Text
     -- ^ Code block, leaf block with info string and contents
-  | HtmlBlock Text
-    -- ^ HTML block, leaf block
   | Paragraph a
     -- ^ Paragraph, leaf block
   | Blockquote [Block a]
@@ -239,8 +237,6 @@ data Inline
     -- ^ Link with text, destination, and optionally title
   | Image Text Text (Maybe Text)
     -- ^ Image with description, URL, and optionally title
-  | HtmlInline Text
-    -- ^ Inline HTML
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 instance NFData Inline
@@ -292,8 +288,6 @@ defaultBlockRender = \case
     let f x = class_ $ "language-" <> T.takeWhile (not . isSpace) x
     pre_ $ code_ (maybe [] (pure . f) infoString) (toHtml txt)
     newline
-  HtmlBlock txt ->
-    toHtmlRaw txt
   Paragraph html ->
     p_ html >> newline
   Blockquote blocks ->
@@ -335,5 +329,3 @@ defaultInlineRender = \case
   Image alt src mtitle ->
     let title = maybe [] (pure . title_) mtitle
     in img_ (alt_ alt : src_ src : title)
-  HtmlInline txt ->
-    toHtmlRaw txt
