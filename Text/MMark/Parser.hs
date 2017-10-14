@@ -198,22 +198,17 @@ pFencedCodeBlock = do
 pIndentedCodeBlock :: Parser (Block Isp)
 pIndentedCodeBlock = do
   initialIndent <- codeBlockLevel
-  let go = do
-        codeLevel <- lookAhead (True <$ codeBlockLevel <|> pure False)
-        ml        <- lookAhead (optional grabLine)
-        case (codeLevel, ml) of
-          (False, Nothing) -> do
+  let go ls = do
+        immediate <- lookAhead (True <$ try codeBlockLevel' <|> pure False)
+        eventual  <- lookAhead (True <$ try codeBlockLevel  <|> pure False)
+        if not immediate && not eventual
+          then return ls
+          else do
+            l        <- option "" grabLine
             continue <- grabNewline
-            if continue then ("" :) <$> go else return []
-          (False, Just _) ->
-            return []
-          (True, Nothing) -> do
-            continue <- grabNewline
-            if continue then ("" :) <$> go else return []
-          (True, Just l) -> do
-            void grabLine
-            continue <- grabNewline
-            (l :) <$> if continue then go else return []
+            if continue
+              then go (l:ls)
+              else return (l:ls)
       -- NOTE This is a bit unfortunate, but it's difficult to guarantee
       -- that preceding space is not yet consumed when we get to
       -- interpreting input as an indented code block, so we need to restore
@@ -221,7 +216,7 @@ pIndentedCodeBlock = do
       f x      = T.replicate (unPos initialIndent - 1) " " <> x
       g []     = []
       g (x:xs) = f x : xs
-  ls <- g <$> go
+  ls <- g . reverse . dropWhile isBlankLine <$> go []
   CodeBlock Nothing (assembleCodeBlock (mkPos 5) ls) <$ sc
 
 pParagraph :: Parser (Block Isp)
@@ -407,6 +402,9 @@ casualLevel' = L.indentGuard sc' LT (mkPos 5)
 
 codeBlockLevel :: Parser Pos
 codeBlockLevel = L.indentGuard sc GT (mkPos 4)
+
+codeBlockLevel' :: Parser Pos
+codeBlockLevel' = L.indentGuard sc' GT (mkPos 4)
 
 sc :: MonadParsec e Text m => m ()
 sc = space
