@@ -233,7 +233,10 @@ pParagraph = do
         case ml of
           Nothing -> return []
           Just l ->
-            if isThematicBreak l || isHeading l || isFencedCodeBlock l
+            if or [ isThematicBreak l
+                  , isHeading l
+                  , isFencedCodeBlock l
+                  , isBlankLine l ]
               then return []
               else do
                 void grabLine
@@ -425,6 +428,9 @@ grabLine = takeWhile1P Nothing notNewline
 
 notNewline :: Char -> Bool
 notNewline x = x /= '\n' && x /= '\r'
+
+isBlankLine :: Text -> Bool
+isBlankLine = T.all isSpaceNoNewline
 
 nes :: a -> NonEmpty a
 nes a = a :| []
