@@ -13,9 +13,8 @@ where
 import Control.Monad
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
-import Data.Void
 import Test.Hspec
-import Text.MMark (MMark)
+import Text.MMark (MMark, MMarkErr)
 import Text.Megaparsec
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
@@ -53,8 +52,10 @@ toText = TL.toStrict . L.renderText . MMark.render
 infix 2 ~->
 
 (~->)
-  :: Text              -- ^ Input for parser
-  -> [ParseError Char Void] -- ^ Expected collection of parse errors, in order
+  :: Text
+     -- ^ Input for parser
+  -> [ParseError Char MMarkErr]
+     -- ^ Expected collection of parse errors, in order
   -> Expectation
 input ~-> errs'' =
   case MMark.parse "" input of
@@ -104,6 +105,6 @@ input ==-> expected = do
 
 showParseErrors
   :: Text              -- ^ Original parser input
-  -> NonEmpty (ParseError Char Void) -- ^ Collection of parse errors to show
+  -> NonEmpty (ParseError Char MMarkErr) -- ^ Collection of parse errors to show
   -> String            -- ^ Rendered errors
 showParseErrors input = concatMap (parseErrorPretty_ (mkPos 4) input)

@@ -88,6 +88,7 @@
 module Text.MMark
   ( -- * Parsing
     MMark
+  , MMarkErr (..)
   , parse
     -- * Extensions
   , Extension

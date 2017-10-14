@@ -9,25 +9,30 @@
 --
 -- MMark parser.
 
-{-# LANGUAGE BangPatterns      #-}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE BangPatterns       #-}
+{-# LANGUAGE CPP                #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE TypeFamilies       #-}
 
 module Text.MMark.Parser
-  ( parse )
+  ( MMarkErr (..)
+  , parse )
 where
 
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
+import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (isJust)
 import Data.Monoid ((<>))
 import Data.Text (Text)
-import Data.Void
+import Data.Typeable (Typeable)
+import GHC.Generics
 import Text.MMark.Internal
 import Text.Megaparsec hiding (parse)
 import Text.Megaparsec.Char hiding (eol)
@@ -42,21 +47,29 @@ import qualified Text.Megaparsec.Char.Lexer               as L
 
 -- | Parser type we use internally.
 
-type Parser = Parsec Void Text
+type Parser = Parsec MMarkErr Text
 
 -- | Parser type for inlines.
 
-type IParser = StateT LastChar (Parsec Void Text)
+type IParser = StateT LastChar (Parsec MMarkErr Text)
+
+-- | MMark custom parse errors.
+
+data MMarkErr = MMarkDummy
+  deriving (Eq, Ord, Show, Read, Generic, Typeable, Data)
+
+instance ShowErrorComponent MMarkErr where
+  showErrorComponent MMarkDummy = "mmark dummy error"
 
 -- | Type of last parsed character: white space or not?
 
 data LastChar = LastSpace | LastNonSpace
+  deriving (Eq, Ord, Show)
 
--- | 'Inline' source pending parsing, result of initial run of the parser
--- which creates shape of the document in terms of 'Block's.
+-- | 'Inline' source pending parsing.
 
 data Isp = Isp SourcePos Text
-  deriving (Show)
+  deriving (Eq, Ord, Show)
 
 -- | Frame that describes where we are in parsing inlines.
 
@@ -74,10 +87,8 @@ data InlineFrame
 -- Block parser
 
 -- | Parse a markdown document in the form of a strict 'Text' value and
--- either report parse errors or return a 'MMark' document. The parser is an
--- efficient parallel parser (meaning it can actually divide the work
--- between several threads) with the ability to report multiple parse
--- errors.
+-- either report parse errors or return a 'MMark' document. Note that the
+-- parser has the ability to report multiple parse errors at once.
 --
 -- __Pro tip__: use @'parseErrorPretty_' ('mkPos' 4)@ to pretty print parse
 -- errors, because Common Mark suggests that we should assume tab width 4,
@@ -88,8 +99,8 @@ parse
      -- ^ File name (only to be used in error messages), may be empty
   -> Text
      -- ^ Input to parse
-  -> Either (NonEmpty (ParseError Char Void)) MMark
-     -- ^ Parse errors or resulting document
+  -> Either (NonEmpty (ParseError Char MMarkErr)) MMark
+     -- ^ Parse errors or parsed document
 parse file input =
   case runParser pBlocks file input of
     -- NOTE This parse error only happens when document structure on block
@@ -112,18 +123,18 @@ parse file input =
 pBlocks :: Parser [Block Isp]
 pBlocks = do
   setTabWidth (mkPos 4)
-  between sc eof (manyTill pBlock eof)
+  sc *> manyTill pBlock eof
 
 pBlock :: Parser (Block Isp)
 pBlock = choice
-  [ pThematicBreak
-  , pAtxHeading
-  , pFencedCodeBlock
-  , pParagraph
-  , pIndentedCodeBlock ]
+  [ try pThematicBreak
+  , try pAtxHeading
+  , try pFencedCodeBlock
+  , try pIndentedCodeBlock
+  , pParagraph ]
 
 pThematicBreak :: Parser (Block Isp)
-pThematicBreak = try $ do
+pThematicBreak = do
   void casualLevel
   l <- grabLine
   if isThematicBreak l
@@ -131,21 +142,23 @@ pThematicBreak = try $ do
     else empty
 
 pAtxHeading :: Parser (Block Isp)
-pAtxHeading = try $ do
+pAtxHeading = do
   void casualLevel
-  hlevel   <- atxOpening
-  finished <- True <$ eof <|> grabNewline
-  (startPos, heading) <-
+  hlevel <- length <$> some (char '#')
+  guard (hlevel <= 6)
+  finished <- (True <$ eof) <|> grabNewline
+  (ispPos, heading) <-
     if finished
       then (,) <$> getPosition <*> pure ""
       else do
         sc1'
-        startPos <- getPosition
-        let justClosing = "" <$ some (char '#') <* sc' <* (eof <|> eol)
-            normHeading = T.pack <$> manyTill anyChar
-              (optional (try $ char ' ' *> some (char '#') *> sc') *> (eof <|> eol))
-        r <- try justClosing <|> normHeading
-        return (startPos, r)
+        ispPos <- getPosition
+        let normalHeading = manyTill anyChar . try $
+              optional (sc1' *> some (char '#') *> sc') *> (eof <|> eol)
+            emptyHeading = "" <$
+              optional (some (char '#') *> sc') <* (eof <|> eol)
+        r <- try emptyHeading <|> normalHeading
+        return (ispPos, T.pack r)
   let toBlock = case hlevel of
         1 -> Heading1
         2 -> Heading2
@@ -153,31 +166,10 @@ pAtxHeading = try $ do
         4 -> Heading4
         5 -> Heading5
         _ -> Heading6
-  toBlock (Isp startPos (T.strip heading)) <$ sc
-
-pParagraph :: Parser (Block Isp)
-pParagraph = try $ do
-  void casualLevel
-  startPos <- getPosition
-  let go = do
-        ml <- lookAhead (optional grabLine)
-        case ml of
-          Nothing -> return []
-          Just l ->
-            if (isThematicBreak l || isHeading l) && spacePrefixLength l < 4
-              then return []
-              else do
-                void grabLine
-                continue <- grabNewline
-                (T.strip l :) <$>
-                  if continue then go else return []
-  l        <- T.strip <$> grabLine
-  continue <- grabNewline
-  ls       <- if continue then go else return []
-  Paragraph (Isp startPos (assembleParagraph (l:ls))) <$ sc
+  toBlock (Isp ispPos (T.strip heading)) <$ sc
 
 pFencedCodeBlock :: Parser (Block Isp)
-pFencedCodeBlock = try $ do
+pFencedCodeBlock = do
   level <- casualLevel
   (ch, n, infoString) <- pOpeningCodeFence <* char '\n'
   -- FIXME what if the closing fence is placed in the middle of a line?
@@ -205,7 +197,7 @@ pClosingCodeFence ch n = void . try $
   count n (char ch) <* many (char ch)
 
 pIndentedCodeBlock :: Parser (Block Isp)
-pIndentedCodeBlock = try $ do
+pIndentedCodeBlock = do
   void codeBlockLevel
   let go = do
         codeLevel <- lookAhead (True <$ codeBlockLevel <|> pure False)
@@ -226,6 +218,27 @@ pIndentedCodeBlock = try $ do
   ls <- go
   CodeBlock Nothing (assembleCodeBlock (mkPos 5) ls) <$ sc
 
+pParagraph :: Parser (Block Isp)
+pParagraph = do
+  void casualLevel
+  startPos <- getPosition
+  let go = do
+        ml <- lookAhead (optional grabLine)
+        case ml of
+          Nothing -> return []
+          Just l ->
+            if (isThematicBreak l || isHeading l) && spacePrefixLength l < 4
+              then return []
+              else do
+                void grabLine
+                continue <- grabNewline
+                (T.strip l :) <$>
+                  if continue then go else return []
+  l        <- T.strip <$> grabLine
+  continue <- grabNewline
+  ls       <- if continue then go else return []
+  Paragraph (Isp startPos (assembleParagraph (l:ls))) <$ sc
+
 ----------------------------------------------------------------------------
 -- Inline parser
 
@@ -234,7 +247,7 @@ pIndentedCodeBlock = try $ do
 runIsp
   :: IParser a
   -> Isp
-  -> Either (ParseError Char Void) a
+  -> Either (ParseError Char MMarkErr) a
 runIsp p (Isp startPos input) =
   snd (runParser' (evalStateT p LastSpace) pst)
   where
@@ -381,17 +394,17 @@ casualLevel = L.indentGuard sc LT (mkPos 5)
 codeBlockLevel :: Parser Pos
 codeBlockLevel = L.indentGuard sc GT (mkPos 4)
 
-sc :: MonadParsec Void Text m => m ()
+sc :: MonadParsec e Text m => m ()
 sc = space
 
-sc1 :: MonadParsec Void Text m => m ()
+sc1 :: MonadParsec e Text m => m ()
 sc1 = void $ takeWhile1P (Just "white space") isSpaceN
 
 sc' :: Parser ()
 sc' = void $ takeWhileP (Just "white space") spaceNoNewline
 
 sc1' :: Parser ()
-sc1' = void $ takeWhileP (Just "white space") spaceNoNewline
+sc1' = void $ takeWhile1P (Just "white space") spaceNoNewline
 
 spaceNoNewline :: Char -> Bool
 spaceNoNewline x = x == '\t' || x == ' '
@@ -413,14 +426,12 @@ isThematicBreak l' = T.length l >= 3 &&
   where
     l = T.filter (not . spaceNoNewline) l'
 
-atxOpening :: Parser Int
-atxOpening = length <$> count' 1 6 (char '#')
-
 isHeading :: Text -> Bool
 isHeading = isJust . parseMaybe p
   where
     p :: Parser ()
-    p = atxOpening *> (eof <|> eol <|> void (char ' ' <* takeRest))
+    p = count' 1 6 (char '#') *>
+      (eof <|> eol <|> void (char ' ' <* takeRest))
 
 eol :: (MonadParsec e s m, Token s ~ Char) => m ()
 eol = void $ char '\n' <|> char '\r'
@@ -497,10 +508,13 @@ inlineFramePretty = \case
   SubscriptFrame   -> "~subscript~"
   SuperscriptFrame -> "^superscript^"
 
-replaceEof :: ParseError Char Void -> ParseError Char Void
+replaceEof :: ParseError Char e -> ParseError Char e
 replaceEof = \case
   TrivialError pos us es -> TrivialError pos (f <$> us) (E.map f es)
   FancyError   pos xs    -> FancyError pos xs
   where
     f EndOfInput = Label (NE.fromList "end of the inline block")
     f x          = x
+
+-- mmarkErr :: MonadParsec MMarkErr s m => MMarkErr -> m a
+-- mmarkErr = fancyFailure . E.singleton . ErrorCustom
