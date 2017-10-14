@@ -38,6 +38,7 @@ where
 import Control.DeepSeq
 import Control.Monad
 import Data.Aeson
+import Data.Char (isSpace)
 import Data.Data (Data)
 import Data.Function (on)
 import Data.List (foldl')
@@ -48,6 +49,7 @@ import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
 import Lucid
+import qualified Data.Text as T
 
 -- | Representation of complete markdown document. You can't look inside of
 -- 'MMark' on purpose. The only way to influence an 'MMark' document you
@@ -286,8 +288,10 @@ defaultBlockRender = \case
     h5_ html >> newline
   Heading6 html ->
     h6_ html >> newline
-  CodeBlock _ txt ->
-    (pre_ . code_ . toHtml) txt >> newline
+  CodeBlock infoString txt -> do
+    let f x = class_ $ "language-" <> T.takeWhile (not . isSpace) x
+    pre_ $ code_ (maybe [] (pure . f) infoString) (toHtml txt)
+    newline
   HtmlBlock txt ->
     toHtmlRaw txt
   Paragraph html ->

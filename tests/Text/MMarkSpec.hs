@@ -7,6 +7,7 @@ import Data.Char
 import Data.Monoid
 import Data.Text (Text)
 import Test.Hspec
+import Test.Hspec.Megaparsec
 import Text.MMark ((.&+))
 import Text.MMark.Extension (Inline (..))
 import Text.MMark.TestUtils
@@ -145,6 +146,195 @@ spec = parallel $ do
       it "CM49" $
         "## \n#\n### ###" ==->
           "<h2></h2>\n<h1></h1>\n<h3></h3>\n"
+    context "4.4 Indented code blocks" $ do
+      it "CM76" $
+        "    a simple\n      indented code block" ==->
+          "<pre><code>a simple\n  indented code block\n</code></pre>\n"
+      xit "CM77" $ -- FIXME pending lists
+        "  - foo\n\n    bar" ==->
+          "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n"
+      xit "CM78" $ -- FIXME pending lists
+        "1.  foo\n\n    - bar" ==->
+           "<ol>\n<li>\n<p>foo</p>\n<ul>\n<li>bar</li>\n</ul>\n</li>\n</ol>\n"
+      it "CM79" $
+        "    <a/>\n    *hi*\n\n    - one" ==->
+          "<pre><code>&lt;a/&gt;\n*hi*\n\n- one\n</code></pre>\n"
+      it "CM80" $
+        "    chunk1\n\n    chunk2\n  \n \n \n    chunk3" ==->
+          "<pre><code>chunk1\n\nchunk2\n\n\n\nchunk3\n</code></pre>\n"
+      it "CM81" $
+        "    chunk1\n      \n      chunk2" ==->
+          "<pre><code>chunk1\n  \n  chunk2\n</code></pre>\n"
+      it "CM82" $
+        "Foo\n    bar\n" ==->
+          "<p>Foo\nbar</p>\n"
+      it "CM83" $
+        "    foo\nbar" ==->
+          "<pre><code>foo\n</code></pre>\n<p>bar</p>\n"
+      xit "CM84" $ -- FIXME pending setext headings
+        "# Heading\n    foo\nHeading\n------\n    foo\n----\n" ==->
+          "<h1>Heading</h1>\n<pre><code>foo\n</code></pre>\n<h2>Heading</h2>\n<pre><code>foo\n</code></pre>\n<hr />\n"
+      it "CM85" $
+        "        foo\n    bar" ==->
+          "<pre><code>    foo\nbar\n</code></pre>\n"
+      it "CM86" $
+        "\n    \n    foo\n    \n" ==->
+          "<pre><code>foo\n</code></pre>\n"
+      it "CM87" $
+        "    foo  " ==->
+          "<pre><code>foo  \n</code></pre>\n"
+    context "4.5 Fenced code blocks" $ do
+      it "CM88" $
+        "```\n<\n >\n```" ==->
+          "<pre><code>&lt;\n &gt;\n</code></pre>\n"
+      it "CM89" $
+        "~~~\n<\n >\n~~~" ==->
+          "<pre><code>&lt;\n &gt;\n</code></pre>\n"
+      it "CM90" $
+        "```\naaa\n~~~\n```" ==->
+          "<pre><code>aaa\n~~~\n</code></pre>\n"
+      it "CM91" $
+        "~~~\naaa\n```\n~~~" ==->
+          "<pre><code>aaa\n```\n</code></pre>\n"
+      it "CM92" $
+        "````\naaa\n```\n``````" ==->
+          "<pre><code>aaa\n```\n</code></pre>\n"
+      it "CM93" $
+        "~~~~\naaa\n~~~\n~~~~" ==->
+          "<pre><code>aaa\n~~~\n</code></pre>\n"
+      it "CM94" $ do
+        let s = "```"
+        s ~->
+          [ err (posN 3 s)
+              (ueof <> etok '`' <> elabel "info string" <> elabel "newline")
+          ]
+      it "CM95" $ do
+        let s  = "`````\n\n```\naaa"
+            s' = s <> "\n"
+        s ~->
+          [ err (posN 14 s) (ueof <> elabel "newline")
+          ]
+        s' ~->
+          [ err (posN 15 s') (ueof <> elabel "closing code fence"
+                               <> elabel "code block content")
+          ]
+      xit "CM96" $ -- FIXME pending blockquotes
+        "> ```\n> aaa\n\nbbb" ==->
+          "<blockquote>\n<pre><code>aaa\n</code></pre>\n</blockquote>\n<p>bbb</p>\n"
+      it "CM97" $
+        "```\n\n  \n```" ==->
+          "<pre><code>\n  \n</code></pre>\n"
+      it "CM98" $
+        "```\n```" ==->
+          "<pre><code></code></pre>\n"
+      it "CM99" $
+        " ```\n aaa\naaa\n```" ==->
+          "<pre><code>aaa\naaa\n</code></pre>\n"
+      it "CM100" $
+        "  ```\naaa\n  aaa\naaa\n  ```" ==->
+          "<pre><code>aaa\naaa\naaa\n</code></pre>\n"
+      it "CM101" $
+        "   ```\n   aaa\n    aaa\n  aaa\n   ```" ==->
+          "<pre><code>aaa\n aaa\naaa\n</code></pre>\n"
+      it "CM102" $
+        "    ```\n    aaa\n    ```" ==->
+          "<pre><code>```\naaa\n```\n</code></pre>\n"
+      it "CM103" $
+        "```\naaa\n  ```" ==->
+          "<pre><code>aaa\n</code></pre>\n"
+      it "CM104" $
+        "   ```\naaa\n  ```" ==->
+          "<pre><code>aaa\n</code></pre>\n"
+      it "CM105" $ do
+        let s  = "```\naaa\n    ```"
+            s' = s <> "\n"
+        s ~->
+          [ err (posN 15 s) (ueof <> elabel "newline")
+          ]
+        s' ~->
+          [ err (posN 16 s') (ueof <> elabel "closing code fence"
+                               <> elabel "code block content")
+          ]
+      it "CM106" $
+        "``` ```\naaa" ==->
+          "<p><code></code>\naaa</p>\n"
+      it "CM107" $ do
+        let s  = "~~~~~~\naaa\n~~~ ~~"
+            s' = s <> "\n"
+        s ~->
+          [ err (posN 17 s) (ueof <> elabel "newline")
+          ]
+        s' ~->
+          [ err (posN 18 s') (ueof <> elabel "closing code fence"
+                               <> elabel "code block content")
+          ]
+      it "CM108" $
+        "foo\n```\nbar\n```\nbaz" ==->
+          "<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n"
+      xit "CM109" $ -- FIXME pending setext headings
+        "foo\n---\n~~~\nbar\n~~~\n# baz" ==->
+          "<h2>foo</h2>\n<pre><code>bar\n</code></pre>\n<h1>baz</h1>\n"
+      it "CM110" $
+        "```ruby\ndef foo(x)\n  return 3\nend\n```" ==->
+          "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n"
+      it "CM111" $
+        "~~~~    ruby startline=3 $%@#$\ndef foo(x)\n  return 3\nend\n~~~~~~~" ==->
+          "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n"
+      it "CM112" $
+        "````;\n````" ==->
+          "<pre><code class=\"language-;\"></code></pre>\n"
+      it "CM113" $
+        "``` aa ```\nfoo" ==->
+          "<p><code>aa</code>\nfoo</p>\n"
+      it "CM114" $
+        "```\n``` aaa\n```" ==->
+          "<pre><code>``` aaa\n</code></pre>\n"
+    context "4.8 Paragraphs" $ do
+      it "CM180" $
+        "aaa\n\nbbb" ==->
+          "<p>aaa</p>\n<p>bbb</p>\n"
+      it "CM181" $
+        "aaa\nbbb\n\nccc\nddd" ==->
+          "<p>aaa\nbbb</p>\n<p>ccc\nddd</p>\n"
+      it "CM182" $
+        "aaa\n\n\nbbb" ==->
+          "<p>aaa</p>\n<p>bbb</p>\n"
+      it "CM183" $
+        "  aaa\n bbb" ==->
+          "<p>aaa\nbbb</p>\n"
+      it "CM184" $
+        "aaa\n             bbb\n                                       ccc" ==->
+          "<p>aaa\nbbb\nccc</p>\n"
+      it "CM185" $
+        "   aaa\nbbb" ==-> "<p>aaa\nbbb</p>\n"
+      it "CM186" $
+        "    aaa\nbbb" ==->
+          "<pre><code>aaa\n</code></pre>\n<p>bbb</p>\n"
+      xit "CM187" $ -- FIXME pending hard line breaks
+        "aaa     \nbbb     " ==->
+          "<p>aaa<br>\nbbb</p>\n"
+    context "4.9 Blank lines" $
+      it "CM188" $
+        "  \n\naaa\n  \n\n# aaa\n\n  " ==->
+          "<p>aaa</p>\n<h1>aaa</h1>\n"
+    context "6 Inlines" $
+      it "CM286" $ do
+        let s  = "`hi`lo`"
+            s' = s <> "\n"
+            pe = ulabel "end of inline block"
+              <> etok '`' <> elabel "code span content"
+        s  ~-> [ err (posN 7 s)  pe ]
+        s' ~-> [ err (posN 7 s') pe ]
+    context "6.1 Blackslash escapes" $ do
+      it "CM287" $
+        "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~\n"
+          ==-> "<p>!&quot;#$%&amp;&#39;()*+,-./:;&lt;=&gt;?@[\\]^_`{|}~</p>\n"
+      it "CM288" $
+        "\\\t\\A\\a\\ \\3\\φ\\«" ==->
+          "<p>\\\t\\A\\a\\ \\3\\φ\\«</p>\n"
+      -- it "CM289" $
+      --   "\\*not emphasized*\n\\<br/> not a tag\n\\[not a link](/foo)\n\\`not code`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo]: /url \"not a reference\"\n" ==->
+      --   "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url &quot;not a reference&quot;</p>\n"
   describe "useExtension" $
     it "applies given extension" $ do
       doc <- mkDoc "Here we go."

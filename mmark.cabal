@@ -56,6 +56,7 @@ test-suite tests
   type:               exitcode-stdio-1.0
   build-depends:      base             >= 4.8  && < 5.0
                     , hspec            >= 2.0  && < 3.0
+                    , hspec-megaparsec >= 1.0  && < 2.0
                     , lucid            >= 2.6  && < 3.0
                     , megaparsec       >= 6.1  && < 7.0
                     , mmark

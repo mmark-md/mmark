@@ -29,7 +29,7 @@ import Control.Monad.State.Strict
 import Data.Data (Data)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (isJust)
-import Data.Monoid ((<>))
+import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
@@ -129,7 +129,7 @@ pBlock :: Parser (Block Isp)
 pBlock = choice
   [ try pThematicBreak
   , try pAtxHeading
-  , try pFencedCodeBlock
+  , pFencedCodeBlock
   , try pIndentedCodeBlock
   , pParagraph ]
 
@@ -171,30 +171,29 @@ pAtxHeading = do
 pFencedCodeBlock :: Parser (Block Isp)
 pFencedCodeBlock = do
   level <- casualLevel
-  (ch, n, infoString) <- pOpeningCodeFence <* char '\n'
-  -- FIXME what if the closing fence is placed in the middle of a line?
-  ls <- manyTill (option "" grabLine <* char '\n') (eof <|> pClosingCodeFence ch n)
+  let p ch = try $ do
+        void $ count 3 (char ch)
+        n  <- (+ 3) . length <$> many (char ch)
+        ml <- optional (T.strip <$> grabLine <?> "info string")
+        guard (maybe True (not . T.any (== '`')) ml)
+        return
+          (ch, n,
+             case ml of
+               Nothing -> Nothing
+               Just l  ->
+                 if T.null l
+                   then Nothing
+                   else Just l)
+  (ch, n, infoString) <- (p '`' <|> p '~') <* eol
+  let content = label "code block content" (option "" grabLine <* eol)
+      closingFence = try . label "closing code fence" $ do
+        void casualLevel'
+        void $ count n (char ch)
+        (void . many . char) ch
+        sc'
+        eof <|> eol
+  ls <- manyTill content closingFence
   CodeBlock infoString (assembleCodeBlock level ls) <$ sc
-
-pOpeningCodeFence :: Parser (Char, Int, Maybe Text)
-pOpeningCodeFence = p '`' <|> p '~'
-  where
-    p ch = try $ do
-      void $ count 3 (char ch)
-      n  <- (+ 3) . length <$> many (char ch)
-      ml <- optional (T.strip <$> grabLine)
-      return
-        (ch, n,
-           case ml of
-             Nothing -> Nothing
-             Just l  ->
-               if T.null l
-                 then Nothing
-                 else Just l)
-
-pClosingCodeFence :: Char -> Int -> Parser ()
-pClosingCodeFence ch n = void . try $
-  count n (char ch) <* many (char ch)
 
 pIndentedCodeBlock :: Parser (Block Isp)
 pIndentedCodeBlock = do
@@ -227,14 +226,13 @@ pParagraph = do
         case ml of
           Nothing -> return []
           Just l ->
-            if (isThematicBreak l || isHeading l) && spacePrefixLength l < 4
+            if isThematicBreak l || isHeading l || isFencedCodeBlock l
               then return []
               else do
                 void grabLine
                 continue <- grabNewline
-                (T.strip l :) <$>
-                  if continue then go else return []
-  l        <- T.strip <$> grabLine
+                (l :) <$> if continue then go else return []
+  l        <- grabLine
   continue <- grabNewline
   ls       <- if continue then go else return []
   Paragraph (Isp startPos (assembleParagraph (l:ls))) <$ sc
@@ -262,7 +260,7 @@ runIsp p (Isp startPos input) =
 pInlines :: Bool -> IParser (NonEmpty Inline)
 pInlines allowLinks = nes (Plain "") <$ eof <|> stuff
   where
-    stuff = NE.some . choice $ -- NOTE order matters here
+    stuff = NE.some . label "inline content" . choice $
       [ pCodeSpan ] <>
       [pInlineLink | allowLinks] <>
       [ pEnclosedInline
@@ -275,7 +273,10 @@ pCodeSpan = do
         void $ count n (char '`')
         notFollowedBy (char '`')
   r <- CodeSpan . collapseWhiteSpace . T.concat <$>
-    manyTill (takeWhile1P Nothing (== '`') <|> takeWhile1P Nothing (/= '`')) finalizer
+    manyTill (label "code span content" $
+               takeWhile1P Nothing (== '`') <|>
+               takeWhile1P Nothing (/= '`'))
+      finalizer
   put LastNonSpace
   return r
 
@@ -354,11 +355,16 @@ pRfdr frame = do
       fail ("can't close " ++ inlineFramePretty frame ++ " here")
 
 pPlain :: IParser Inline
-pPlain = Plain . T.pack <$> some (pEscapedChar <|> pNonEscapedChar)
-
-pEscapedChar :: IParser Char
-pEscapedChar = label "escaped character" $
-  try (char '\\' *> pAsciiPunctuation <* put LastNonSpace)
+pPlain = Plain . T.pack <$> some
+  (pEscapedChar <|> pNewline <|> pNonEscapedChar)
+  where
+    pEscapedChar = label "escaped character" $
+      try (char '\\' *> pAsciiPunctuation <* put LastNonSpace)
+    pNewline = hidden $
+      '\n' <$ eol <* sc' <* put LastSpace
+    pNonEscapedChar = label "unescaped non-markup character" $
+      (spaceChar <* put LastSpace) <|>
+      (satisfy (not . isMarkupChar) <* put LastNonSpace)
 
 pAsciiPunctuation :: IParser Char
 pAsciiPunctuation = satisfy f
@@ -368,11 +374,6 @@ pAsciiPunctuation = satisfy f
       (x >= ':' && x <= '@') ||
       (x >= '[' && x <= '`') ||
       (x >= '{' && x <= '~')
-
-pNonEscapedChar :: IParser Char
-pNonEscapedChar = label "unescaped non-markup character" $
-  (spaceChar <* put LastSpace) <|>
-  (satisfy (not . isMarkupChar) <* put LastNonSpace)
 
 isMarkupChar :: Char -> Bool
 isMarkupChar = \case
@@ -391,6 +392,9 @@ isMarkupChar = \case
 casualLevel :: Parser Pos
 casualLevel = L.indentGuard sc LT (mkPos 5)
 
+casualLevel' :: Parser Pos
+casualLevel' = L.indentGuard sc' LT (mkPos 5)
+
 codeBlockLevel :: Parser Pos
 codeBlockLevel = L.indentGuard sc GT (mkPos 4)
 
@@ -400,14 +404,14 @@ sc = space
 sc1 :: MonadParsec e Text m => m ()
 sc1 = void $ takeWhile1P (Just "white space") isSpaceN
 
-sc' :: Parser ()
-sc' = void $ takeWhileP (Just "white space") spaceNoNewline
+sc' :: MonadParsec e Text m => m ()
+sc' = void $ takeWhileP (Just "white space") isSpaceNoNewline
 
-sc1' :: Parser ()
-sc1' = void $ takeWhile1P (Just "white space") spaceNoNewline
+sc1' :: MonadParsec e Text m => m ()
+sc1' = void $ takeWhile1P (Just "white space") isSpaceNoNewline
 
-spaceNoNewline :: Char -> Bool
-spaceNoNewline x = x == '\t' || x == ' '
+isSpaceNoNewline :: Char -> Bool
+isSpaceNoNewline x = x == '\t' || x == ' '
 
 grabLine :: Parser Text
 grabLine = takeWhile1P Nothing notNewline
@@ -419,25 +423,32 @@ nes :: a -> NonEmpty a
 nes a = a :| []
 
 isThematicBreak :: Text -> Bool
-isThematicBreak l' = T.length l >= 3 &&
+isThematicBreak l' = T.length l >= 3 && indentLevel l' < 4 &&
   (T.all (== '*') l ||
    T.all (== '-') l ||
    T.all (== '_') l)
   where
-    l = T.filter (not . spaceNoNewline) l'
+    l = T.filter (not . isSpaceNoNewline) l'
 
 isHeading :: Text -> Bool
-isHeading = isJust . parseMaybe p
+isHeading = isJust . parseMaybe p . stripIndent (mkPos 4)
   where
     p :: Parser ()
     p = count' 1 6 (char '#') *>
       (eof <|> eol <|> void (char ' ' <* takeRest))
 
-eol :: (MonadParsec e s m, Token s ~ Char) => m ()
-eol = void $ char '\n' <|> char '\r'
+isFencedCodeBlock :: Text -> Bool
+isFencedCodeBlock txt' = f '`' || f '~'
+  where
+    f ch = (T.replicate 3 (T.singleton ch) `T.isPrefixOf` txt) &&
+      not (T.any (== ch) (T.dropWhile (== ch) txt))
+    txt = stripIndent (mkPos 4) txt'
 
-spacePrefixLength :: Text -> Int
-spacePrefixLength = T.foldl' f 0 . T.takeWhile isSpace
+eol :: (MonadParsec e s m, Token s ~ Char) => m ()
+eol = void (char '\n' <|> char '\r') <?> "newline"
+
+indentLevel :: Text -> Int
+indentLevel = T.foldl' f 0 . T.takeWhile isSpaceNoNewline
   where
     f n ch
       | ch == ' '  = n + 1
@@ -459,7 +470,7 @@ assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)
 stripIndent :: Pos -> Text -> Text
 stripIndent indent txt = T.drop m txt
   where
-    m = snd $ T.foldl' f (0, 0) (T.takeWhile isSpace txt)
+    m = snd $ T.foldl' f (0, 0) (T.takeWhile isSpaceNoNewline txt)
     f (!j, !n) ch
       | j  >= i    = (j, n)
       | ch == ' '  = (j + 1, n + 1)
@@ -513,7 +524,7 @@ replaceEof = \case
   TrivialError pos us es -> TrivialError pos (f <$> us) (E.map f es)
   FancyError   pos xs    -> FancyError pos xs
   where
-    f EndOfInput = Label (NE.fromList "end of the inline block")
+    f EndOfInput = Label (NE.fromList "end of inline block")
     f x          = x
 
 -- mmarkErr :: MonadParsec MMarkErr s m => MMarkErr -> m a
