@@ -197,7 +197,7 @@ pFencedCodeBlock = do
 
 pIndentedCodeBlock :: Parser (Block Isp)
 pIndentedCodeBlock = do
-  void codeBlockLevel
+  initialIndent <- codeBlockLevel
   let go = do
         codeLevel <- lookAhead (True <$ codeBlockLevel <|> pure False)
         ml        <- lookAhead (optional grabLine)
@@ -214,7 +214,14 @@ pIndentedCodeBlock = do
             void grabLine
             continue <- grabNewline
             (l :) <$> if continue then go else return []
-  ls <- go
+      -- NOTE This is a bit unfortunate, but it's difficult to guarantee
+      -- that preceding space is not yet consumed when we get to
+      -- interpreting input as an indented code block, so we need to restore
+      -- the space this way.
+      f x      = T.replicate (unPos initialIndent - 1) " " <> x
+      g []     = []
+      g (x:xs) = f x : xs
+  ls <- g <$> go
   CodeBlock Nothing (assembleCodeBlock (mkPos 5) ls) <$ sc
 
 pParagraph :: Parser (Block Isp)
