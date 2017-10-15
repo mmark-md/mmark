@@ -221,6 +221,8 @@ instance NFData a => NFData (Block a)
 data Inline
   = Plain Text
     -- ^ Plain text
+  | LineBreak
+    -- ^ Line break (hard)
   | Emphasis (NonEmpty Inline)
     -- ^ Emphasis
   | Strong (NonEmpty Inline)
@@ -296,8 +298,6 @@ defaultBlockRender = \case
     ol_ $ forM_ items (li_ . defaultBlockRender)
   UnorderedList items ->
     ul_ $ forM_ items (li_ . defaultBlockRender)
-  where
-    newline = "\n"
 
 -- | Apply a render to a given 'Inline'.
 
@@ -311,6 +311,8 @@ defaultInlineRender :: Inline -> Html ()
 defaultInlineRender = \case
   Plain txt ->
     toHtml txt
+  LineBreak ->
+    br_ [] >> newline
   Emphasis inner ->
     em_ (mapM_ defaultInlineRender inner)
   Strong inner ->
@@ -329,3 +331,8 @@ defaultInlineRender = \case
   Image alt src mtitle ->
     let title = maybe [] (pure . title_) mtitle
     in img_ (alt_ alt : src_ src : title)
+
+-- | HTML containing a newline.
+
+newline :: Html ()
+newline = "\n"

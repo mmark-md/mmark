@@ -269,6 +269,7 @@ pInlines allowLinks = nes (Plain "") <$ eof <|> stuff
       [ pCodeSpan ] <>
       [pInlineLink | allowLinks] <>
       [ pEnclosedInline
+      , try pHardLineBreak
       , pPlain ]
 
 pCodeSpan :: IParser Inline
@@ -359,6 +360,15 @@ pRfdr frame = do
       -- FIXME improve errors later
       fail ("can't close " ++ inlineFramePretty frame ++ " here")
 
+pHardLineBreak :: IParser Inline
+pHardLineBreak = do
+  void (char '\\')
+  eol
+  notFollowedBy eof
+  sc'
+  put LastSpace
+  return LineBreak
+
 pPlain :: IParser Inline
 pPlain = Plain . T.pack <$> some
   (pEscapedChar <|> pNewline <|> pNonEscapedChar)
@@ -367,9 +377,11 @@ pPlain = Plain . T.pack <$> some
       try (char '\\' *> pAsciiPunctuation <* put LastNonSpace)
     pNewline = hidden . try $
       '\n' <$ sc' <* eol <* sc' <* put LastSpace
-    pNonEscapedChar = label "unescaped non-markup character" $
-      (spaceChar <* put LastSpace) <|>
-      (satisfy (not . isMarkupChar) <* put LastNonSpace)
+    pNonEscapedChar = label "unescaped non-markup character" . choice $
+      [ try (char '\\' <* notFollowedBy eol <* put LastNonSpace)
+      , spaceChar <* put LastSpace
+      , satisfy f <* put LastNonSpace ]
+    f x = not (isMarkupChar x) && x /= '\\'
 
 pAsciiPunctuation :: IParser Char
 pAsciiPunctuation = satisfy f
