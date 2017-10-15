@@ -551,6 +551,14 @@ spec = parallel $ do
         "Foo χρῆν" ==-> "<p>Foo χρῆν</p>\n"
       it "CM622" $
         "Multiple     spaces" ==-> "<p>Multiple     spaces</p>\n"
+    context "multiple parse errors" $
+      it "they are reported in correct order" $ do
+        let s = "Foo `\n\nBar `.\n"
+            pe = ueib <> etok '`' <> elabel "code span content"
+        s ~->
+          [ err (posN 5  s) pe
+          , err (posN 13 s) pe
+          ]
   describe "useExtension" $
     it "applies given extension" $ do
       doc <- mkDoc "Here we go."

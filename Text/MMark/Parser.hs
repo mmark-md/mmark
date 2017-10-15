@@ -113,12 +113,12 @@ parse file input =
           fromRight (Right x) = x
           fromRight _         =
             error "Text.MMark.Parser.parse: impossible happened"
-      in case concatMap (foldr getErrs []) parsed of
-           [] -> Right MMark
+      in case NE.nonEmpty (foldMap (foldr getErrs []) parsed) of
+           Nothing -> Right MMark
              { mmarkYaml      = Nothing
              , mmarkBlocks    = fmap fromRight <$> parsed
              , mmarkExtension = mempty }
-           es -> (Left . NE.fromList . reverse) es
+           Just es -> Left es
 
 pBlocks :: Parser [Block Isp]
 pBlocks = do
