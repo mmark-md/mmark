@@ -45,6 +45,10 @@ reported.
 The same applies to the syntax of links, images, etc. For example, it's a
 parse error to put a link into text of another link.
 
+MMark also does not support hard line breaks represented as double space
+before newline. Hard line breaks in the form of backslash before newlines
+are supported.
+
 Another difference between Common Mark and MMark is that the latter supports
 more common markdown extensions out-of-the-box. In particular, MMark
 supports:
