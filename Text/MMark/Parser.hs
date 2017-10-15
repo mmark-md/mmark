@@ -136,7 +136,7 @@ pBlock = choice
 pThematicBreak :: Parser (Block Isp)
 pThematicBreak = do
   void casualLevel
-  l <- grabLine
+  l <- nonEmptyLine
   if isThematicBreak l
     then ThematicBreak <$ sc
     else empty
@@ -146,7 +146,7 @@ pAtxHeading = do
   void casualLevel
   hlevel <- length <$> some (char '#')
   guard (hlevel <= 6)
-  finished <- (True <$ eof) <|> grabNewline
+  finished <- (True <$ eof) <|> eol'
   (ispPos, heading) <-
     if finished
       then (,) <$> getPosition <*> pure ""
@@ -174,7 +174,7 @@ pFencedCodeBlock = do
   let p ch = try $ do
         void $ count 3 (char ch)
         n  <- (+ 3) . length <$> many (char ch)
-        ml <- optional (T.strip <$> grabLine <?> "info string")
+        ml <- optional (T.strip <$> nonEmptyLine <?> "info string")
         guard (maybe True (not . T.any (== '`')) ml)
         return
           (ch, n,
@@ -185,7 +185,7 @@ pFencedCodeBlock = do
                    then Nothing
                    else Just l)
   (ch, n, infoString) <- (p '`' <|> p '~') <* eol
-  let content = label "code block content" (option "" grabLine <* eol)
+  let content = label "code block content" (option "" nonEmptyLine <* eol)
       closingFence = try . label "closing code fence" $ do
         void casualLevel'
         void $ count n (char ch)
@@ -204,8 +204,8 @@ pIndentedCodeBlock = do
         if not immediate && not eventual
           then return ls
           else do
-            l        <- option "" grabLine
-            continue <- grabNewline
+            l        <- option "" nonEmptyLine
+            continue <- eol'
             if continue
               then go (l:ls)
               else return (l:ls)
@@ -216,7 +216,7 @@ pIndentedCodeBlock = do
       f x      = T.replicate (unPos initialIndent - 1) " " <> x
       g []     = []
       g (x:xs) = f x : xs
-  ls <- g . reverse . dropWhile isBlankLine <$> go []
+  ls <- g . reverse . dropWhile isBlank <$> go []
   CodeBlock Nothing (assembleCodeBlock (mkPos 5) ls) <$ sc
 
 pParagraph :: Parser (Block Isp)
@@ -224,21 +224,21 @@ pParagraph = do
   void casualLevel
   startPos <- getPosition
   let go = do
-        ml <- lookAhead (optional grabLine)
+        ml <- lookAhead (optional nonEmptyLine)
         case ml of
           Nothing -> return []
           Just l ->
             if or [ isThematicBreak l
                   , isHeading l
                   , isFencedCodeBlock l
-                  , isBlankLine l ]
+                  , isBlank l ]
               then return []
               else do
-                void grabLine
-                continue <- grabNewline
+                void nonEmptyLine
+                continue <- eol'
                 (l :) <$> if continue then go else return []
-  l        <- grabLine
-  continue <- grabNewline
+  l        <- nonEmptyLine
+  continue <- eol'
   ls       <- if continue then go else return []
   Paragraph (Isp startPos (assembleParagraph (l:ls))) <$ sc
 
@@ -392,19 +392,8 @@ pAsciiPunctuation = satisfy f
       (x >= '[' && x <= '`') ||
       (x >= '{' && x <= '~')
 
-isMarkupChar :: Char -> Bool
-isMarkupChar = \case
-  '*' -> True
-  '~' -> True
-  '_' -> True
-  '`' -> True
-  '^' -> True
-  '[' -> True
-  ']' -> True
-  _   -> False
-
 ----------------------------------------------------------------------------
--- Helpers
+-- Parsing helpers
 
 casualLevel :: Parser Pos
 casualLevel = L.indentGuard sc LT (mkPos 5)
@@ -418,32 +407,32 @@ codeBlockLevel = L.indentGuard sc GT (mkPos 4)
 codeBlockLevel' :: Parser Pos
 codeBlockLevel' = L.indentGuard sc' GT (mkPos 4)
 
+nonEmptyLine :: Parser Text
+nonEmptyLine = takeWhile1P Nothing notNewline
+
 sc :: MonadParsec e Text m => m ()
-sc = space
+sc = void $ takeWhileP (Just "white space") isSpaceN
 
 sc1 :: MonadParsec e Text m => m ()
 sc1 = void $ takeWhile1P (Just "white space") isSpaceN
 
 sc' :: MonadParsec e Text m => m ()
-sc' = void $ takeWhileP (Just "white space") isSpaceNoNewline
+sc' = void $ takeWhileP (Just "white space") isSpace
 
 sc1' :: MonadParsec e Text m => m ()
-sc1' = void $ takeWhile1P (Just "white space") isSpaceNoNewline
+sc1' = void $ takeWhile1P (Just "white space") isSpace
 
-isSpaceNoNewline :: Char -> Bool
-isSpaceNoNewline x = x == '\t' || x == ' '
+eol :: MonadParsec e Text m => m ()
+eol = void . label "newline" $ choice
+  [ string "\n"
+  , string "\r\n"
+  , string "\r" ]
 
-grabLine :: Parser Text
-grabLine = takeWhile1P Nothing notNewline
+eol' :: MonadParsec e Text m => m Bool
+eol' = option False (True <$ eol)
 
-notNewline :: Char -> Bool
-notNewline x = x /= '\n' && x /= '\r'
-
-isBlankLine :: Text -> Bool
-isBlankLine = T.all isSpaceNoNewline
-
-nes :: a -> NonEmpty a
-nes a = a :| []
+----------------------------------------------------------------------------
+-- Block-level predicates
 
 isThematicBreak :: Text -> Bool
 isThematicBreak l' = T.length l >= 3 && indentLevel l' < 4 &&
@@ -451,7 +440,7 @@ isThematicBreak l' = T.length l >= 3 && indentLevel l' < 4 &&
    T.all (== '-') l ||
    T.all (== '_') l)
   where
-    l = T.filter (not . isSpaceNoNewline) l'
+    l = T.filter (not . isSpace) l'
 
 isHeading :: Text -> Bool
 isHeading = isJust . parseMaybe p . stripIndent (mkPos 4)
@@ -467,49 +456,63 @@ isFencedCodeBlock txt' = f '`' || f '~'
       not (T.any (== ch) (T.dropWhile (== ch) txt))
     txt = stripIndent (mkPos 4) txt'
 
-eol :: (MonadParsec e s m, Token s ~ Char) => m ()
-eol = void (char '\n' <|> char '\r') <?> "newline"
-
-indentLevel :: Text -> Int
-indentLevel = T.foldl' f 0 . T.takeWhile isSpaceNoNewline
-  where
-    f n ch
-      | ch == ' '  = n + 1
-      | ch == '\t' = n + 4
-      | otherwise  = n
-
-grabNewline :: Parser Bool
-grabNewline = choice
-  [ True <$ char '\n'
-  , True <$ char '\r'
-  , pure False ]
-
-assembleParagraph :: [Text] -> Text
-assembleParagraph = go
-  where
-    go []     = ""
-    go [x]    = T.dropWhileEnd isSpaceNoNewline x
-    go (x:xs) = x <> "\n" <> go xs
-
-assembleCodeBlock :: Pos -> [Text] -> Text
-assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)
-
-stripIndent :: Pos -> Text -> Text
-stripIndent indent txt = T.drop m txt
-  where
-    m = snd $ T.foldl' f (0, 0) (T.takeWhile isSpaceNoNewline txt)
-    f (!j, !n) ch
-      | j  >= i    = (j, n)
-      | ch == ' '  = (j + 1, n + 1)
-      | ch == '\t' = (j + 4, n + 1)
-      | otherwise  = (j, n)
-    i = unPos indent - 1
+----------------------------------------------------------------------------
+-- Other helpers
 
 isSpace :: Char -> Bool
 isSpace x = x == ' ' || x == '\t'
 
 isSpaceN :: Char -> Bool
 isSpaceN x = isSpace x || x == '\n' || x == '\r'
+
+notNewline :: Char -> Bool
+notNewline x = x /= '\n' && x /= '\r'
+
+isBlank :: Text -> Bool
+isBlank = T.all isSpace
+
+isMarkupChar :: Char -> Bool
+isMarkupChar = \case
+  '*' -> True
+  '~' -> True
+  '_' -> True
+  '`' -> True
+  '^' -> True
+  '[' -> True
+  ']' -> True
+  _   -> False
+
+nes :: a -> NonEmpty a
+nes a = a :| []
+
+assembleParagraph :: [Text] -> Text
+assembleParagraph = go
+  where
+    go []     = ""
+    go [x]    = T.dropWhileEnd isSpace x
+    go (x:xs) = x <> "\n" <> go xs
+
+assembleCodeBlock :: Pos -> [Text] -> Text
+assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)
+
+indentLevel :: Text -> Int
+indentLevel = T.foldl' f 0 . T.takeWhile isSpace
+  where
+    f n ch
+      | ch == ' '  = n + 1
+      | ch == '\t' = n + 4
+      | otherwise  = n
+
+stripIndent :: Pos -> Text -> Text
+stripIndent indent txt = T.drop m txt
+  where
+    m = snd $ T.foldl' f (0, 0) (T.takeWhile isSpace txt)
+    f (!j, !n) ch
+      | j  >= i    = (j, n)
+      | ch == ' '  = (j + 1, n + 1)
+      | ch == '\t' = (j + 4, n + 1)
+      | otherwise  = (j, n)
+    i = unPos indent - 1
 
 collapseWhiteSpace :: Text -> Text
 collapseWhiteSpace =
