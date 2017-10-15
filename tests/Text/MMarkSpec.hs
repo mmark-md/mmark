@@ -439,6 +439,39 @@ spec = parallel $ do
       it "CM331" $ do
         let s = "a*\"foo\"*"
         s ~-> [ err (posN 1 s) (utok '*') ]
+    context "6.9 Hard line breaks" $ do
+      -- NOTE We currently do not support hard line breaks represented in
+      -- markup as space before newline.
+      xit "CM603" $
+        "foo  \nbaz" ==-> "<p>foo<br>\nbaz</p>\n"
+      it "CM604" $
+        "foo\\\nbaz\n" ==-> "<p>foo<br>\nbaz</p>\n"
+      xit "CM605" $
+         "foo       \nbaz" ==-> "<p>foo<br>\nbaz</p>\n"
+      xit "CM606" $
+        "foo  \n     bar" ==-> "<p>foo<br>\nbar</p>\n"
+      it "CM607" $
+        "foo\\\n     bar" ==-> "<p>foo<br>\nbar</p>\n"
+      xit "CM608" $
+        "*foo  \nbar*" ==-> "<p><em>foo<br>\nbar</em></p>\n"
+      it "CM609" $
+        "*foo\\\nbar*" ==-> "<p><em>foo<br>\nbar</em></p>\n"
+      it "CM610" $
+        "`code  \nspan`" ==-> "<p><code>code span</code></p>\n"
+      it "CM611" $
+        "`code\\\nspan`" ==-> "<p><code>code\\ span</code></p>\n"
+      xit "CM612" $
+        "<a href=\"foo  \nbar\">" ==-> "<p><a href=\"foo  \nbar\"></p>\n"
+      xit "CM613" $ -- FIXME peding HTML inlines
+        "<a href=\"foo\\\nbar\">" ==-> "<p><a href=\"foo\\\nbar\"></p>\n"
+      it "CM614" $
+        "foo\\" ==-> "<p>foo\\</p>\n"
+      xit "CM615" $
+        "foo  " ==-> "<p>foo</p>\n"
+      it "CM616" $
+        "### foo\\" ==-> "<h3>foo\\</h3>\n"
+      it "CM617" $
+        "### foo  " ==-> "<h3>foo</h3>\n"
     context "6.10 Soft line breaks" $ do
       it "CM618" $
         "foo\nbaz" ==-> "<p>foo\nbaz</p>\n"
