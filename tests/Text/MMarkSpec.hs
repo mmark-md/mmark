@@ -61,13 +61,13 @@ spec = parallel $ do
         "+++" ==-> "<p>+++</p>\n"
       it "CM15" $
         "===" ==-> "<p>===</p>\n"
-      xit "CM16" $ -- FIXME inline error reform
+      xit "CM16" $
         "--\n**\n__" ==-> "<p>--\n**\n__</p>\n"
       it "CM17" $
         " ***\n  ***\n   ***" ==-> "<hr>\n<hr>\n<hr>\n"
       it "CM18" $
         "    ***" ==-> "<pre><code>***\n</code></pre>\n"
-      xit "CM19" $ -- FIXME inline error reform
+      xit "CM19" $
         "Foo\n    ***" ==-> "<p>Foo\n***</p>\n"
       it "CM20" $
         "_____________________________________" ==->
@@ -80,7 +80,7 @@ spec = parallel $ do
         "-     -      -      -" ==-> "<hr>\n"
       it "CM24" $
         "- - - -    " ==-> "<hr>\n"
-      xit "CM25" $ -- FIXME inline error reform
+      xit "CM25" $
         "_ _ _ _ a\n\na------\n\n---a---" ==->
           "<p>_ _ _ _ a</p>\n<p>a------</p>\n<p>---a---</p>\n"
       it "CM26" $
@@ -321,8 +321,7 @@ spec = parallel $ do
       it "CM286" $ do
         let s  = "`hi`lo`"
             s' = s <> "\n"
-            pe = ulabel "end of inline block"
-              <> etok '`' <> elabel "code span content"
+            pe = ueib <> etok '`' <> elabel "code span content"
         s  ~-> [ err (posN 7 s)  pe ]
         s' ~-> [ err (posN 7 s') pe ]
     context "6.1 Blackslash escapes" $ do
@@ -332,9 +331,126 @@ spec = parallel $ do
       it "CM288" $
         "\\\t\\A\\a\\ \\3\\φ\\«" ==->
           "<p>\\\t\\A\\a\\ \\3\\φ\\«</p>\n"
-      -- it "CM289" $
-      --   "\\*not emphasized*\n\\<br/> not a tag\n\\[not a link](/foo)\n\\`not code`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo]: /url \"not a reference\"\n" ==->
-      --   "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url &quot;not a reference&quot;</p>\n"
+      it "CM289" $
+        "\\*not emphasized\\*\n\\<br/> not a tag\n\\[not a link\\](/foo)\n\\`not code\\`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo\\]: /url \"not a reference\"\n" ==->
+        "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url &quot;not a reference&quot;</p>\n"
+      it "CM290" $
+        "\\\\*emphasis*" ==->
+          "<p>\\<em>emphasis</em></p>\n"
+      xit "CM291" $ -- FIXME pending hard line breaks
+        "foo\\\nbar" ==->
+          "<p>foo<br />\nbar</p>\n"
+      it "CM292" $
+        "`` \\[\\` ``" ==->
+          "<p><code>\\[\\`</code></p>\n"
+      it "CM293" $
+        "    \\[\\]" ==->
+          "<pre><code>\\[\\]\n</code></pre>\n"
+      it "CM294" $
+        "~~~\n\\[\\]\n~~~" ==->
+          "<pre><code>\\[\\]\n</code></pre>\n"
+      xit "CM295" $ -- FIXME pending autolinks
+        "<http://example.com?find=\\*>" ==->
+          "<p><a href=\"http://example.com?find=%5C*\">http://example.com?find=\\*</a></p>\n"
+      xit "CM296" $ -- FIXME pending HTML inlines
+        "<a href=\"/bar\\/)\">" ==->
+          "<a href=\"/bar\\/)\">\n"
+      it "CM297" $
+        "[foo](/bar\\* \"ti\\*tle\")" ==->
+          "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n"
+      xit "CM298" $ -- FIXME pending reference links
+        "[foo]\n\n[foo]: /bar\\* \"ti\\*tle\"" ==->
+          "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n"
+      it "CM299" $
+        "``` foo\\+bar\nfoo\n```" ==->
+          "<pre><code class=\"language-foo+bar\">foo\n</code></pre>\n"
+    context "6.2 Entity and numeric character references" $
+      xit "CM300" $ -- FIXME pending entity references
+        "&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;"
+          ==-> "<p>  &amp; © Æ Ď\n¾ ℋ ⅆ\n∲ ≧̸</p>\n"
+    context "6.3 Code spans" $ do
+      it "CM312" $
+        "`foo`" ==-> "<p><code>foo</code></p>\n"
+      it "CM313" $
+        "`` foo ` bar  ``" ==->
+          "<p><code>foo ` bar</code></p>\n"
+      it "CM314" $
+        "` `` `" ==-> "<p><code>``</code></p>\n"
+      it "CM315" $
+        "``\nfoo\n``" ==-> "<p><code>foo</code></p>\n"
+      it "CM316" $
+        "`foo   bar\n  baz`" ==-> "<p><code>foo bar baz</code></p>\n"
+      it "CM317" $
+        "`a  b`" ==-> "<p><code>a  b</code></p>\n"
+      it "CM318" $
+        "`foo `` bar`" ==-> "<p><code>foo `` bar</code></p>\n"
+      it "CM319" $
+        "`foo\\`bar`" ==-> "<p><code>foo\\</code>bar`</p>\n"
+      it "CM320" $
+        "*foo`*`" ==-> "<p>*foo<code>*</code></p>\n"
+      it "CM321" $
+        "[not a `link](/foo`)" ==->
+          "<p>[not a <code>link](/foo</code>)</p>\n"
+      it "CM322" $
+        "`<a href=\"`\">`" ==->
+          "<p><code>&lt;a href=&quot;</code>&quot;&gt;`</p>\n"
+      it "CM323" $
+        "<a href=\"`\">`" ==->
+          "<p><a href=\"`\">`</p>\n"
+      it "CM324" $
+        "`<http://foo.bar.`baz>`" ==->
+          "<p><code>&lt;http://foo.bar.</code>baz&gt;`</p>\n"
+      it "CM325" $
+        "<http://foo.bar.`baz>`" ==->
+          "<p><a href=\"http://foo.bar.%60baz\">http://foo.bar.`baz</a>`</p>\n"
+      it "CM326" $ do
+        let s  = "```foo``"
+            s' = s <> "\n"
+        s ~->
+          [ err (posN 8 s) (ueib <> etok '`' <> elabel "code span content")
+          ]
+        s' ~->
+          [ err (posN 8 s') (ueib <> etok '`' <> elabel "code span content")
+          ]
+      it "CM327" $ do
+        let s  = "`foo"
+            s' = s <> "\n"
+        s ~->
+          [ err (posN 4 s) (ueib <> etok '`' <> elabel "code span content")
+          ]
+        s' ~->
+          [ err (posN 4 s') (ueib <> etok '`' <> elabel "code span content")
+          ]
+      it "CM328" $ do
+        let s  = "`foo``bar``"
+            s' = s <> "\n"
+        s ~->
+          [ err (posN 11 s) (ueib <> etok '`' <> elabel "code span content")
+          ]
+        s' ~->
+          [ err (posN 11 s') (ueib <> etok '`' <> elabel "code span content")
+          ]
+    context "6.4 Emphasis and strong emphasis" $ do
+      it "CM329" $
+        "*foo bar*" ==-> "<p><em>foo bar</em></p>\n"
+      it "CM330" $ do
+        let s = "a * foo bar*"
+        s ~-> [ err (posN 2 s) (utok '*') ]
+      it "CM331" $ do
+        let s = "a*\"foo\"*"
+        s ~-> [ err (posN 1 s) (utok '*') ]
+    context "6.10 Soft line breaks" $ do
+      it "CM618" $
+        "foo\nbaz" ==-> "<p>foo\nbaz</p>\n"
+      it "CM619" $
+        "foo \n baz" ==-> "<p>foo\nbaz</p>\n"
+    context "6.11 Textual content" $ do
+      it "CM620" $
+        "hello $.;'there" ==-> "<p>hello $.;&#39;there</p>\n"
+      it "CM621" $
+        "Foo χρῆν" ==-> "<p>Foo χρῆν</p>\n"
+      it "CM622" $
+        "Multiple     spaces" ==-> "<p>Multiple     spaces</p>\n"
   describe "useExtension" $
     it "applies given extension" $ do
       doc <- mkDoc "Here we go."
@@ -394,3 +510,11 @@ length_scan p = Ext.scanner $ \n block ->
   where
     f (Plain txt) = (Sum . T.length) (T.filter p txt)
     f _           = mempty
+
+----------------------------------------------------------------------------
+-- Helpers
+
+-- | Unexpected end of inline block.
+
+ueib :: Ord t => ET t
+ueib = ulabel "end of inline block"

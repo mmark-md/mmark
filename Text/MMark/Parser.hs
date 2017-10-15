@@ -365,8 +365,8 @@ pPlain = Plain . T.pack <$> some
   where
     pEscapedChar = label "escaped character" $
       try (char '\\' *> pAsciiPunctuation <* put LastNonSpace)
-    pNewline = hidden $
-      '\n' <$ eol <* sc' <* put LastSpace
+    pNewline = hidden . try $
+      '\n' <$ sc' <* eol <* sc' <* put LastSpace
     pNonEscapedChar = label "unescaped non-markup character" $
       (spaceChar <* put LastSpace) <|>
       (satisfy (not . isMarkupChar) <* put LastNonSpace)
