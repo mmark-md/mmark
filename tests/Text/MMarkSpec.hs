@@ -439,6 +439,73 @@ spec = parallel $ do
       it "CM331" $ do
         let s = "a*\"foo\"*"
         s ~-> [ err (posN 1 s) (utok '*') ]
+    context "6.5 Links" $ do
+      it "CM457" $
+        "[link](/uri \"title\")" ==->
+          "<p><a href=\"/uri\" title=\"title\">link</a></p>\n"
+      it "CM458" $
+        "[link](/uri)" ==->
+          "<p><a href=\"/uri\">link</a></p>\n"
+      it "CM459" $
+        "[link]()" ==->
+          "<p><a href>link</a></p>\n"
+      it "CM460" $
+        "[link](<>)" ==->
+          "<p><a href>link</a></p>\n"
+      it "CM461" $
+        "[link](/my uri)" ==-> "<p>[link](/my uri)</p>\n"
+      it "CM462" $ do
+        let s  = "[link](</my uri>)"
+            s' = s <> "\n"
+            pe = utok ' ' <> etok '>' <> elabel "escaped link character"
+              <> elabel "unescaped link character"
+        s  ~-> [ err (posN 11 s)  pe ]
+        s' ~-> [ err (posN 11 s') pe ]
+      it "CM463" $ do
+        let s  = "[link](foo\nbar)"
+            s' = s <> "\n"
+            pe = utok '\n' <> etok '>' <> elabel "escaped link character"
+              <> elabel "unescaped link character"
+        s  ~-> [ err (posN 9 s)  pe ]
+        s' ~-> [ err (posN 9 s') pe ]
+      it "CM464" $ do
+        let s  = "[link](<foo\nbar>)"
+            s' = "<p>[link](<foo\nbar>)</p>\n"
+            pe = utok '\n' <> etok '>' <> elabel "escaped link character"
+              <> elabel "unescaped link character"
+        s  ~-> [ err (posN 11 s)  pe ]
+        s' ~-> [ err (posN 11 s') pe ]
+      it "CM465" $
+        "[link](\\(foo\\))" ==->
+          "<p><a href=\"(foo)\">link</a></p>\n"
+      it "CM466" $ do
+        let s  = "[link](foo(and(bar)))"
+            s' = s <> "\n"
+            pe = utok '(' <> etok ')' <> elabel "escaped link character"
+              <> elabel "unescaped link character"
+        s  ~-> [ err (posN 10 s)  pe ]
+        s' ~-> [ err (posN 10 s') pe ]
+      it "CM467" $
+        "[link](foo\\(and\\(bar\\))" ==->
+          "<p><a href=\"foo(and(bar)\">link</a></p>\n"
+      it "CM468" $
+        "[link](<foo(and(bar)>)" ==->
+          "<p><a href=\"foo(and(bar)\">link</a></p>\n"
+      it "CM469" $
+        "[link](foo\\)\\:)" ==->
+          "<p><a href=\"foo):\">link</a></p>\n"
+      it "CM470" $
+        "[link](#fragment)\n\n[link](http://example.com#fragment)\n\n[link](http://example.com?foo=3#frag)\n"
+          ==-> "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"http://example.com#fragment\">link</a></p>\n<p><a href=\"http://example.com?foo=3#frag\">link</a></p>\n"
+      it "CM471" $
+        "[link](foo\\bar)"
+          ==-> "<p><a href=\"foo%5Cbar\">link</a></p>\n"
+      it "CM472" $
+        "[link](foo%20b&auml;)"
+          ==-> "<p><a href=\"foo%20b%C3%A4\">link</a></p>\n"
+      it "CM473" $
+        "[link](\"title\")"
+          ==-> "<p><a href=\"%22title%22\">link</a></p>\n"
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.
