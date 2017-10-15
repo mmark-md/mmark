@@ -94,6 +94,7 @@ module Text.MMark
     MMark
   , MMarkErr (..)
   , parse
+  , parseErrorsPretty
     -- * Extensions
   , Extension
   , useExtension
@@ -108,10 +109,25 @@ module Text.MMark
 where
 
 import Data.Aeson
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.Text (Text)
 import Text.MMark.Internal
 import Text.MMark.Parser
+import Text.Megaparsec (ParseError (..), parseErrorPretty_, mkPos)
 
 -- | Extract contents of optional YAML block that may have been parsed.
 
 projectYaml :: MMark -> Maybe Value
 projectYaml = mmarkYaml
+
+-- | Pretty-print a collection of parse errors returned from 'parse'.
+--
+-- __Pro tip__: if you would like to pretty-print a single 'ParseError', use
+-- @'parseErrorPretty_' ('mkPos' 4)@, because Common Mark suggests that we
+-- should assume tab width 4, and that's what we do in the parser.
+
+parseErrorsPretty
+  :: Text              -- ^ Original input for parser
+  -> NonEmpty (ParseError Char MMarkErr) -- ^ Collection of parse errors
+  -> String            -- ^ Result of pretty-printing
+parseErrorsPretty input = concatMap (parseErrorPretty_ (mkPos 4) input)

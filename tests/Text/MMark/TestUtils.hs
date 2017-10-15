@@ -11,7 +11,6 @@ module Text.MMark.TestUtils
 where
 
 import Control.Monad
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import Test.Hspec
 import Text.MMark (MMark, MMarkErr)
@@ -34,7 +33,7 @@ mkDoc input =
     Left errs -> do
       expectationFailure $
         "while parsing a document, parse error(s) occurred:\n" ++
-        showParseErrors input errs
+        MMark.parseErrorsPretty input errs
       undefined
     Right x -> return x
 
@@ -61,9 +60,9 @@ input ~-> errs'' =
   case MMark.parse "" input of
     Left errs' -> unless (errs == errs') . expectationFailure $
       "the parser is expected to fail with:\n" ++
-      showParseErrors input errs               ++
+      MMark.parseErrorsPretty input errs       ++
       "but it failed with:\n"                  ++
-      showParseErrors input errs'
+      MMark.parseErrorsPretty input errs'
     Right x -> expectationFailure $
       "the parser is expected to fail, but it parsed: " ++ T.unpack (toText x)
   where
@@ -82,7 +81,7 @@ input =-> expected =
   case MMark.parse "" input of
     Left errs -> expectationFailure $
       "the parser is expected to succeed, but it failed with:\n" ++
-      showParseErrors input errs
+      MMark.parseErrorsPretty input errs
     Right factual -> toText factual `shouldBe` expected
 
 -- | Just like @('=->')@, but also appends newline to given input and tries
@@ -97,14 +96,3 @@ infix ==->
 input ==-> expected = do
   input              =-> expected
   mappend input "\n" =-> expected
-
-----------------------------------------------------------------------------
--- Helpers
-
--- | Render a non-empty collection of parse errors.
-
-showParseErrors
-  :: Text              -- ^ Original parser input
-  -> NonEmpty (ParseError Char MMarkErr) -- ^ Collection of parse errors to show
-  -> String            -- ^ Rendered errors
-showParseErrors input = concatMap (parseErrorPretty_ (mkPos 4) input)

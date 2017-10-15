@@ -89,10 +89,6 @@ data InlineFrame
 -- | Parse a markdown document in the form of a strict 'Text' value and
 -- either report parse errors or return a 'MMark' document. Note that the
 -- parser has the ability to report multiple parse errors at once.
---
--- __Pro tip__: use @'parseErrorPretty_' ('mkPos' 4)@ to pretty print parse
--- errors, because Common Mark suggests that we should assume tab width 4,
--- and that's what we do in the parser.
 
 parse
   :: String
