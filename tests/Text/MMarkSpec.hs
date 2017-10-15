@@ -310,9 +310,9 @@ spec = parallel $ do
       it "CM186" $
         "    aaa\nbbb" ==->
           "<pre><code>aaa\n</code></pre>\n<p>bbb</p>\n"
-      xit "CM187" $ -- FIXME pending hard line breaks
+      it "CM187" $
         "aaa     \nbbb     " ==->
-          "<p>aaa<br>\nbbb</p>\n"
+          "<p>aaa\nbbb</p>\n"
     context "4.9 Blank lines" $
       it "CM188" $
         "  \n\naaa\n  \n\n# aaa\n\n  " ==->
@@ -337,9 +337,9 @@ spec = parallel $ do
       it "CM290" $
         "\\\\*emphasis*" ==->
           "<p>\\<em>emphasis</em></p>\n"
-      xit "CM291" $ -- FIXME pending hard line breaks
+      xit "CM291" $
         "foo\\\nbar" ==->
-          "<p>foo<br />\nbar</p>\n"
+          "<p>foo<br>\nbar</p>\n"
       it "CM292" $
         "`` \\[\\` ``" ==->
           "<p><code>\\[\\`</code></p>\n"

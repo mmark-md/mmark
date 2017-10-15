@@ -485,7 +485,11 @@ grabNewline = choice
   , pure False ]
 
 assembleParagraph :: [Text] -> Text
-assembleParagraph = T.intercalate "\n"
+assembleParagraph = go
+  where
+    go []     = ""
+    go [x]    = T.dropWhileEnd isSpaceNoNewline x
+    go (x:xs) = x <> "\n" <> go xs
 
 assembleCodeBlock :: Pos -> [Text] -> Text
 assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)
