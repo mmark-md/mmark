@@ -372,18 +372,17 @@ spec = parallel $ do
         let s  = "*foo`*`\n"
         in s ~-> err (posN 7 s) (ueib <> etok '*' <> elabel "inline content")
       it "CM321" $
-        "[not a `link](/foo`)" ==->
-          "<p>[not a <code>link](/foo</code>)</p>\n"
+        let s = "[not a `link](/foo`)\n"
+        in s ~-> err (posN 20 s) (ueib <> etok ']' <> elabel "inline content" <> eric)
       it "CM322" $
-        "`<a href=\"`\">`" ==->
-          "<p><code>&lt;a href=&quot;</code>&quot;&gt;`</p>\n"
-      it "CM323" $
-        "<a href=\"`\">`" ==->
-          "<p><a href=\"`\">`</p>\n"
+        let s = "`<a href=\"`\">`\n"
+        in s ~-> err (posN 14 s) (ueib <> etok '`' <> elabel "code span content")
+      xit "CM323" $ -- FIXME pending HTML inlines
+        "<a href=\"`\">`" ==-> "<p><a href=\"`\">`</p>\n"
       it "CM324" $
-        "`<http://foo.bar.`baz>`" ==->
-          "<p><code>&lt;http://foo.bar.</code>baz&gt;`</p>\n"
-      it "CM325" $
+        let s = "`<http://foo.bar.`baz>`\n"
+        in s ~-> err (posN 23 s) (ueib <> etok '`' <> elabel "code span content")
+      xit "CM325" $ -- FIXME pending autolinks
         "<http://foo.bar.`baz>`" ==->
           "<p><a href=\"http://foo.bar.%60baz\">http://foo.bar.`baz</a>`</p>\n"
       it "CM326" $
@@ -767,26 +766,28 @@ spec = parallel $ do
         "[link](<>)" ==->
           "<p><a href>link</a></p>\n"
       it "CM461" $
-        "[link](/my uri)" ==-> "<p>[link](/my uri)</p>\n"
+        let s = "[link](/my uri)\n"
+        in s ~-> err (posN 11 s)
+           (utok 'u' <> etok '"' <> etok '\'' <> etok '(' <> elabel "white space")
       it "CM462" $
         let s = "[link](</my uri>)\n"
         in s ~-> err (posN 11 s)
-           (utok ' ' <> etok '>' <> elabel "escaped link character" <> elabel "unescaped link character")
+           (utok ' ' <> etok '>' <> elabel "escaped character" <> elabel "unescaped link character")
       it "CM463" $
         let s = "[link](foo\nbar)\n"
-        in s ~-> err (posN 9 s)
-           (utok '\n' <> etok '>' <> elabel "escaped link character" <> elabel "unescaped link character")
+        in s ~-> err (posN 11 s)
+           (utok 'b' <> etok '"' <> etok '\'' <> etok '(' <> elabel "white space")
       it "CM464" $
         let s = "[link](<foo\nbar>)\n"
         in s ~-> err (posN 11 s)
-           (utok '\n' <> etok '>' <> elabel "escaped link character" <> elabel "unescaped link character")
+           (utok '\n' <> etok '>' <> elabel "escaped character" <> elabel "unescaped link character")
       it "CM465" $
         "[link](\\(foo\\))" ==->
           "<p><a href=\"(foo)\">link</a></p>\n"
       it "CM466" $
         let s = "[link](foo(and(bar)))\n"
         in s ~-> err (posN 10 s)
-           (utok '(' <> etok ')' <> elabel "escaped link character" <> elabel "unescaped link character")
+           (utok '(' <> etok ')' <> elabel "escaped character" <> elabel "unescaped link character" <> elabel "white space")
       it "CM467" $
         "[link](foo\\(and\\(bar\\))" ==->
           "<p><a href=\"foo(and(bar)\">link</a></p>\n"
