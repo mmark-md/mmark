@@ -898,7 +898,7 @@ spec = parallel $ do
         "`code\\\nspan`" ==-> "<p><code>code\\ span</code></p>\n"
       xit "CM612" $
         "<a href=\"foo  \nbar\">" ==-> "<p><a href=\"foo  \nbar\"></p>\n"
-      xit "CM613" $ -- FIXME peding HTML inlines
+      xit "CM613" $ -- FIXME pending HTML inlines
         "<a href=\"foo\\\nbar\">" ==-> "<p><a href=\"foo\\\nbar\"></p>\n"
       it "CM614" $
         "foo\\" ==-> "<p>foo\\</p>\n"
@@ -928,6 +928,39 @@ spec = parallel $ do
           [ err (posN 5  s) pe
           , err (posN 13 s) pe
           ]
+    -- NOTE I don't test these so extensively because they share
+    -- implementation with emphasis and strong emphasis which are thoroughly
+    -- tested already.
+    context "strikeout" $ do
+      it "works in simplest form" $
+        "It's ~~bad~~ news." ==->
+          "<p>It&#39;s <del>bad</del> news.</p>\n"
+      it "combines with emphasis" $
+        "**It's ~~bad~~** news." ==->
+          "<p><strong>It&#39;s <del>bad</del></strong> news.</p>\n"
+      it "interacts with subscript reasonably (1)" $
+        "It's ~~~bad~~ news~." ==->
+          "<p>It&#39;s <sub><del>bad</del> news</sub>.</p>\n"
+      it "interacts with subscript reasonably (2)" $
+        "It's ~~~bad~ news~~." ==->
+          "<p>It&#39;s <del><sub>bad</sub> news</del>.</p>\n"
+    context "subscript" $ do
+      it "works in simplest form" $
+        "It's ~bad~ news." ==->
+          "<p>It&#39;s <sub>bad</sub> news.</p>\n"
+      it "combines with emphasis" $
+        "**It's ~bad~** news." ==->
+          "<p><strong>It&#39;s <sub>bad</sub></strong> news.</p>\n"
+    context "superscript" $ do
+      it "works in simplest form" $
+        "It's ^bad^ news." ==->
+          "<p>It&#39;s <sup>bad</sup> news.</p>\n"
+      it "combines with emphasis" $
+        "**It's ^bad^** news." ==->
+          "<p><strong>It&#39;s <sup>bad</sup></strong> news.</p>\n"
+      it "a composite, complex example" $
+        "***Something ~~~is not~~ going~ ^so well^** today*." ==->
+          "<p><em><strong>Something <sub><del>is not</del> going</sub> <sup>so well</sup></strong> today</em>.</p>\n"
   describe "useExtension" $
     it "applies given extension" $ do
       doc <- mkDoc "Here we go."

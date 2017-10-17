@@ -341,6 +341,8 @@ pEnclosedInline = do
     , pLfdr (DoubleFrame StrongFrame_ EmphasisFrame_)
     , pLfdr (SingleFrame StrongFrame_)
     , pLfdr (SingleFrame EmphasisFrame_)
+    , pLfdr (DoubleFrame StrikeoutFrame StrikeoutFrame)
+    , pLfdr (DoubleFrame StrikeoutFrame SubscriptFrame)
     , pLfdr (SingleFrame StrikeoutFrame)
     , pLfdr (SingleFrame SubscriptFrame)
     , pLfdr (SingleFrame SuperscriptFrame) ]
