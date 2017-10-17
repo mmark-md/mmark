@@ -9,9 +9,10 @@
 --
 -- MMark (read “em-mark”) is a strict markdown processor for writers.
 -- “Strict” means that not every input is considered valid markdown and
--- parse errors are possible and even desirable, so one can know that
--- something is not quite right before looking at incorrect (or rather
--- simply unexpected) result of rendering. This feature makes it a good
+-- parse errors are possible and even desirable because they allow to spot
+-- markup issues without searching for them in rendered document. If a
+-- markdown document passes MMark parser, then it'll most certainly produce
+-- HTML without any unexpected artifacts. This feature makes it a good
 -- choice for writers and bloggers.
 --
 -- === MMark and Common Mark
@@ -22,30 +23,7 @@
 --
 -- However, due to the fact that we do not allow inputs that do not make
 -- sense, MMark obviously can't follow the specification precisely. In
--- particular, parsing of inlines differs considerably from Common Mark. For
--- example, some characters like @*@, @_@, etc. that usually appear in
--- markup in what is called left- and right-flanking delimiter runs are
--- allowed only in those positions:
---
--- > *Something* is not right.
--- > Something __is__ not right.
---
--- This produces a parse error:
---
--- > *Something * is not right.
--- > Something __is __ not right.
---
--- Here is the full list of so-called __markup characters__: @*@, @~@, @_@,
--- @`@, @^@, @[@, @]@. When they appear without escaping, they must form
--- correct markup structures in inlines, otherwise parse errors will be
--- reported.
---
--- The same applies to the syntax of links, images, etc. For example, it's a
--- parse error to put a link into text of another link.
---
--- MMark also does not support hard line breaks represented as double space
--- before newline. Hard line breaks in the form of backslash before newlines
--- are supported.
+-- particular, parsing of inlines differs considerably from Common Mark.
 --
 -- Another difference between Common Mark and MMark is that the latter
 -- supports more common markdown extensions out-of-the-box. In particular,
@@ -61,6 +39,9 @@
 --
 -- You do not need to enable or tweak anything for these to work, they are
 -- built-in features.
+--
+-- The readme contains a more detailed description of differences between
+-- Common Mark and MMark.
 --
 -- === How to use the library
 --
