@@ -14,7 +14,9 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE GADTs              #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE MultiWayIf         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TypeFamilies       #-}
 
@@ -27,7 +29,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Data (Data)
-import Data.List.NonEmpty (NonEmpty (..))
+import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.Maybe (isJust)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
@@ -37,6 +39,7 @@ import Text.MMark.Internal
 import Text.Megaparsec hiding (parse)
 import Text.Megaparsec.Char hiding (eol)
 import qualified Control.Applicative.Combinators.NonEmpty as NE
+import qualified Data.Char                                as Char
 import qualified Data.List.NonEmpty                       as NE
 import qualified Data.Set                                 as E
 import qualified Data.Text                                as T
@@ -49,26 +52,33 @@ import qualified Text.Megaparsec.Char.Lexer               as L
 
 type Parser = Parsec MMarkErr Text
 
--- | Parser type for inlines.
-
-type IParser = StateT LastChar (Parsec MMarkErr Text)
-
 -- | MMark custom parse errors.
 
-data MMarkErr = MMarkDummy
+data MMarkErr
+  = NonFlankingDelimiterRun (NonEmpty Char)
+    -- ^ This delimiter run should be in left- or right- flanking position
   deriving (Eq, Ord, Show, Read, Generic, Typeable, Data)
 
 instance ShowErrorComponent MMarkErr where
-  showErrorComponent MMarkDummy = "mmark dummy error"
+  showErrorComponent (NonFlankingDelimiterRun dels) =
+    showTokens dels ++ " should be in left- or right- flanking position"
 
--- | Type of last parsed character: white space or not?
+-- | Parser type for inlines.
 
-data LastChar = LastSpace | LastNonSpace
-  deriving (Eq, Ord, Show)
+type IParser = StateT CharType (Parsec MMarkErr Text)
 
 -- | 'Inline' source pending parsing.
 
 data Isp = Isp SourcePos Text
+  deriving (Eq, Ord, Show)
+
+-- | Type of character: white space, markup character, or other?
+
+data CharType
+  = SpaceChar
+  | LeftFlankingDel
+  | RightFlankingDel
+  | OtherChar
   deriving (Eq, Ord, Show)
 
 -- | Frame that describes where we are in parsing inlines.
@@ -81,6 +91,14 @@ data InlineFrame
   | StrikeoutFrame
   | SubscriptFrame
   | SuperscriptFrame
+  deriving (Eq, Ord, Show)
+
+-- | State of inline parsing that specifies whether we expect to close one
+-- frame or there is a possibility to close one of two alternatives.
+
+data InlineState
+  = SingleFrame InlineFrame
+  | DoubleFrame InlineFrame InlineFrame
   deriving (Eq, Ord, Show)
 
 ----------------------------------------------------------------------------
@@ -103,7 +121,7 @@ parse file input =
     -- level cannot be parsed, which should not normally happen.
     Left err -> Left (nes err)
     Right blocks ->
-      let parsed = fmap (runIsp (pInlines True <* eof)) <$> blocks
+      let parsed = fmap (runIsp (pInlines True True <* eof)) <$> blocks
           getErrs (Left e) es = replaceEof e : es
           getErrs _        es = es
           fromRight (Right x) = x
@@ -170,7 +188,7 @@ pFencedCodeBlock = do
   let p ch = try $ do
         void $ count 3 (char ch)
         n  <- (+ 3) . length <$> many (char ch)
-        ml <- optional (T.strip <$> nonEmptyLine <?> "info string")
+        ml <- optional (T.strip <$> nonEmptyLine' <?> "info string")
         guard (maybe True (not . T.any (== '`')) ml)
         return
           (ch, n,
@@ -248,7 +266,7 @@ runIsp
   -> Isp
   -> Either (ParseError Char MMarkErr) a
 runIsp p (Isp startPos input) =
-  snd (runParser' (evalStateT p LastSpace) pst)
+  snd (runParser' (evalStateT p SpaceChar) pst)
   where
     pst = State
       { stateInput           = input
@@ -258,12 +276,15 @@ runIsp p (Isp startPos input) =
 
 -- | Parse a stream of 'Inline's.
 
-pInlines :: Bool -> IParser (NonEmpty Inline)
-pInlines allowLinks = nes (Plain "") <$ eof <|> stuff
+pInlines :: Bool -> Bool -> IParser (NonEmpty Inline)
+pInlines allowEmpty allowLinks =
+  if allowEmpty
+    then nes (Plain "") <$ eof <|> stuff
+    else stuff
   where
     stuff = NE.some . label "inline content" . choice $
       [ pCodeSpan ] <>
-      [pInlineLink | allowLinks] <>
+      [ pInlineLink | allowLinks ] <>
       [ pEnclosedInline
       , try pHardLineBreak
       , pPlain ]
@@ -279,12 +300,12 @@ pCodeSpan = do
                takeWhile1P Nothing (== '`') <|>
                takeWhile1P Nothing (/= '`'))
       finalizer
-  put LastNonSpace
+  put OtherChar
   return r
 
 pInlineLink :: IParser Inline
 pInlineLink = do
-  xs <- between (char '[') (char ']') (pInlines False)
+  xs <- between (char '[') (char ']') (pInlines True False)
   void (char '(') <* sc
   -- TODO use just normal escaping technique here, allow escape all ASCII
   -- punctuation as usual
@@ -311,50 +332,76 @@ pInlineLink = do
 
 pEnclosedInline :: IParser Inline
 pEnclosedInline = do
-  -- TODO this approach does not allow to support *** stuff properly
-  frame <- choice -- NOTE order matters here
-    [ pLfdr StrongFrame
-    , pLfdr EmphasisFrame
-    , pLfdr StrongFrame_
-    , pLfdr EmphasisFrame_
-    , pLfdr StrikeoutFrame
-    , pLfdr SubscriptFrame
-    , pLfdr SuperscriptFrame ]
-  xs <- pInlines True <* pRfdr frame
-  return $ case frame of
-    StrongFrame      -> Strong      xs
-    EmphasisFrame    -> Emphasis    xs
-    StrongFrame_     -> Strong      xs
-    EmphasisFrame_   -> Emphasis    xs
-    StrikeoutFrame   -> Strikeout   xs
-    SubscriptFrame   -> Subscript   xs
-    SuperscriptFrame -> Superscript xs
+  st <- choice
+    [ pLfdr (DoubleFrame StrongFrame StrongFrame)
+    , pLfdr (DoubleFrame StrongFrame EmphasisFrame)
+    , pLfdr (SingleFrame StrongFrame)
+    , pLfdr (SingleFrame EmphasisFrame)
+    , pLfdr (DoubleFrame StrongFrame_ StrongFrame_)
+    , pLfdr (DoubleFrame StrongFrame_ EmphasisFrame_)
+    , pLfdr (SingleFrame StrongFrame_)
+    , pLfdr (SingleFrame EmphasisFrame_)
+    , pLfdr (DoubleFrame StrikeoutFrame StrikeoutFrame)
+    , pLfdr (DoubleFrame StrikeoutFrame SubscriptFrame)
+    , pLfdr (SingleFrame StrikeoutFrame)
+    , pLfdr (SingleFrame SubscriptFrame)
+    , pLfdr (SingleFrame SuperscriptFrame) ]
+  case st of
+    SingleFrame x ->
+      liftFrame x <$> pInlines False True <* pRfdr x
+    DoubleFrame x y -> do
+      inlines0  <- pInlines False True
+      thisFrame <- pRfdr x <|> pRfdr y
+      let thatFrame = if x == thisFrame then y else x
+      immediate <- True <$ pRfdr thatFrame <|> pure False
+      if immediate
+        then (return . liftFrame thatFrame . nes . liftFrame thisFrame) inlines0
+        else do
+          inlines1 <- pInlines False True
+          void (pRfdr thatFrame)
+          return . liftFrame thatFrame $
+            liftFrame thisFrame inlines0 <| inlines1
 
-pLfdr :: InlineFrame -> IParser InlineFrame
-pLfdr frame = try $ do
+pLfdr :: InlineState -> IParser InlineState
+pLfdr st = try $ do
+  let dels = inlineStateDel st
   mpos <- getNextTokenPosition
-  (void . string . inlineFrameDel) frame
-  lastSpace <- get
-  case lastSpace of
-    LastSpace -> return ()
-    LastNonSpace -> do
-      forM_ mpos setPosition
-      -- FIXME improve errors later
-      fail ("can't open " ++ inlineFramePretty frame ++ " here")
-  notFollowedBy (space1 <|> eol) -- FIXME parse error sucks because of this
+  void (string dels)
+  leftChar   <- get
+  mrightChar <- lookAhead (optional anyChar)
+  let failNow = do
+        forM_ mpos setPosition
+        (mmarkErr . NonFlankingDelimiterRun . toNesTokens) dels
+  case (leftChar, isTransparent <$> mrightChar) of
+    (_, Nothing)          -> failNow
+    (_, Just True)        -> failNow
+    (RightFlankingDel, _) -> failNow
+    (OtherChar, _)        -> failNow
+    (SpaceChar, _)        -> return ()
+    (LeftFlankingDel, _)  -> return ()
+  put LeftFlankingDel
+  return st
+
+pRfdr :: InlineFrame -> IParser InlineFrame
+pRfdr frame = try $ do
+  let dels = inlineFrameDel frame
+  mpos <- getNextTokenPosition
+  void (string dels)
+  leftChar   <- get
+  mrightChar <- lookAhead (optional anyChar)
+  let failNow = do
+        forM_ mpos setPosition
+        (mmarkErr . NonFlankingDelimiterRun . toNesTokens) dels
+  case (leftChar, mrightChar) of
+    (SpaceChar, _) -> failNow
+    (LeftFlankingDel, _) -> failNow
+    (_, Nothing) -> return ()
+    (_, Just rightChar) ->
+      if | isTransparent rightChar -> return ()
+         | isMarkupChar  rightChar -> return ()
+         | otherwise               -> failNow
+  put RightFlankingDel
   return frame
-
-pRfdr :: InlineFrame -> IParser ()
-pRfdr frame = do
-  mpos <- getNextTokenPosition
-  (void . string . inlineFrameDel) frame
-  lastSpace <- get
-  case lastSpace of
-    LastNonSpace -> return ()
-    _ -> do
-      forM_ mpos setPosition
-      -- FIXME improve errors later
-      fail ("can't close " ++ inlineFramePretty frame ++ " here")
 
 pHardLineBreak :: IParser Inline
 pHardLineBreak = do
@@ -362,7 +409,7 @@ pHardLineBreak = do
   eol
   notFollowedBy eof
   sc'
-  put LastSpace
+  put SpaceChar
   return LineBreak
 
 pPlain :: IParser Inline
@@ -370,23 +417,15 @@ pPlain = Plain . T.pack <$> some
   (pEscapedChar <|> pNewline <|> pNonEscapedChar)
   where
     pEscapedChar = label "escaped character" $
-      try (char '\\' *> pAsciiPunctuation <* put LastNonSpace)
+      try (char '\\' *> satisfy isAsciiPunctuation <* put OtherChar)
     pNewline = hidden . try $
-      '\n' <$ sc' <* eol <* sc' <* put LastSpace
+      '\n' <$ sc' <* eol <* sc' <* put SpaceChar
     pNonEscapedChar = label "unescaped non-markup character" . choice $
-      [ try (char '\\' <* notFollowedBy eol <* put LastNonSpace)
-      , spaceChar <* put LastSpace
-      , satisfy f <* put LastNonSpace ]
-    f x = not (isMarkupChar x) && x /= '\\'
-
-pAsciiPunctuation :: IParser Char
-pAsciiPunctuation = satisfy f
-  where
-    f x =
-      (x >= '!' && x <= '/') ||
-      (x >= ':' && x <= '@') ||
-      (x >= '[' && x <= '`') ||
-      (x >= '{' && x <= '~')
+      [ try (char '\\' <* notFollowedBy eol <* put OtherChar)
+      , spaceChar <* put SpaceChar
+      , satisfy isTransparentPunctuation <* put SpaceChar
+      , satisfy isOther <* put OtherChar ]
+    isOther x = not (isMarkupChar x) && x /= '\\'
 
 ----------------------------------------------------------------------------
 -- Parsing helpers
@@ -405,6 +444,11 @@ codeBlockLevel' = L.indentGuard sc' GT (mkPos 4)
 
 nonEmptyLine :: Parser Text
 nonEmptyLine = takeWhile1P Nothing notNewline
+
+nonEmptyLine' :: Parser Text
+nonEmptyLine' = T.pack <$> some (pEscapedChar <|> satisfy notNewline)
+  where
+    pEscapedChar = try (char '\\' *> satisfy isAsciiPunctuation)
 
 sc :: MonadParsec e Text m => m ()
 sc = void $ takeWhileP (Just "white space") isSpaceN
@@ -478,6 +522,34 @@ isMarkupChar = \case
   ']' -> True
   _   -> False
 
+isAsciiPunctuation :: Char -> Bool
+isAsciiPunctuation x =
+  (x >= '!' && x <= '/') ||
+  (x >= ':' && x <= '@') ||
+  (x >= '[' && x <= '`') ||
+  (x >= '{' && x <= '~')
+
+isTransparentPunctuation :: Char -> Bool
+isTransparentPunctuation = \case
+  '!' -> True
+  '"' -> True
+  '(' -> True
+  ')' -> True
+  ',' -> True
+  '-' -> True
+  '.' -> True
+  ':' -> True
+  ';' -> True
+  '?' -> True
+  '{' -> True
+  '}' -> True
+  '–' -> True
+  '—' -> True
+  _   -> False
+
+isTransparent :: Char -> Bool
+isTransparent x = Char.isSpace x || isTransparentPunctuation x
+
 nes :: a -> NonEmpty a
 nes a = a :| []
 
@@ -535,15 +607,20 @@ inlineFrameDel = \case
   SubscriptFrame   -> "~"
   SuperscriptFrame -> "^"
 
-inlineFramePretty :: InlineFrame -> String
-inlineFramePretty = \case
-  EmphasisFrame    -> "*emphasis*"
-  EmphasisFrame_   -> "_emphasis_"
-  StrongFrame      -> "**strong emphasis**"
-  StrongFrame_     -> "__strong emphasis__"
-  StrikeoutFrame   -> "~~strikeout~~"
-  SubscriptFrame   -> "~subscript~"
-  SuperscriptFrame -> "^superscript^"
+inlineStateDel :: InlineState -> Text
+inlineStateDel = \case
+  SingleFrame x   -> inlineFrameDel x
+  DoubleFrame x y -> inlineFrameDel x <> inlineFrameDel y
+
+liftFrame :: InlineFrame -> NonEmpty Inline -> Inline
+liftFrame = \case
+  StrongFrame      -> Strong
+  EmphasisFrame    -> Emphasis
+  StrongFrame_     -> Strong
+  EmphasisFrame_   -> Emphasis
+  StrikeoutFrame   -> Strikeout
+  SubscriptFrame   -> Subscript
+  SuperscriptFrame -> Superscript
 
 replaceEof :: ParseError Char e -> ParseError Char e
 replaceEof = \case
@@ -553,5 +630,8 @@ replaceEof = \case
     f EndOfInput = Label (NE.fromList "end of inline block")
     f x          = x
 
--- mmarkErr :: MonadParsec MMarkErr s m => MMarkErr -> m a
--- mmarkErr = fancyFailure . E.singleton . ErrorCustom
+mmarkErr :: MonadParsec MMarkErr s m => MMarkErr -> m a
+mmarkErr = fancyFailure . E.singleton . ErrorCustom
+
+toNesTokens :: Text -> NonEmpty Char
+toNesTokens = NE.fromList . T.unpack
