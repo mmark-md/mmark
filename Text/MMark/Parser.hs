@@ -188,7 +188,7 @@ pFencedCodeBlock = do
   let p ch = try $ do
         void $ count 3 (char ch)
         n  <- (+ 3) . length <$> many (char ch)
-        ml <- optional (T.strip <$> nonEmptyLine <?> "info string")
+        ml <- optional (T.strip <$> nonEmptyLine' <?> "info string")
         guard (maybe True (not . T.any (== '`')) ml)
         return
           (ch, n,
@@ -444,6 +444,11 @@ codeBlockLevel' = L.indentGuard sc' GT (mkPos 4)
 
 nonEmptyLine :: Parser Text
 nonEmptyLine = takeWhile1P Nothing notNewline
+
+nonEmptyLine' :: Parser Text
+nonEmptyLine' = T.pack <$> some (pEscapedChar <|> satisfy notNewline)
+  where
+    pEscapedChar = try (char '\\' *> satisfy isAsciiPunctuation)
 
 sc :: MonadParsec e Text m => m ()
 sc = void $ takeWhileP (Just "white space") isSpaceN
