@@ -188,7 +188,7 @@ pFencedCodeBlock = do
   let p ch = try $ do
         void $ count 3 (char ch)
         n  <- (+ 3) . length <$> many (char ch)
-        ml <- optional (T.strip <$> nonEmptyLine' <?> "info string")
+        ml <- optional (T.strip <$> someEscapedWith notNewline <?> "info string")
         guard (maybe True (not . T.any (== '`')) ml)
         return
           (ch, n,
@@ -307,26 +307,18 @@ pInlineLink :: IParser Inline
 pInlineLink = do
   xs <- between (char '[') (char ']') (pInlines True False)
   void (char '(') <* sc
-  -- TODO use just normal escaping technique here, allow escape all ASCII
-  -- punctuation as usual
-  let enclosedLink = fmap T.pack . between (char '<') (char '>') . many $
-        (try (char '\\' *> char '<') <?> "escaped '<'") <|>
-        (try (char '\\' *> char '>') <?> "escaped '>'") <|>
-        (satisfy (linkChar '<' '>')  <?> "unescaped link character")
-      normalLink   = fmap T.pack . many $
-        (try (char '\\' *> char '(') <?> "escaped '('") <|>
-        (try (char '\\' *> char ')') <?> "escaped ')'") <|>
-        (satisfy (linkChar '(' ')')  <?> "unescaped link character")
+  let enclosedLink = between (char '<') (char '>') $
+        manyEscapedWith (linkChar '<' '>') "unescaped link character"
+      normalLink =
+        manyEscapedWith (linkChar '(' ')') "unescaped link character"
       linkChar x y ch = not (isSpaceN ch) && ch /= x && ch /= y
   dest <- enclosedLink <|> normalLink
-  let enclosedWithEscape start end name =
-        fmap T.pack . between (char start) (char end) . many $
-          (try (char '\\' *> char end) <?> ("escaped " ++ name))
-          <|> (satisfy (/= end) <?> "unescaped character")
+  let p start end = between (char start) (char end) $
+        manyEscapedWith (/= end) "unescaped character"
   mtitle <- optional $ sc1 *> choice
-    [ enclosedWithEscape '\"' '\"' "double quote"
-    , enclosedWithEscape '\'' '\'' "single quote"
-    , enclosedWithEscape '(' ')'   "parentheses" ]
+    [ p '\"' '\"'
+    , p '\'' '\''
+    , p '('  ')' ]
   sc <* char ')'
   return (Link xs dest mtitle)
 
@@ -416,8 +408,7 @@ pPlain :: IParser Inline
 pPlain = Plain . T.pack <$> some
   (pEscapedChar <|> pNewline <|> pNonEscapedChar)
   where
-    pEscapedChar = label "escaped character" $
-      try (char '\\' *> satisfy isAsciiPunctuation <* put OtherChar)
+    pEscapedChar = escapedChar <* put OtherChar
     pNewline = hidden . try $
       '\n' <$ sc' <* eol <* sc' <* put SpaceChar
     pNonEscapedChar = label "unescaped non-markup character" . choice $
@@ -445,10 +436,15 @@ codeBlockLevel' = L.indentGuard sc' GT (mkPos 4)
 nonEmptyLine :: Parser Text
 nonEmptyLine = takeWhile1P Nothing notNewline
 
-nonEmptyLine' :: Parser Text
-nonEmptyLine' = T.pack <$> some (pEscapedChar <|> satisfy notNewline)
-  where
-    pEscapedChar = try (char '\\' *> satisfy isAsciiPunctuation)
+manyEscapedWith :: MonadParsec e Text m => (Char -> Bool) -> String -> m Text
+manyEscapedWith f l = T.pack <$> many (escapedChar <|> (satisfy f <?> l))
+
+someEscapedWith :: MonadParsec e Text m => (Char -> Bool) -> m Text
+someEscapedWith f = T.pack <$> some (escapedChar <|> satisfy f)
+
+escapedChar :: MonadParsec e Text m => m Char
+escapedChar = try (char '\\' *> satisfy isAsciiPunctuation)
+  <?> "escaped character"
 
 sc :: MonadParsec e Text m => m ()
 sc = void $ takeWhileP (Just "white space") isSpaceN

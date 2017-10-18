@@ -151,17 +151,21 @@ as in this example:
 
 Should we escape `.` here? On one hand we should, to close `**`. But if we
 do, the closing `*` won't be in right-flanking position anymore. God damn
-it, markdown.
+it.
 
 ### Other differences
 
 Other differences/incompatibilities with Common Mark specification include
 (the list will hopefully get shorter as the library matures):
 
+* Fenced code blocks must be explicitly closed by a closing fence. They are
+  not closed by the end of document or by start of another block.
 * MMark does not support hard line breaks represented as double space before
   newline. Nevertheless, hard line breaks in the form of backslash before
   newline are supported.
-* Problems with escaping in regular links.
+* Link destination cannot contain unescaped parentheses even if they form a
+  balanced pair. If you want them there, escape them like other punctuation
+  characters.
 * Images in inlines are not supported yet.
 * Inline autolinks are not supported yet.
 * Blockquotes are not supported yet.

@@ -5,6 +5,7 @@ module Text.MMark.TestUtils
     mkDoc
   , toText
     -- * Parser expectations
+  , (~~->)
   , (~->)
   , (=->)
   , (==->) )
@@ -48,15 +49,15 @@ toText = TL.toStrict . L.renderText . MMark.render
 -- | Create an expectation that parser should fail producing a certain
 -- collection of 'ParseError's.
 
-infix 2 ~->
+infix 2 ~~->
 
-(~->)
+(~~->)
   :: Text
      -- ^ Input for parser
   -> [ParseError Char MMarkErr]
      -- ^ Expected collection of parse errors, in order
   -> Expectation
-input ~-> errs'' =
+input ~~-> errs'' =
   case MMark.parse "" input of
     Left errs' -> unless (errs == errs') . expectationFailure $
       "the parser is expected to fail with:\n" ++
@@ -67,6 +68,18 @@ input ~-> errs'' =
       "the parser is expected to fail, but it parsed: " ++ T.unpack (toText x)
   where
     errs = NE.fromList errs''
+
+-- | The same as @('~~->')@, but expects only one parse error.
+
+infix 2 ~->
+
+(~->)
+  :: Text
+     -- ^ Input for parser
+  -> ParseError Char MMarkErr
+     -- ^ Expected parse error to compare with
+  -> Expectation
+input ~-> err = input ~~-> [err]
 
 -- | Test parser and render by specifying input for parser and expected
 -- output of render.
