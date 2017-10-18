@@ -802,13 +802,13 @@ spec = parallel $ do
           ==-> "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"http://example.com#fragment\">link</a></p>\n<p><a href=\"http://example.com?foo=3#frag\">link</a></p>\n"
       it "CM471" $
         "[link](foo\\bar)"
-          ==-> "<p><a href=\"foo%5Cbar\">link</a></p>\n"
+          ==-> "<p><a href=\"foo\\bar\">link</a></p>\n"
       it "CM472" $
         "[link](foo%20b&auml;)"
-          ==-> "<p><a href=\"foo%20b%C3%A4\">link</a></p>\n"
+          ==-> "<p><a href=\"foo%20b&amp;auml;\">link</a></p>\n"
       it "CM473" $
         "[link](\"title\")"
-          ==-> "<p><a href=\"%22title%22\">link</a></p>\n"
+          ==-> "<p><a href=\"&quot;title&quot;\">link</a></p>\n"
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.
