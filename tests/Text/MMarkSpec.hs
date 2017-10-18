@@ -809,6 +809,30 @@ spec = parallel $ do
       it "CM473" $
         "[link](\"title\")"
           ==-> "<p><a href=\"&quot;title&quot;\">link</a></p>\n"
+      it "CM474" $
+        "[link](/url \"title\")\n[link](/url 'title')\n[link](/url (title))" ==->
+          "<p><a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a></p>\n"
+      xit "CM475" $ -- FIXME pending entity references
+        "[link](/url \"title \\\"&quot;\")\n" ==->
+          "<p><a href=\"/url\" title=\"title &quot;&quot;\">link</a></p>\n"
+      it "CM476" $
+        "[link](/url \"title\")" ==->
+          "<p><a href=\"/url &quot;title&quot;\">link</a></p>\n"
+      it "CM477" $
+        let s = "[link](/url \"title \"and\" title\")\n"
+        in s ~-> err (posN 20 s) (utok 'a' <> etok ')' <> elabel "white space")
+      it "CM478" $
+        "[link](/url 'title \"and\" title')\n" ==->
+          "<p><a href=\"/url\" title=\"title &quot;and&quot; title\">link</a></p>\n"
+      it "CM479" $
+        "[link](   /uri\n  \"title\"  )\n" ==->
+          "<p><a href=\"/uri\" title=\"title\">link</a></p>\n"
+      it "CM480" $
+        let s = "[link] (/uri)\n"
+        in s ~-> err (posN 6 s) (utok ' ' <> etok '(')
+      it "CM481" $
+        let s = "[link [foo [bar]]](/uri)\n"
+        in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> elabel "inline content" <> eric)
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.
