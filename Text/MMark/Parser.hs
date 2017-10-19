@@ -285,7 +285,8 @@ pInlines allowEmpty allowLinks =
     stuff = NE.some . label "inline content" . choice $
       [ pCodeSpan ] <>
       [ pInlineLink | allowLinks ] <>
-      [ pEnclosedInline
+      [ pImage
+      , pEnclosedInline
       , try pHardLineBreak
       , pPlain ]
 
@@ -305,22 +306,41 @@ pCodeSpan = do
 
 pInlineLink :: IParser Inline
 pInlineLink = do
-  xs <- between (char '[') (char ']') (pInlines True False)
+  xs     <- between (char '[') (char ']') (pInlines True False)
   void (char '(') <* sc
-  let enclosedLink = between (char '<') (char '>') $
-        manyEscapedWith (linkChar '<' '>') "unescaped link character"
-      normalLink =
-        manyEscapedWith (linkChar '(' ')') "unescaped link character"
-      linkChar x y ch = not (isSpaceN ch) && ch /= x && ch /= y
-  dest <- enclosedLink <|> normalLink
-  let p start end = between (char start) (char end) $
-        manyEscapedWith (/= end) "unescaped character"
-  mtitle <- optional $ sc1 *> choice
-    [ p '\"' '\"'
-    , p '\'' '\''
-    , p '('  ')' ]
+  dest   <- pUrl
+  mtitle <- optional (sc1 *> pTitle)
   sc <* char ')'
   return (Link xs dest mtitle)
+
+pImage :: IParser Inline
+pImage = do
+  void (char '!')
+  alt    <- between (char '[') (char ']') $
+    manyEscapedWith (\x -> x /= '[' && x /= ']') "unescaped character"
+  void (char '(') <* sc
+  src    <- pUrl
+  mtitle <- optional (sc1 *> pTitle)
+  sc <* char ')'
+  return (Image alt src mtitle)
+
+pUrl :: IParser Text
+pUrl = enclosedLink <|> normalLink
+  where
+    enclosedLink = between (char '<') (char '>') $
+      manyEscapedWith (linkChar '<' '>') "unescaped link character"
+    normalLink =
+      manyEscapedWith (linkChar '(' ')') "unescaped link character"
+    linkChar x y ch = not (isSpaceN ch) && ch /= x && ch /= y
+
+pTitle :: IParser Text
+pTitle = choice
+  [ p '\"' '\"'
+  , p '\'' '\''
+  , p '('  ')' ]
+  where
+    p start end = between (char start) (char end) $
+      manyEscapedWith (/= end) "unescaped character"
 
 pEnclosedInline :: IParser Inline
 pEnclosedInline = do
@@ -412,8 +432,9 @@ pPlain = Plain . T.pack <$> some
     pNewline = hidden . try $
       '\n' <$ sc' <* eol <* sc' <* put SpaceChar
     pNonEscapedChar = label "unescaped non-markup character" . choice $
-      [ try (char '\\' <* notFollowedBy eol <* put OtherChar)
+      [ try (char '\\' <* notFollowedBy eol) <* put OtherChar
       , spaceChar <* put SpaceChar
+      , try (char '!' <* notFollowedBy (char '[')) <* put SpaceChar
       , satisfy isTransparentPunctuation <* put SpaceChar
       , satisfy isOther <* put OtherChar ]
     isOther x = not (isMarkupChar x) && x /= '\\'

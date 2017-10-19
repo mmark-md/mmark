@@ -873,8 +873,23 @@ spec = parallel $ do
         let s = "[foo`](/uri)`\n"
         in s ~-> err (posN 13 s) (ueib <> etok ']' <> eic)
       it "CM495" $
-        "[foo<http://example.com/?search=](uri)>\n" ==->
+        "[foo<http://example.com/?search=](uri)>" ==->
           "<p><a href=\"uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
+    context "6.6 Images" $ do
+      it "CM541" $
+        "![foo](/url \"title\")" ==->
+          "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
+      it "CM542" $
+        "![foo *bar*](train.jpg \"train & tracks\")" ==->
+          "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo *bar*\"></p>\n"
+      it "CM543" $
+        let s = "![foo ![bar](/url)](/url2)\n"
+        in s ~-> err (posN 7 s)
+           (utok '[' <> etok ']' <> elabel "escaped character" <> elabel "unescaped character")
+      it "CM544" $
+        let s = "![foo [bar](/url)](/url2)\n"
+        in s ~-> err (posN 6 s)
+           (utok '[' <> etok ']' <> elabel "escaped character" <> elabel "unescaped character")
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.
