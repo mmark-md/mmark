@@ -370,10 +370,10 @@ spec = parallel $ do
         in s ~-> err (posN 10 s) (ueib <> etok '`' <> elabel "code span content")
       it "CM320" $
         let s  = "*foo`*`\n"
-        in s ~-> err (posN 7 s) (ueib <> etok '*' <> elabel "inline content")
+        in s ~-> err (posN 7 s) (ueib <> etok '*' <> eic)
       it "CM321" $
         let s = "[not a `link](/foo`)\n"
-        in s ~-> err (posN 20 s) (ueib <> etok ']' <> elabel "inline content" <> eric)
+        in s ~-> err (posN 20 s) (ueib <> etok ']' <> eic <> eric)
       it "CM322" $
         let s = "`<a href=\"`\">`\n"
         in s ~-> err (posN 14 s) (ueib <> etok '`' <> elabel "code span content")
@@ -655,7 +655,7 @@ spec = parallel $ do
         in s ~-> err (posN 5 s) (utok '*' <> eeib)
       it "CM419" $
         let s = "***foo**\n"
-        in s ~-> err (posN 8 s) (ueib <> etok '*' <> elabel "inline content")
+        in s ~-> err (posN 8 s) (ueib <> etok '*' <> eic)
       it "CM420" $
         let s = "****foo*\n"
         in s ~-> err (posN 7 s) (utok '*' <> etoks "**" <> eric)
@@ -687,7 +687,7 @@ spec = parallel $ do
         in s ~-> err (posN 5 s) (utok '_' <> eeib)
       it "CM431" $
         let s = "___foo__\n"
-        in s ~-> err (posN 8 s) (ueib <> etok '_' <> elabel "inline content")
+        in s ~-> err (posN 8 s) (ueib <> etok '_' <> eic)
       it "CM432" $
         let s = "____foo_\n"
         in s ~-> err (posN 7 s) (utok '_' <> etoks "__" <> eric)
@@ -725,10 +725,10 @@ spec = parallel $ do
         in s ~-> err (posN 19 s) (utok '_' <> etok '*' <> eric)
       it "CM446" $
         let s = "**foo **bar baz**\n"
-        in s ~-> err (posN 17 s) (ueib <> etoks "**" <> elabel "inline content")
+        in s ~-> err (posN 17 s) (ueib <> etoks "**" <> eic)
       it "CM447" $
         let s = "*foo *bar baz*\n"
-        in s ~-> err (posN 14 s) (ueib <> etok '*' <> elabel "inline content")
+        in s ~-> err (posN 14 s) (ueib <> etok '*' <> eic)
       it "CM448" $
         let s = "*[bar*](/url)\n"
         in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eric)
@@ -822,17 +822,59 @@ spec = parallel $ do
         let s = "[link](/url \"title \"and\" title\")\n"
         in s ~-> err (posN 20 s) (utok 'a' <> etok ')' <> elabel "white space")
       it "CM478" $
-        "[link](/url 'title \"and\" title')\n" ==->
+        "[link](/url 'title \"and\" title')" ==->
           "<p><a href=\"/url\" title=\"title &quot;and&quot; title\">link</a></p>\n"
       it "CM479" $
-        "[link](   /uri\n  \"title\"  )\n" ==->
+        "[link](   /uri\n  \"title\"  )" ==->
           "<p><a href=\"/uri\" title=\"title\">link</a></p>\n"
       it "CM480" $
         let s = "[link] (/uri)\n"
         in s ~-> err (posN 6 s) (utok ' ' <> etok '(')
       it "CM481" $
         let s = "[link [foo [bar]]](/uri)\n"
-        in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> elabel "inline content" <> eric)
+        in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic <> eric)
+      it "CM482" $
+        let s = "[link] bar](/uri)\n"
+        in s ~-> err (posN 6 s) (utok ' ' <> etok '(')
+      it "CM483" $
+        let s = "[link [bar](/uri)\n"
+        in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic <> eric)
+      it "CM484" $
+        "[link \\[bar](/uri)\n" ==->
+          "<p><a href=\"/uri\">link [bar</a></p>\n"
+      it "CM485" $
+        "[link *foo **bar** `#`*](/uri)" ==->
+          "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n"
+      xit "CM486" $ -- FIXME pending images
+        "[![moon](moon.jpg)](/uri)" ==->
+          "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\"></a></p>\n"
+      it "CM487" $
+        let s = "[foo [bar](/uri)](/uri)\n"
+        in s ~-> err (posN 5 s) (utok '[' <> etok ']' <> eic <> eric)
+      it "CM488" $
+        let s = "[foo *[bar [baz](/uri)](/uri)*](/uri)\n"
+        in s ~-> err (posN 11 s) (utok '[' <> etok ']' <> eic <> eric)
+      xit "CM489" $ -- FIXME pending images
+        "![[[foo](uri1)](uri2)](uri3)" ==->
+          "<p><img src=\"uri3\" alt=\"[foo](uri2)\"></p>\n"
+      it "CM490" $
+        let s = "*[foo*](/uri)\n"
+        in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eric)
+      it "CM491" $
+        let s = "[foo *bar](baz*)\n"
+        in s ~-> err (posN 9 s) (utok ']' <> etok '*' <> eic <> eric)
+      it "CM492" $
+        let s = "*foo [bar* baz]\n"
+        in s ~-> err (posN 9 s) (utok '*' <> etok ']' <> eric)
+      it "CM493" $
+        "[foo <bar attr=\"](baz)\">" ==->
+          "<p><a href=\"baz\">foo &lt;bar attr=&quot;</a>&quot;&gt;</p>\n"
+      it "CM494" $
+        let s = "[foo`](/uri)`\n"
+        in s ~-> err (posN 13 s) (ueib <> etok ']' <> eic)
+      it "CM495" $
+        "[foo<http://example.com/?search=](uri)>\n" ==->
+          "<p><a href=\"uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.
@@ -990,6 +1032,11 @@ ueib = ulabel "end of inline block"
 
 eeib :: Ord t => ET t
 eeib = elabel "end of inline block"
+
+-- | Expecting inline content.
+
+eic :: Ord t => ET t
+eic = elabel "inline content"
 
 -- | Expecting rest of inline content. Eric!
 
