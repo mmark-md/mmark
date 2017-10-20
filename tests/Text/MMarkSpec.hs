@@ -735,7 +735,7 @@ spec = parallel $ do
       it "CM449" $
         let s = "_foo [bar_](/url)\n"
         in s ~-> err (posN 9 s) (utok '_' <> etok ']' <> eric)
-      xit "CM450" $ -- FIXME pending images
+      xit "CM450" $ -- FIXME pending inline HTML
         "*<img src=\"foo\" title=\"*\"/>" ==->
           "<p>*<img src=\"foo\" title=\"*\"/></p>\n"
       xit "CM451" $ -- FIXME pending inline HTML
@@ -845,7 +845,7 @@ spec = parallel $ do
       it "CM485" $
         "[link *foo **bar** `#`*](/uri)" ==->
           "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n"
-      xit "CM486" $ -- FIXME pending images
+      it "CM486" $
         "[![moon](moon.jpg)](/uri)" ==->
           "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\"></a></p>\n"
       it "CM487" $
@@ -854,9 +854,9 @@ spec = parallel $ do
       it "CM488" $
         let s = "[foo *[bar [baz](/uri)](/uri)*](/uri)\n"
         in s ~-> err (posN 11 s) (utok '[' <> etok ']' <> eic <> eric)
-      xit "CM489" $ -- FIXME pending images
-        "![[[foo](uri1)](uri2)](uri3)" ==->
-          "<p><img src=\"uri3\" alt=\"[foo](uri2)\"></p>\n"
+      it "CM489" $
+        let s = "![[[foo](uri1)](uri2)](uri3)"
+        in s ~-> err (posN 3 s) (utoks "[foo" <> eeib <> eic)
       it "CM490" $
         let s = "*[foo*](/uri)\n"
         in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eric)
@@ -873,8 +873,35 @@ spec = parallel $ do
         let s = "[foo`](/uri)`\n"
         in s ~-> err (posN 13 s) (ueib <> etok ']' <> eic)
       it "CM495" $
-        "[foo<http://example.com/?search=](uri)>\n" ==->
+        "[foo<http://example.com/?search=](uri)>" ==->
           "<p><a href=\"uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
+    context "6.6 Images" $ do
+      it "CM541" $
+        "![foo](/url \"title\")" ==->
+          "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
+      it "CM542" $
+        "![foo *bar*](train.jpg \"train & tracks\")" ==->
+          "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo bar\"></p>\n"
+      it "CM543" $
+        let s = "![foo ![bar](/url)](/url2)\n"
+        in s ~-> err (posN 6 s) (utok '!' <> etok ']')
+      it "CM544" $
+        "![foo [bar](/url)](/url2)" ==->
+          "<p><img src=\"/url2\" alt=\"foo bar\"></p>\n"
+      it "CM545" pending
+      it "CM546" pending
+      it "CM547" $
+        "![foo](train.jpg)" ==->
+          "<p><img src=\"train.jpg\" alt=\"foo\"></p>\n"
+      it "CM548" $
+        "My ![foo bar](/path/to/train.jpg  \"title\"   )" ==->
+          "<p>My <img src=\"/path/to/train.jpg\" title=\"title\" alt=\"foo bar\"></p>\n"
+      it "CM549" $
+        "![foo](<url>)" ==->
+          "<p><img src=\"url\" alt=\"foo\"></p>\n"
+      it "CM550" $
+        "![](/url)" ==-> "<p><img src=\"/url\" alt></p>\n"
+      it "CM551-CM562" pending -- pending reference-style stuff
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.

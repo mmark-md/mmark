@@ -29,7 +29,9 @@ module Text.MMark.Extension
   , inlineRender
     -- * Scanner construction
   , Scanner
-  , scanner )
+  , scanner
+    -- * Utils
+  , asPlainText )
 where
 
 import Data.List.NonEmpty (NonEmpty (..))

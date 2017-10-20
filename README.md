@@ -166,7 +166,9 @@ Other differences/incompatibilities with Common Mark specification include
 * Link destination cannot contain unescaped parentheses even if they form a
   balanced pair. If you want them there, escape them like other punctuation
   characters.
-* Images in inlines are not supported yet.
+* Nesting images into description of other images is not allowed (similarly
+  to the situation with links).
+* Separate declaration of image's source and title is not (yet) supported.
 * Inline autolinks are not supported yet.
 * Blockquotes are not supported yet.
 * Lists (unordered and ordered) are not supported yet.
