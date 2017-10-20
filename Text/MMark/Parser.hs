@@ -336,9 +336,9 @@ pInlineLink = do
 
 pImage :: IParser Inline
 pImage = do
-  void (char '!')
-  alt    <- between (char '[') (char ']') $
-    pInlines def { iconfigAllowImages = False }
+  let nonEmptyDesc = char '!' *> between (char '[') (char ']')
+        (pInlines def { iconfigAllowImages = False })
+  alt    <- nes (Plain "") <$ string "![]" <|> nonEmptyDesc
   void (char '(') <* sc
   src    <- pUrl
   mtitle <- optional (sc1 *> pTitle)

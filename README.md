@@ -168,7 +168,6 @@ Other differences/incompatibilities with Common Mark specification include
   characters.
 * Nesting images into description of other images is not allowed (similarly
   to the situation with links).
-* Empty image descriptions are not allowed.
 * Separate declaration of image's source and title is not (yet) supported.
 * Inline autolinks are not supported yet.
 * Blockquotes are not supported yet.

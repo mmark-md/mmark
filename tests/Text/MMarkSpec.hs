@@ -900,8 +900,7 @@ spec = parallel $ do
         "![foo](<url>)" ==->
           "<p><img src=\"url\" alt=\"foo\"></p>\n"
       it "CM550" $
-        let s = "![](/url)"
-        in s ~-> err (posN 2 s) (utoks "](/u" <> eeib <> eic)
+        "![](/url)" ==-> "<p><img src=\"/url\" alt></p>\n"
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.
