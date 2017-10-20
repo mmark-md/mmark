@@ -901,6 +901,7 @@ spec = parallel $ do
           "<p><img src=\"url\" alt=\"foo\"></p>\n"
       it "CM550" $
         "![](/url)" ==-> "<p><img src=\"/url\" alt></p>\n"
+      it "CM551-CM562" pending -- pending reference-style stuff
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.
