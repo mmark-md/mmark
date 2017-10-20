@@ -18,6 +18,7 @@
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE MultiWayIf         #-}
 {-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 {-# LANGUAGE TypeFamilies       #-}
 
 module Text.MMark.Parser
@@ -29,6 +30,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Data (Data)
+import Data.Default.Class
 import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.Maybe (isJust)
 import Data.Semigroup ((<>))
@@ -101,6 +103,24 @@ data InlineState
   | DoubleFrame InlineFrame InlineFrame
   deriving (Eq, Ord, Show)
 
+-- | Configuration in inline parser.
+
+data InlineConfig = InlineConfig
+  { iconfigAllowEmpty :: !Bool
+    -- ^ Whether to accept empty inline blocks
+  , iconfigAllowLinks :: !Bool
+    -- ^ Whether to parse links
+  , iconfigAllowImages :: !Bool
+    -- ^ Whether to parse images
+  }
+
+instance Default InlineConfig where
+  def = InlineConfig
+    { iconfigAllowEmpty  = True
+    , iconfigAllowLinks  = True
+    , iconfigAllowImages = True
+    }
+
 ----------------------------------------------------------------------------
 -- Block parser
 
@@ -121,7 +141,7 @@ parse file input =
     -- level cannot be parsed, which should not normally happen.
     Left err -> Left (nes err)
     Right blocks ->
-      let parsed = fmap (runIsp (pInlines True True <* eof)) <$> blocks
+      let parsed = fmap (runIsp (pInlines def <* eof)) <$> blocks
           getErrs (Left e) es = replaceEof e : es
           getErrs _        es = es
           fromRight (Right x) = x
@@ -276,17 +296,17 @@ runIsp p (Isp startPos input) =
 
 -- | Parse a stream of 'Inline's.
 
-pInlines :: Bool -> Bool -> IParser (NonEmpty Inline)
-pInlines allowEmpty allowLinks =
-  if allowEmpty
+pInlines :: InlineConfig -> IParser (NonEmpty Inline)
+pInlines InlineConfig {..} =
+  if iconfigAllowEmpty
     then nes (Plain "") <$ eof <|> stuff
     else stuff
   where
     stuff = NE.some . label "inline content" . choice $
       [ pCodeSpan ] <>
-      [ pInlineLink | allowLinks ] <>
-      [ pImage
-      , pEnclosedInline
+      [ pInlineLink | iconfigAllowLinks ] <>
+      [ pImage | iconfigAllowImages ] <>
+      [ pEnclosedInline
       , try pHardLineBreak
       , pPlain ]
 
@@ -306,7 +326,8 @@ pCodeSpan = do
 
 pInlineLink :: IParser Inline
 pInlineLink = do
-  xs     <- between (char '[') (char ']') (pInlines True False)
+  xs     <- between (char '[') (char ']') $
+    pInlines def { iconfigAllowLinks = False }
   void (char '(') <* sc
   dest   <- pUrl
   mtitle <- optional (sc1 *> pTitle)
@@ -317,7 +338,7 @@ pImage :: IParser Inline
 pImage = do
   void (char '!')
   alt    <- between (char '[') (char ']') $
-    manyEscapedWith (\x -> x /= '[' && x /= ']') "unescaped character"
+    pInlines def { iconfigAllowImages = False }
   void (char '(') <* sc
   src    <- pUrl
   mtitle <- optional (sc1 *> pTitle)
@@ -344,6 +365,7 @@ pTitle = choice
 
 pEnclosedInline :: IParser Inline
 pEnclosedInline = do
+  let noEmpty = def { iconfigAllowEmpty = False }
   st <- choice
     [ pLfdr (DoubleFrame StrongFrame StrongFrame)
     , pLfdr (DoubleFrame StrongFrame EmphasisFrame)
@@ -360,16 +382,16 @@ pEnclosedInline = do
     , pLfdr (SingleFrame SuperscriptFrame) ]
   case st of
     SingleFrame x ->
-      liftFrame x <$> pInlines False True <* pRfdr x
+      liftFrame x <$> pInlines noEmpty <* pRfdr x
     DoubleFrame x y -> do
-      inlines0  <- pInlines False True
+      inlines0  <- pInlines noEmpty
       thisFrame <- pRfdr x <|> pRfdr y
       let thatFrame = if x == thisFrame then y else x
       immediate <- True <$ pRfdr thatFrame <|> pure False
       if immediate
         then (return . liftFrame thatFrame . nes . liftFrame thisFrame) inlines0
         else do
-          inlines1 <- pInlines False True
+          inlines1 <- pInlines noEmpty
           void (pRfdr thatFrame)
           return . liftFrame thatFrame $
             liftFrame thisFrame inlines0 <| inlines1
@@ -432,12 +454,13 @@ pPlain = Plain . T.pack <$> some
     pNewline = hidden . try $
       '\n' <$ sc' <* eol <* sc' <* put SpaceChar
     pNonEscapedChar = label "unescaped non-markup character" . choice $
-      [ try (char '\\' <* notFollowedBy eol) <* put OtherChar
-      , spaceChar <* put SpaceChar
-      , try (char '!' <* notFollowedBy (char '[')) <* put SpaceChar
-      , satisfy isTransparentPunctuation <* put SpaceChar
-      , satisfy isOther <* put OtherChar ]
-    isOther x = not (isMarkupChar x) && x /= '\\'
+      [ try (char '\\' <* notFollowedBy eol)        <* put OtherChar
+      , try (char '!'  <* notFollowedBy (char '[')) <* put SpaceChar
+      , spaceChar                                   <* put SpaceChar
+      , satisfy isTrans                             <* put SpaceChar
+      , satisfy isOther                             <* put OtherChar ]
+    isTrans x = isTransparentPunctuation x && x /= '!'
+    isOther x = not (isMarkupChar x) && x /= '\\' && x /= '!'
 
 ----------------------------------------------------------------------------
 -- Parsing helpers

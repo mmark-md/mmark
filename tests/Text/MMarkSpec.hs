@@ -856,8 +856,7 @@ spec = parallel $ do
         in s ~-> err (posN 11 s) (utok '[' <> etok ']' <> eic <> eric)
       it "CM489" $
         let s = "![[[foo](uri1)](uri2)](uri3)"
-        in s ~-> err (posN 2 s)
-           (utok '[' <> etok ']' <> elabel "escaped character" <> elabel "unescaped character")
+        in s ~-> err (posN 3 s) (utoks "[foo" <> eeib <> eic)
       it "CM490" $
         let s = "*[foo*](/uri)\n"
         in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eric)
@@ -882,15 +881,13 @@ spec = parallel $ do
           "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
       it "CM542" $
         "![foo *bar*](train.jpg \"train & tracks\")" ==->
-          "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo *bar*\"></p>\n"
+          "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo bar\"></p>\n"
       it "CM543" $
         let s = "![foo ![bar](/url)](/url2)\n"
-        in s ~-> err (posN 7 s)
-           (utok '[' <> etok ']' <> elabel "escaped character" <> elabel "unescaped character")
+        in s ~-> err (posN 6 s) (utok '!' <> etok ']')
       it "CM544" $
-        let s = "![foo [bar](/url)](/url2)\n"
-        in s ~-> err (posN 6 s)
-           (utok '[' <> etok ']' <> elabel "escaped character" <> elabel "unescaped character")
+        "![foo [bar](/url)](/url2)" ==->
+          "<p><img src=\"/url2\" alt=\"foo bar\"></p>\n"
       it "CM545" pending
       it "CM546" pending
       it "CM547" $
@@ -898,7 +895,13 @@ spec = parallel $ do
           "<p><img src=\"train.jpg\" alt=\"foo\"></p>\n"
       it "CM548" $
         "My ![foo bar](/path/to/train.jpg  \"title\"   )" ==->
-          "<p>My <img src=\"/path/to/train.jpg\" alt=\"foo bar\" title=\"title\" /></p>\n"
+          "<p>My <img src=\"/path/to/train.jpg\" title=\"title\" alt=\"foo bar\"></p>\n"
+      it "CM549" $
+        "![foo](<url>)" ==->
+          "<p><img src=\"url\" alt=\"foo\"></p>\n"
+      it "CM550" $
+        let s = "![](/url)"
+        in s ~-> err (posN 2 s) (utoks "](/u" <> eeib <> eic)
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.

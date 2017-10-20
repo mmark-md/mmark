@@ -32,7 +32,8 @@ module Text.MMark.Internal
   , Inline (..)
   , Render (..)
   , defaultBlockRender
-  , defaultInlineRender )
+  , defaultInlineRender
+  , asPlainText )
 where
 
 import Control.DeepSeq
@@ -237,7 +238,7 @@ data Inline
     -- ^ Code span
   | Link (NonEmpty Inline) Text (Maybe Text)
     -- ^ Link with text, destination, and optionally title
-  | Image Text Text (Maybe Text)
+  | Image (NonEmpty Inline) Text (Maybe Text)
     -- ^ Image with description, URL, and optionally title
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
@@ -328,11 +329,30 @@ defaultInlineRender = \case
   Link inner dest mtitle ->
     let title = maybe [] (pure . title_) mtitle
     in a_ (href_ dest : title) (mapM_ defaultInlineRender inner)
-  Image alt src mtitle ->
+  Image desc src mtitle ->
     let title = maybe [] (pure . title_) mtitle
-    in img_ (alt_ alt : src_ src : title)
+    in img_ (alt_ (asPlainText desc) : src_ src : title)
 
 -- | HTML containing a newline.
 
 newline :: Html ()
 newline = "\n"
+
+----------------------------------------------------------------------------
+-- Utils
+
+-- | Convert a non-empty collection of 'Inline's into their plain text
+-- representation. This is used e.g. to render image descriptions.
+
+asPlainText :: NonEmpty Inline -> Text
+asPlainText = foldMap $ \case
+  Plain      txt -> txt
+  LineBreak      -> "\n"
+  Emphasis    xs -> asPlainText xs
+  Strong      xs -> asPlainText xs
+  Strikeout   xs -> asPlainText xs
+  Subscript   xs -> asPlainText xs
+  Superscript xs -> asPlainText xs
+  CodeSpan   txt -> txt
+  Link    xs _ _ -> asPlainText xs
+  Image   xs _ _ -> asPlainText xs
