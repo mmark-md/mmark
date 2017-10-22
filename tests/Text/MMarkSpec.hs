@@ -332,16 +332,16 @@ spec = parallel $ do
       it "CM294" $
         "~~~\n\\[\\]\n~~~" ==->
           "<pre><code>\\[\\]\n</code></pre>\n"
-      xit "CM295" $ -- FIXME pending autolinks
+      it "CM295" $
         "<http://example.com?find=\\*>" ==->
           "<p><a href=\"http://example.com?find=%5C*\">http://example.com?find=\\*</a></p>\n"
-      xit "CM296" $ -- FIXME pending HTML inlines
+      it "CM296" $
         "<a href=\"/bar\\/)\">" ==->
           "<a href=\"/bar\\/)\">\n"
       it "CM297" $
         "[foo](/bar\\* \"ti\\*tle\")" ==->
           "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n"
-      xit "CM298" $ -- FIXME pending reference links
+      it "CM298" $
         "[foo]\n\n[foo]: /bar\\* \"ti\\*tle\"" ==->
           "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n"
       it "CM299" $
@@ -384,7 +384,7 @@ spec = parallel $ do
       it "CM324" $
         let s = "`<http://foo.bar.`baz>`\n"
         in s ~-> err (posN 23 s) (ueib <> etok '`' <> elabel "code span content")
-      xit "CM325" $ -- FIXME pending autolinks
+      it "CM325" $
         "<http://foo.bar.`baz>`" ==->
           "<p><a href=\"http://foo.bar.%60baz\">http://foo.bar.`baz</a>`</p>\n"
       it "CM326" $
@@ -748,10 +748,10 @@ spec = parallel $ do
         "*a `*`*" ==-> "<p><em>a <code>*</code></em></p>\n"
       it "CM454" $
         "_a `_`_" ==-> "<p><em>a <code>_</code></em></p>\n"
-      xit "CM455" $ -- FIXME pending autolinks
+      it "CM455" $
         "**a<http://foo.bar/?q=**>" ==->
           "<p>**a<a href=\"http://foo.bar/?q=**\">http://foo.bar/?q=**</a></p>\n"
-      xit "CM456" $ -- FIXME pending autolinks
+      it "CM456" $
         "__a<http://foo.bar/?q=__>" ==->
           "<p>__a<a href=\"http://foo.bar/?q=__\">http://foo.bar/?q=__</a></p>\n"
     context "6.5 Links" $ do
@@ -904,6 +904,64 @@ spec = parallel $ do
       it "CM550" $
         "![](/url)" ==-> "<p><img src=\"/url\" alt></p>\n"
       it "CM551-CM562" pending -- pending reference-style stuff
+    context "6.7 Autolinks" $ do
+      it "CM563" $
+        "<http://foo.bar.baz>" ==->
+          "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n"
+      it "CM564" $
+        "<http://foo.bar.baz/test?q=hello&id=22&boolean>" ==->
+          "<p><a href=\"http://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean\">http://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean</a></p>\n"
+      it "CM565" $
+        "<irc://foo.bar:2233/baz>" ==->
+          "<p><a href=\"irc://foo.bar:2233/baz\">irc://foo.bar:2233/baz</a></p>\n"
+      it "CM566" $
+        "<MAILTO:FOO@BAR.BAZ>" ==->
+          "<p><a href=\"MAILTO:FOO@BAR.BAZ\">MAILTO:FOO@BAR.BAZ</a></p>\n"
+      it "CM567" $
+        "<a+b+c:d>" ==->
+          "<p>&lt;a+b+c:d&gt;</p>\n"
+      it "CM568" $
+        "<made-up-scheme://foo,bar>" ==->
+          "<p>&lt;made-up-scheme://foo,bar&gt;</p>\n"
+      it "CM569" $
+        "<http://../>" ==->
+          "<p><a href=\"http://../\">http://../</a></p>\n"
+      it "CM570" $
+        "<localhost:5001/foo>" ==->
+          "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>\n"
+      it "CM571" $
+        let s = "<http://foo.bar/baz bim>\n"
+        in s ~-> err (posN 19 s) (utok ' ' <> elabel "inline content")
+      it "CM572" $
+        "<http://example.com/\\[\\>" ==->
+          "<p><a href=\"http://example.com/\\[\\\">http://example.com/\\[\\</a></p>\n"
+      it "CM573" $
+        "<foo@bar.example.com>" ==->
+          "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n"
+      it "CM574" $
+        "<foo+special@Bar.baz-bar0.com>" ==->
+          "<p><a href=\"mailto:foo+special@Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n"
+      it "CM575" $
+        "<foo\\+@bar.example.com>" ==->
+          "<p>&lt;foo+@bar.example.com&gt;</p>\n"
+      it "CM576" $
+        "<>" ==->
+          "<p>&lt;&gt;</p>\n"
+      it "CM577" $
+        "< http://foo.bar >" ==->
+          "<p>&lt; http://foo.bar &gt;</p>\n"
+      it "CM578" $
+        "<m:abc>" ==->
+          "<p>&lt;m:abc&gt;</p>\n"
+      it "CM579" $
+        "<foo.bar.baz>" ==->
+          "<p>&lt;foo.bar.baz&gt;</p>\n"
+      it "CM580" $
+        "http://example.com" ==->
+          "<p>http://example.com</p>\n"
+      it "CM581" $
+        "foo@bar.example.com" ==->
+          "<p>foo@bar.example.com</p>\n"
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.

@@ -306,9 +306,12 @@ pInlines InlineConfig {..} =
       [ pCodeSpan ] <>
       [ pInlineLink | iconfigAllowLinks ] <>
       [ pImage | iconfigAllowImages ] <>
-      [ pEnclosedInline
+      [ try (angel pAutolink)
+      , try (angel pEmailLink)
+      , pEnclosedInline
       , try pHardLineBreak
       , pPlain ]
+    angel = between (char '<') (char '>')
 
 pCodeSpan :: IParser Inline
 pCodeSpan = do
@@ -362,6 +365,33 @@ pTitle = choice
   where
     p start end = between (char start) (char end) $
       manyEscapedWith (/= end) "unescaped character"
+
+pAutolink :: IParser Inline
+pAutolink = do
+  scheme <- label "scheme" . choice . fmap string' $
+    [ "data"
+    , "file"
+    , "ftp"
+    , "https"
+    , "http"
+    , "irc"
+    , "mailto" ]
+  void (char ':')
+  rest <- takeWhileP (Just "autolink character") $ \x ->
+    not (Char.isSpace x) && x /= '<' && x /= '>'
+  let uri = scheme <> ":" <> rest
+  return (Link (nes $ Plain uri) uri Nothing)
+
+pEmailLink :: IParser Inline
+pEmailLink = do
+  local <- takeWhile1P (Just "local part of email") $ \x ->
+    Char.isAscii x && (Char.isAlphaNum x) -- FIXME
+  void (char '@')
+  let dnsLabel = takeWhile1P (Just "DNS label") $ \x ->
+        Char.isAscii x && (Char.isAlphaNum x) -- FIXME
+  dnsLabels <- sepBy1 dnsLabel (char '.')
+  let email = local <> "@" <> T.intercalate "." dnsLabels
+  return (Link (nes $ Plain email) ("mailto:" <> email) Nothing)
 
 pEnclosedInline :: IParser Inline
 pEnclosedInline = do
@@ -456,11 +486,13 @@ pPlain = Plain . T.pack <$> some
     pNonEscapedChar = label "unescaped non-markup character" . choice $
       [ try (char '\\' <* notFollowedBy eol)        <* put OtherChar
       , try (char '!'  <* notFollowedBy (char '[')) <* put SpaceChar
+      , try (char '<'  <* notFollowedBy autolink    <* put OtherChar)
       , spaceChar                                   <* put SpaceChar
       , satisfy isTrans                             <* put SpaceChar
       , satisfy isOther                             <* put OtherChar ]
+    autolink  = pAutolink <|> pEmailLink
     isTrans x = isTransparentPunctuation x && x /= '!'
-    isOther x = not (isMarkupChar x) && x /= '\\' && x /= '!'
+    isOther x = not (isMarkupChar x) && x /= '\\' && x /= '!' && x /= '<'
 
 ----------------------------------------------------------------------------
 -- Parsing helpers
