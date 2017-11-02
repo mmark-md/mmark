@@ -11,6 +11,7 @@
 
 {-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE CPP                #-}
+{-# LANGUAGE DataKinds          #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE FlexibleContexts   #-}
@@ -32,7 +33,7 @@ import Control.Monad.State.Strict
 import Data.Data (Data)
 import Data.Default.Class
 import Data.List.NonEmpty (NonEmpty (..), (<|))
-import Data.Maybe (isJust)
+import Data.Maybe (isNothing, isJust, fromJust)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -40,12 +41,16 @@ import GHC.Generics
 import Text.MMark.Internal
 import Text.Megaparsec hiding (parse)
 import Text.Megaparsec.Char hiding (eol)
+import Text.URI (URI)
 import qualified Control.Applicative.Combinators.NonEmpty as NE
 import qualified Data.Char                                as Char
 import qualified Data.List.NonEmpty                       as NE
 import qualified Data.Set                                 as E
 import qualified Data.Text                                as T
+import qualified Data.Text.Encoding                       as TE
+import qualified Text.Email.Validate                      as Email
 import qualified Text.Megaparsec.Char.Lexer               as L
+import qualified Text.URI                                 as URI
 
 ----------------------------------------------------------------------------
 -- Data types
@@ -307,7 +312,6 @@ pInlines InlineConfig {..} =
       [ pInlineLink | iconfigAllowLinks ] <>
       [ pImage | iconfigAllowImages ] <>
       [ try (angel pAutolink)
-      , try (angel pEmailLink)
       , pEnclosedInline
       , try pHardLineBreak
       , pPlain ]
@@ -332,7 +336,7 @@ pInlineLink = do
   xs     <- between (char '[') (char ']') $
     pInlines def { iconfigAllowLinks = False }
   void (char '(') <* sc
-  dest   <- pUrl
+  dest   <- pUri
   mtitle <- optional (sc1 *> pTitle)
   sc <* char ')'
   return (Link xs dest mtitle)
@@ -343,19 +347,13 @@ pImage = do
         (pInlines def { iconfigAllowImages = False })
   alt    <- nes (Plain "") <$ string "![]" <|> nonEmptyDesc
   void (char '(') <* sc
-  src    <- pUrl
+  src    <- pUri
   mtitle <- optional (sc1 *> pTitle)
   sc <* char ')'
   return (Image alt src mtitle)
 
-pUrl :: IParser Text
-pUrl = enclosedLink <|> normalLink
-  where
-    enclosedLink = between (char '<') (char '>') $
-      manyEscapedWith (linkChar '<' '>') "unescaped link character"
-    normalLink =
-      manyEscapedWith (linkChar '(' ')') "unescaped link character"
-    linkChar x y ch = not (isSpaceN ch) && ch /= x && ch /= y
+pUri :: IParser URI
+pUri = between (char '<') (char '>') URI.parser <|> URI.parser
 
 pTitle :: IParser Text
 pTitle = choice
@@ -367,31 +365,16 @@ pTitle = choice
       manyEscapedWith (/= end) "unescaped character"
 
 pAutolink :: IParser Inline
-pAutolink = do
-  scheme <- label "scheme" . choice . fmap string' $
-    [ "data"
-    , "file"
-    , "ftp"
-    , "https"
-    , "http"
-    , "irc"
-    , "mailto" ]
-  void (char ':')
-  rest <- takeWhileP (Just "autolink character") $ \x ->
-    not (Char.isSpace x) && x /= '<' && x /= '>'
-  let uri = scheme <> ":" <> rest
-  return (Link (nes $ Plain uri) uri Nothing)
-
-pEmailLink :: IParser Inline
-pEmailLink = do
-  local <- takeWhile1P (Just "local part of email") $ \x ->
-    Char.isAscii x && (Char.isAlphaNum x) -- FIXME
-  void (char '@')
-  let dnsLabel = takeWhile1P (Just "DNS label") $ \x ->
-        Char.isAscii x && (Char.isAlphaNum x) -- FIXME
-  dnsLabels <- sepBy1 dnsLabel (char '.')
-  let email = local <> "@" <> T.intercalate "." dnsLabels
-  return (Link (nes $ Plain email) ("mailto:" <> email) Nothing)
+pAutolink = between (char '<') (char '>') $ do
+  uri <- URI.parser
+  case isEmailUri uri of
+    Nothing ->
+      let txt = (nes . Plain . URI.render) uri
+      in return (Link txt uri Nothing)
+    Just email ->
+      let txt  = nes (Plain email)
+          uri' = URI.makeAbsolute mailtoScheme uri
+      in return (Link txt uri' Nothing)
 
 pEnclosedInline :: IParser Inline
 pEnclosedInline = do
@@ -490,7 +473,7 @@ pPlain = Plain . T.pack <$> some
       , spaceChar                                   <* put SpaceChar
       , satisfy isTrans                             <* put SpaceChar
       , satisfy isOther                             <* put OtherChar ]
-    autolink  = pAutolink <|> pEmailLink
+    autolink  = pAutolink
     isTrans x = isTransparentPunctuation x && x /= '!'
     isOther x = not (isMarkupChar x) && x /= '\\' && x /= '!' && x /= '<'
 
@@ -707,3 +690,17 @@ mmarkErr = fancyFailure . E.singleton . ErrorCustom
 
 toNesTokens :: Text -> NonEmpty Char
 toNesTokens = NE.fromList . T.unpack
+
+isEmailUri :: URI -> Maybe Text
+isEmailUri uri =
+  case URI.unRText <$> URI.uriPath uri of
+    [x] ->
+      if Email.isValid (TE.encodeUtf8 x) &&
+          (isNothing (URI.uriScheme uri) ||
+           URI.uriScheme uri == Just mailtoScheme)
+        then Just x
+        else Nothing
+    _ -> Nothing
+
+mailtoScheme :: URI.RText 'URI.Scheme
+mailtoScheme = fromJust (URI.mkScheme "mailto")

@@ -46,8 +46,10 @@ import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
 import Lucid
+import Text.URI (URI)
 import qualified Control.Foldl as L
 import qualified Data.Text     as T
+import qualified Text.URI      as URI
 
 -- | Representation of complete markdown document. You can't look inside of
 -- 'MMark' on purpose. The only way to influence an 'MMark' document you
@@ -219,9 +221,9 @@ data Inline
     -- ^ Superscript
   | CodeSpan Text
     -- ^ Code span
-  | Link (NonEmpty Inline) Text (Maybe Text)
+  | Link (NonEmpty Inline) URI (Maybe Text)
     -- ^ Link with text, destination, and optionally title
-  | Image (NonEmpty Inline) Text (Maybe Text)
+  | Image (NonEmpty Inline) URI (Maybe Text)
     -- ^ Image with description, URL, and optionally title
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
@@ -311,10 +313,10 @@ defaultInlineRender = \case
     code_ (toHtmlRaw txt)
   Link inner dest mtitle ->
     let title = maybe [] (pure . title_) mtitle
-    in a_ (href_ dest : title) (mapM_ defaultInlineRender inner)
+    in a_ (href_ (URI.render dest) : title) (mapM_ defaultInlineRender inner)
   Image desc src mtitle ->
     let title = maybe [] (pure . title_) mtitle
-    in img_ (alt_ (asPlainText desc) : src_ src : title)
+    in img_ (alt_ (asPlainText desc) : src_ (URI.render src) : title)
 
 -- | HTML containing a newline.
 

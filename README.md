@@ -169,7 +169,8 @@ Other differences/incompatibilities with Common Mark specification include
 * Nesting images into description of other images is not allowed (similarly
   to the situation with links).
 * Separate declaration of image's source and title is not (yet) supported.
-* Inline autolinks are not supported yet.
+* All URIs (in links, images, autolinks, etc.) are parsed as per RFC 3986,
+  no special escaping is supported.
 * Blockquotes are not supported yet.
 * Lists (unordered and ordered) are not supported yet.
 * Setext headings are not supported yet.
