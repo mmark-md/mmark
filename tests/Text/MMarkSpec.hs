@@ -334,14 +334,16 @@ spec = parallel $ do
           "<pre><code>\\[\\]\n</code></pre>\n"
       it "CM295" $
         "<http://example.com?find=\\*>" ==->
-          "<p><a href=\"http://example.com?find=%5C*\">http://example.com?find=\\*</a></p>\n"
+          "<p>&lt;http://example.com?find=*&gt;</p>\n"
       it "CM296" $
         "<a href=\"/bar\\/)\">" ==->
-          "<a href=\"/bar\\/)\">\n"
+          "<p>&lt;a href=&quot;/bar/)&quot;&gt;</p>\n"
       it "CM297" $
-        "[foo](/bar\\* \"ti\\*tle\")" ==->
-          "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n"
-      it "CM298" $
+        let s = "[foo](/bar\\* \"ti\\*tle\")"
+        in s ~-> err (posN 10 s)
+          (utok '\\' <> etok '#' <> etok ')' <> etok '/' <> etok '?'
+           <> elabel "the rest of path piece" <> elabel "white space")
+      xit "CM298" $ -- FIXME pending reference links
         "[foo]\n\n[foo]: /bar\\* \"ti\\*tle\"" ==->
           "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n"
       it "CM299" $
@@ -386,7 +388,7 @@ spec = parallel $ do
         in s ~-> err (posN 23 s) (ueib <> etok '`' <> elabel "code span content")
       it "CM325" $
         "<http://foo.bar.`baz>`" ==->
-          "<p><a href=\"http://foo.bar.%60baz\">http://foo.bar.`baz</a>`</p>\n"
+          "<p>&lt;http://foo.bar.<code>baz></code></p>\n"
       it "CM326" $
         let s  = "```foo``\n"
         in s ~-> err (posN 8 s) (ueib <> etok '`' <> elabel "code span content")
