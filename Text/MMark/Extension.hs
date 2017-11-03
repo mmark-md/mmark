@@ -28,7 +28,6 @@ module Text.MMark.Extension
   , inlineTrans
   , inlineRender
     -- * Scanner construction
-  , Scanner
   , scanner
     -- * Utils
   , asPlainText )
@@ -38,6 +37,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Lucid
 import Text.MMark.Internal
+import qualified Control.Foldl as L
 
 -- | Create an extension that performs a transformation on 'Block's of
 -- markdown document. Note that this transformation can only change
@@ -76,10 +76,11 @@ inlineRender
   -> Extension
 inlineRender f = mempty { extInlineRender = Render f }
 
--- | Create a 'Scanner' from a folding function. Note that the scanning
--- context is passed around being evaluated to weak head normal form on
--- every iteration. If you have a deep data structure in @a@ this may be not
--- enough to fight space leaks though.
+-- | Create a 'L.Fold' from an initial state and a folding function.
 
-scanner :: (a -> Block (NonEmpty Inline) -> a) -> Scanner a
-scanner = Scanner
+scanner
+  :: a                 -- ^ Initial state
+  -> (a -> Block (NonEmpty Inline) -> a) -- ^ Folding function
+  -> L.Fold (Block (NonEmpty Inline)) a -- ^ Resulting 'L.Fold'
+scanner a f = L.Fold f a id
+{-# INLINE scanner #-}

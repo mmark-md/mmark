@@ -9,7 +9,6 @@
 --
 -- Internal definitions.
 
-{-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFoldable     #-}
 {-# LANGUAGE DeriveFunctor      #-}
@@ -22,9 +21,7 @@
 module Text.MMark.Internal
   ( MMark (..)
   , Extension (..)
-  , Scanner (..)
   , runScanner
-  , (.&+)
   , useExtension
   , useExtensions
   , render
@@ -42,7 +39,6 @@ import Data.Aeson
 import Data.Char (isSpace)
 import Data.Data (Data)
 import Data.Function (on)
-import Data.List (foldl')
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Data.Semigroup
@@ -50,7 +46,8 @@ import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
 import Lucid
-import qualified Data.Text as T
+import qualified Control.Foldl as L
+import qualified Data.Text     as T
 
 -- | Representation of complete markdown document. You can't look inside of
 -- 'MMark' on purpose. The only way to influence an 'MMark' document you
@@ -135,32 +132,18 @@ useExtension ext mmark =
 useExtensions :: [Extension] -> MMark -> MMark
 useExtensions exts = useExtension (mconcat exts)
 
--- | A scanner. 'Scanner' is something that can extract information from an
--- 'MMark' document. You can compose 'Scanner's using the @('.&+')@
--- operator. The "Text.MMark.Extension" module provides tools for creation
--- of scanners.
-
-data Scanner a = Scanner (a -> Block (NonEmpty Inline) -> a)
-
--- | Run a 'Scanner' on an 'MMark'. It's desirable to run it only once
--- because running a scanner is typically an expensive traversal of the
--- whole document. Combine all scanners you need to run into one using the
--- @('.&+')@ operator, then run that.
+-- | Scan an 'MMark' document efficiently in one pass. This uses the
+-- excellent 'L.Fold' type, which see.
+--
+-- Take a look at the "Text.MMark.Extension" module if you want to create
+-- scanners of your own.
 
 runScanner
   :: MMark             -- ^ Document to scan
-  -> Scanner a         -- ^ Scanner to use
-  -> a                 -- ^ Starting value
+  -> L.Fold (Block (NonEmpty Inline)) a -- ^ 'L.Fold' to use
   -> a                 -- ^ Result of scanning
-runScanner MMark {..} (Scanner f) x = foldl' f x mmarkBlocks
-
--- | Combine two 'Scanner's into one composite scanner.
-
-infixl 2 .&+
-
-(.&+) :: Scanner a -> Scanner b -> Scanner (a, b)
-Scanner f .&+ Scanner g = Scanner $ \(!a, !b) block ->
-  (f a block, g b block)
+runScanner MMark {..} f = L.fold f mmarkBlocks
+{-# INLINE runScanner #-}
 
 -- | Render a 'MMark' markdown document. You can then render @'Html' ()@ to
 -- various things:

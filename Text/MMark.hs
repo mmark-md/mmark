@@ -81,9 +81,7 @@ module Text.MMark
   , useExtension
   , useExtensions
     -- * Scanning
-  , Scanner
   , runScanner
-  , (.&+)
   , projectYaml
     -- * Rendering
   , render )
