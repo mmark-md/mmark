@@ -4,14 +4,16 @@
 module Text.MMarkSpec (spec) where
 
 import Data.Char
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid
 import Data.Text (Text)
 import Test.Hspec
 import Test.Hspec.Megaparsec
-import Text.MMark ((.&+), MMarkErr (..))
+import Text.MMark (MMarkErr (..))
 import Text.MMark.Extension (Inline (..))
 import Text.MMark.TestUtils
 import Text.Megaparsec (ErrorFancy (..))
+import qualified Control.Foldl        as L
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Text            as T
 import qualified Text.MMark           as MMark
@@ -1004,16 +1006,17 @@ spec = parallel $ do
   describe "runScanner and scanner" $
     it "extracts information from markdown document" $ do
       doc <- mkDoc "Here we go, pals."
-      let n = MMark.runScanner doc (length_scan (const True)) 0
+      let n = MMark.runScanner doc (length_scan (const True))
       n `shouldBe` 17
   describe "(.&+)" $
     it "combines scanners" $ do
       doc <- mkDoc "Here we go, pals."
-      let scan = length_scan (const True)
-            .&+ length_scan isSpace
-            .&+ length_scan isPunctuation
-          r = MMark.runScanner doc scan ((0, 0), 0)
-      r `shouldBe` ((17, 3), 2)
+      let scan = (,,)
+            <$>length_scan (const True)
+            <*> length_scan isSpace
+            <*> length_scan isPunctuation
+          r = MMark.runScanner doc scan
+      r `shouldBe` (17, 3, 2)
   describe "projectYaml" $ do
     context "when document does not contain a YAML section" $
       it "returns Nothing" $ do
@@ -1040,8 +1043,8 @@ append_ext y = Ext.inlineTrans $ \case
 -- | Scan total number of characters satisfying a predicate in all 'Plain'
 -- inlines.
 
-length_scan :: (Char -> Bool) -> MMark.Scanner Int
-length_scan p = Ext.scanner $ \n block ->
+length_scan :: (Char -> Bool) -> L.Fold (Ext.Block (NonEmpty Inline)) Int
+length_scan p = Ext.scanner 0 $ \n block ->
   getSum $ Sum n <> foldMap (foldMap f) block
   where
     f (Plain txt) = (Sum . T.length) (T.filter p txt)
