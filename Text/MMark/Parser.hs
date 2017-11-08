@@ -495,7 +495,7 @@ pPlain = Plain . T.pack <$> some
     pNonEscapedChar = label "unescaped non-markup character" . choice $
       [ try (char '\\' <* notFollowedBy eol)        <* put OtherChar
       , try (char '!'  <* notFollowedBy (char '[')) <* put SpaceChar
-      , try (char '<'  <* notFollowedBy pAutolink   <* put OtherChar)
+      , try (char '<'  <* notFollowedBy (pAutolink <* char '>')) <* put OtherChar
       , spaceChar                                   <* put SpaceChar
       , satisfy isTrans                             <* put SpaceChar
       , satisfy isOther                             <* put OtherChar ]
