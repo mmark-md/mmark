@@ -169,8 +169,11 @@ Other differences/incompatibilities with Common Mark specification include
 * Nesting images into description of other images is not allowed (similarly
   to the situation with links).
 * Separate declaration of image's source and title is not (yet) supported.
-* All URIs (in links, images, autolinks, etc.) are parsed as per RFC 3986,
-  no special escaping is supported.
+* All URI references (in links, images, autolinks, etc.) are parsed as per
+  RFC 3986, no special escaping is supported. In addition to that, when an
+  URI reference in not enclosed with `<` and `>`, then closing parenthesis
+  character `)` is not considered part of URI (use `<uri>` syntax if you
+  want closing parenthesis as part of a URI).
 * Blockquotes are not supported yet.
 * Lists (unordered and ordered) are not supported yet.
 * Setext headings are not supported yet.

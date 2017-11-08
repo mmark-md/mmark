@@ -147,7 +147,7 @@ parse file input =
     Left err -> Left (nes err)
     Right blocks ->
       let parsed = fmap (runIsp (pInlines def <* eof)) <$> blocks
-          getErrs (Left e) es = replaceEof e : es
+          getErrs (Left e) es = replaceEof "end of inline block" e : es
           getErrs _        es = es
           fromRight (Right x) = x
           fromRight _         =
@@ -339,6 +339,7 @@ pInlineLink = do
   dest   <- pUri
   mtitle <- optional (sc1 *> pTitle)
   sc <* char ')'
+  put OtherChar
   return (Link xs dest mtitle)
 
 pImage :: IParser Inline
@@ -350,10 +351,34 @@ pImage = do
   src    <- pUri
   mtitle <- optional (sc1 *> pTitle)
   sc <* char ')'
+  put OtherChar
   return (Image alt src mtitle)
 
 pUri :: IParser URI
-pUri = between (char '<') (char '>') URI.parser <|> URI.parser
+pUri = do
+  uri <- between (char '<') (char '>') URI.parser <|> naked
+  put OtherChar
+  return uri
+  where
+    naked = do
+      startPos <- getPosition
+      input    <- takeWhileP Nothing $ \x ->
+        not (isSpaceN x || x == ')')
+      let pst = State
+            { stateInput           = input
+            , statePos             = nes startPos
+            , stateTokensProcessed = 0
+            , stateTabWidth        = mkPos 4 }
+      case snd (runParser' (URI.parser <* eof) pst) of
+        Left err' ->
+          case replaceEof "end of URI literal" err' of
+            TrivialError pos us es -> do
+              setPosition (NE.head pos)
+              failure us es
+            FancyError pos xs -> do
+              setPosition (NE.head pos)
+              fancyFailure xs
+        Right x -> return x
 
 pTitle :: IParser Text
 pTitle = choice
@@ -365,16 +390,17 @@ pTitle = choice
       manyEscapedWith (/= end) "unescaped character"
 
 pAutolink :: IParser Inline
-pAutolink = between (char '<') (char '>') $ do
+pAutolink = do
   uri <- URI.parser
-  case isEmailUri uri of
+  put OtherChar
+  return $ case isEmailUri uri of
     Nothing ->
       let txt = (nes . Plain . URI.render) uri
-      in return (Link txt uri Nothing)
+      in Link txt uri Nothing
     Just email ->
       let txt  = nes (Plain email)
           uri' = URI.makeAbsolute mailtoScheme uri
-      in return (Link txt uri' Nothing)
+      in Link txt uri' Nothing
 
 pEnclosedInline :: IParser Inline
 pEnclosedInline = do
@@ -469,11 +495,10 @@ pPlain = Plain . T.pack <$> some
     pNonEscapedChar = label "unescaped non-markup character" . choice $
       [ try (char '\\' <* notFollowedBy eol)        <* put OtherChar
       , try (char '!'  <* notFollowedBy (char '[')) <* put SpaceChar
-      , try (char '<'  <* notFollowedBy autolink    <* put OtherChar)
+      , try (char '<'  <* notFollowedBy pAutolink   <* put OtherChar)
       , spaceChar                                   <* put SpaceChar
       , satisfy isTrans                             <* put SpaceChar
       , satisfy isOther                             <* put OtherChar ]
-    autolink  = pAutolink
     isTrans x = isTransparentPunctuation x && x /= '!'
     isOther x = not (isMarkupChar x) && x /= '\\' && x /= '!' && x /= '<'
 
@@ -677,12 +702,12 @@ liftFrame = \case
   SubscriptFrame   -> Subscript
   SuperscriptFrame -> Superscript
 
-replaceEof :: ParseError Char e -> ParseError Char e
-replaceEof = \case
+replaceEof :: String -> ParseError Char e -> ParseError Char e
+replaceEof altLabel = \case
   TrivialError pos us es -> TrivialError pos (f <$> us) (E.map f es)
   FancyError   pos xs    -> FancyError pos xs
   where
-    f EndOfInput = Label (NE.fromList "end of inline block")
+    f EndOfInput = Label (NE.fromList altLabel)
     f x          = x
 
 mmarkErr :: MonadParsec MMarkErr s m => MMarkErr -> m a
