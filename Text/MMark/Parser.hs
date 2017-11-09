@@ -391,6 +391,7 @@ pTitle = choice
 
 pAutolink :: IParser Inline
 pAutolink = do
+  notFollowedBy (char '>') -- empty links don't make sense
   uri <- URI.parser
   put OtherChar
   return $ case isEmailUri uri of

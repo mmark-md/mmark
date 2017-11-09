@@ -334,7 +334,7 @@ spec = parallel $ do
           "<pre><code>\\[\\]\n</code></pre>\n"
       it "CM295" $
         "<http://example.com?find=*>" ==->
-          "<p><a href=\"http://example.com/?find=%2a\">http://example.com/?find=%2a</a></p>\n"
+          "<p><a href=\"http://example.com/?find=*\">http://example.com/?find=*</a></p>\n"
       xit "CM296" $ -- FIXME pending HTML inlines
         "<a href=\"/bar\\/)\">" ==->
           "<p>&lt;a href=&quot;/bar/)&quot;&gt;</p>\n"
@@ -791,13 +791,13 @@ spec = parallel $ do
              euri <> elabel "path piece")
       it "CM466" $
         "[link](foo(and(bar)))\n" ==->
-          "<p><a href=\"foo%28and%28bar\">link</a>))</p>\n"
+          "<p><a href=\"foo(and(bar\">link</a>))</p>\n"
       it "CM467" $
         let s = "[link](foo\\(and\\(bar\\))"
         in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
       it "CM468" $
         "[link](<foo(and(bar)>)" ==->
-          "<p><a href=\"foo%28and%28bar%29\">link</a></p>\n"
+          "<p><a href=\"foo(and(bar)\">link</a></p>\n"
       it "CM469" $
         let s = "[link](foo\\)\\:)"
         in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
@@ -924,22 +924,22 @@ spec = parallel $ do
           "<p><a href=\"mailto:FOO@BAR.BAZ\">FOO@BAR.BAZ</a></p>\n"
       it "CM567" $
         "<a+b+c:d>" ==->
-          "<p>&lt;a+b+c:d&gt;</p>\n"
+          "<p><a href=\"a+b+c:d\">a+b+c:d</a></p>\n"
       it "CM568" $
         "<made-up-scheme://foo,bar>" ==->
-          "<p>&lt;made-up-scheme://foo,bar&gt;</p>\n"
+          "<p><a href=\"made-up-scheme://foo/,bar\">made-up-scheme://foo/,bar</a></p>\n"
       it "CM569" $
         "<http://../>" ==->
-          "<p><a href=\"http://../\">http://../</a></p>\n"
+          "<p>&lt;http://../&gt;</p>\n"
       it "CM570" $
         "<localhost:5001/foo>" ==->
           "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>\n"
       it "CM571" $
-        let s = "<http://foo.bar/baz bim>\n"
-        in s ~-> err (posN 19 s) (utok ' ' <> elabel "inline content")
+        "<http://foo.bar/baz bim>\n" ==->
+          "<p>&lt;http://foo.bar/baz bim&gt;</p>\n"
       it "CM572" $
         "<http://example.com/\\[\\>" ==->
-          "<p><a href=\"http://example.com/\\[\\\">http://example.com/\\[\\</a></p>\n"
+          "<p>&lt;http://example.com/[&gt;</p>\n"
       it "CM573" $
         "<foo@bar.example.com>" ==->
           "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n"
@@ -957,10 +957,10 @@ spec = parallel $ do
           "<p>&lt; http://foo.bar &gt;</p>\n"
       it "CM578" $
         "<m:abc>" ==->
-          "<p>&lt;m:abc&gt;</p>\n"
+          "<p><a href=\"m:abc\">m:abc</a></p>\n"
       it "CM579" $
         "<foo.bar.baz>" ==->
-          "<p>&lt;foo.bar.baz&gt;</p>\n"
+          "<p><a href=\"foo.bar.baz\">foo.bar.baz</a></p>\n"
       it "CM580" $
         "http://example.com" ==->
           "<p>http://example.com</p>\n"

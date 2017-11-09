@@ -34,7 +34,7 @@ library
                     , foldl            >= 1.2  && < 1.4
                     , lucid            >= 2.6  && < 3.0
                     , megaparsec       >= 6.1  && < 7.0
-                    , modern-uri       >= 0.1  && < 0.2
+                    , modern-uri       >= 0.1.1 && < 0.2
                     , mtl              >= 2.0  && < 3.0
                     , parser-combinators >= 0.2 && < 1.0
                     , text             >= 0.2  && < 1.3
