@@ -332,15 +332,16 @@ spec = parallel $ do
       it "CM294" $
         "~~~\n\\[\\]\n~~~" ==->
           "<pre><code>\\[\\]\n</code></pre>\n"
-      xit "CM295" $ -- FIXME pending autolinks
-        "<http://example.com?find=\\*>" ==->
-          "<p><a href=\"http://example.com?find=%5C*\">http://example.com?find=\\*</a></p>\n"
+      it "CM295" $
+        "<http://example.com?find=*>" ==->
+          "<p><a href=\"http://example.com/?find=*\">http://example.com/?find=*</a></p>\n"
       xit "CM296" $ -- FIXME pending HTML inlines
         "<a href=\"/bar\\/)\">" ==->
-          "<a href=\"/bar\\/)\">\n"
+          "<p>&lt;a href=&quot;/bar/)&quot;&gt;</p>\n"
       it "CM297" $
-        "[foo](/bar\\* \"ti\\*tle\")" ==->
-          "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n"
+        let s = "[foo](/bar\\* \"ti\\*tle\")"
+        in s ~-> err (posN 10 s)
+          (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
       xit "CM298" $ -- FIXME pending reference links
         "[foo]\n\n[foo]: /bar\\* \"ti\\*tle\"" ==->
           "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n"
@@ -384,9 +385,9 @@ spec = parallel $ do
       it "CM324" $
         let s = "`<http://foo.bar.`baz>`\n"
         in s ~-> err (posN 23 s) (ueib <> etok '`' <> elabel "code span content")
-      xit "CM325" $ -- FIXME pending autolinks
+      it "CM325" $
         "<http://foo.bar.`baz>`" ==->
-          "<p><a href=\"http://foo.bar.%60baz\">http://foo.bar.`baz</a>`</p>\n"
+          "<p>&lt;http://foo.bar.<code>baz></code></p>\n"
       it "CM326" $
         let s  = "```foo``\n"
         in s ~-> err (posN 8 s) (ueib <> etok '`' <> elabel "code span content")
@@ -737,10 +738,10 @@ spec = parallel $ do
       it "CM449" $
         let s = "_foo [bar_](/url)\n"
         in s ~-> err (posN 9 s) (utok '_' <> etok ']' <> eric)
-      xit "CM450" $ -- FIXME pending inline HTML
+      xit "CM450" $ -- FIXME pending HTML inlines
         "*<img src=\"foo\" title=\"*\"/>" ==->
           "<p>*<img src=\"foo\" title=\"*\"/></p>\n"
-      xit "CM451" $ -- FIXME pending inline HTML
+      xit "CM451" $ -- FIXME pending HTML inlines
         "**<a href=\"**\">" ==-> "<p>**<a href=\"**\"></p>\n"
       xit "CM452" $
         "__<a href=\"__\">\n" ==-> "<p>__<a href=\"__\"></p>\n"
@@ -748,12 +749,12 @@ spec = parallel $ do
         "*a `*`*" ==-> "<p><em>a <code>*</code></em></p>\n"
       it "CM454" $
         "_a `_`_" ==-> "<p><em>a <code>_</code></em></p>\n"
-      xit "CM455" $ -- FIXME pending autolinks
-        "**a<http://foo.bar/?q=**>" ==->
-          "<p>**a<a href=\"http://foo.bar/?q=**\">http://foo.bar/?q=**</a></p>\n"
-      xit "CM456" $ -- FIXME pending autolinks
-        "__a<http://foo.bar/?q=__>" ==->
-          "<p>__a<a href=\"http://foo.bar/?q=__\">http://foo.bar/?q=__</a></p>\n"
+      it "CM455" $
+        let s = "**a<http://foo.bar/?q=**>"
+        in s ~-> err (posN 25 s) (ueib <> etoks "**" <> eic)
+      it "CM456" $
+        let s = "__a<http://foo.bar/?q=__>"
+        in s ~-> err (posN 26 s) (ueib <> etoks "__" <> eic)
     context "6.5 Links" $ do
       it "CM457" $
         "[link](/uri \"title\")" ==->
@@ -774,7 +775,7 @@ spec = parallel $ do
       it "CM462" $
         let s = "[link](</my uri>)\n"
         in s ~-> err (posN 11 s)
-           (utok ' ' <> etok '>' <> elabel "escaped character" <> elabel "unescaped link character")
+           (utok ' ' <> etok '#' <> etok '/' <> etok '>' <> etok '?' <> eppi)
       it "CM463" $
         let s = "[link](foo\nbar)\n"
         in s ~-> err (posN 11 s)
@@ -782,35 +783,38 @@ spec = parallel $ do
       it "CM464" $
         let s = "[link](<foo\nbar>)\n"
         in s ~-> err (posN 11 s)
-           (utok '\n' <> etok '>' <> elabel "escaped character" <> elabel "unescaped link character")
+           (utok '\n' <> etok '#' <> etok '/' <> etok '>' <> etok '?' <> eppi)
       it "CM465" $
-        "[link](\\(foo\\))" ==->
-          "<p><a href=\"(foo)\">link</a></p>\n"
+        let s = "[link](\\(foo\\))"
+        in s ~-> err (posN 7 s) (utok '\\' <> etoks "//" <> etok '#' <>
+             etok '/' <> etok '<' <> etok '?' <> elabel "ASCII alpha character" <>
+             euri <> elabel "path piece")
       it "CM466" $
-        let s = "[link](foo(and(bar)))\n"
-        in s ~-> err (posN 10 s)
-           (utok '(' <> etok ')' <> elabel "escaped character" <> elabel "unescaped link character" <> elabel "white space")
+        "[link](foo(and(bar)))\n" ==->
+          "<p><a href=\"foo(and(bar\">link</a>))</p>\n"
       it "CM467" $
-        "[link](foo\\(and\\(bar\\))" ==->
-          "<p><a href=\"foo(and(bar)\">link</a></p>\n"
+        let s = "[link](foo\\(and\\(bar\\))"
+        in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
       it "CM468" $
         "[link](<foo(and(bar)>)" ==->
           "<p><a href=\"foo(and(bar)\">link</a></p>\n"
       it "CM469" $
-        "[link](foo\\)\\:)" ==->
-          "<p><a href=\"foo):\">link</a></p>\n"
+        let s = "[link](foo\\)\\:)"
+        in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
       it "CM470" $
         "[link](#fragment)\n\n[link](http://example.com#fragment)\n\n[link](http://example.com?foo=3#frag)\n"
-          ==-> "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"http://example.com#fragment\">link</a></p>\n<p><a href=\"http://example.com?foo=3#frag\">link</a></p>\n"
+          ==-> "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"http://example.com/#fragment\">link</a></p>\n<p><a href=\"http://example.com/?foo=3#frag\">link</a></p>\n"
       it "CM471" $
-        "[link](foo\\bar)"
-          ==-> "<p><a href=\"foo\\bar\">link</a></p>\n"
-      it "CM472" $
+        let s = "[link](foo\\bar)"
+        in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
+      xit "CM472" $ -- FIXME pending entity references
         "[link](foo%20b&auml;)"
           ==-> "<p><a href=\"foo%20b&amp;auml;\">link</a></p>\n"
       it "CM473" $
-        "[link](\"title\")"
-          ==-> "<p><a href=\"&quot;title&quot;\">link</a></p>\n"
+        let s = "[link](\"title\")"
+        in s ~-> err (posN 7 s)
+             (utok '"' <> etoks "//" <> etok '#' <> etok '/' <> etok '<' <>
+              etok '?' <> elabel "ASCII alpha character" <> euri <> elabel "path piece")
       it "CM474" $
         "[link](/url \"title\")\n[link](/url 'title')\n[link](/url (title))" ==->
           "<p><a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a></p>\n"
@@ -818,8 +822,9 @@ spec = parallel $ do
         "[link](/url \"title \\\"&quot;\")\n" ==->
           "<p><a href=\"/url\" title=\"title &quot;&quot;\">link</a></p>\n"
       it "CM476" $
-        "[link](/url \"title\")" ==->
-          "<p><a href=\"/url &quot;title&quot;\">link</a></p>\n"
+        let s = "[link](/url \"title\")"
+        in s ~-> err (posN 11 s)
+             (utok ' ' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
       it "CM477" $
         let s = "[link](/url \"title \"and\" title\")\n"
         in s ~-> err (posN 20 s) (utok 'a' <> etok ')' <> elabel "white space")
@@ -868,9 +873,9 @@ spec = parallel $ do
       it "CM492" $
         let s = "*foo [bar* baz]\n"
         in s ~-> err (posN 9 s) (utok '*' <> etok ']' <> eric)
-      it "CM493" $
-        "[foo <bar attr=\"](baz)\">" ==->
-          "<p><a href=\"baz\">foo &lt;bar attr=&quot;</a>&quot;&gt;</p>\n"
+      xit "CM493" $ -- FIXME pending inline HTML
+        let s = "[foo <bar attr=\"](baz)\">"
+        in s ~-> err (posN 5 s) (utok '<' <> etok ']')
       it "CM494" $
         let s = "[foo`](/uri)`\n"
         in s ~-> err (posN 13 s) (ueib <> etok ']' <> eic)
@@ -904,6 +909,64 @@ spec = parallel $ do
       it "CM550" $
         "![](/url)" ==-> "<p><img src=\"/url\" alt></p>\n"
       it "CM551-CM562" pending -- pending reference-style stuff
+    context "6.7 Autolinks" $ do
+      it "CM563" $
+        "<http://foo.bar.baz>" ==->
+          "<p><a href=\"http://foo.bar.baz/\">http://foo.bar.baz/</a></p>\n"
+      it "CM564" $
+        "<http://foo.bar.baz/test?q=hello&id=22&boolean>" ==->
+          "<p><a href=\"http://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean\">http://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean</a></p>\n"
+      it "CM565" $
+        "<irc://foo.bar:2233/baz>" ==->
+          "<p><a href=\"irc://foo.bar:2233/baz\">irc://foo.bar:2233/baz</a></p>\n"
+      it "CM566" $
+        "<MAILTO:FOO@BAR.BAZ>" ==->
+          "<p><a href=\"mailto:FOO@BAR.BAZ\">FOO@BAR.BAZ</a></p>\n"
+      it "CM567" $
+        "<a+b+c:d>" ==->
+          "<p><a href=\"a+b+c:d\">a+b+c:d</a></p>\n"
+      it "CM568" $
+        "<made-up-scheme://foo,bar>" ==->
+          "<p><a href=\"made-up-scheme://foo/,bar\">made-up-scheme://foo/,bar</a></p>\n"
+      it "CM569" $
+        "<http://../>" ==->
+          "<p>&lt;http://../&gt;</p>\n"
+      it "CM570" $
+        "<localhost:5001/foo>" ==->
+          "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>\n"
+      it "CM571" $
+        "<http://foo.bar/baz bim>\n" ==->
+          "<p>&lt;http://foo.bar/baz bim&gt;</p>\n"
+      it "CM572" $
+        "<http://example.com/\\[\\>" ==->
+          "<p>&lt;http://example.com/[&gt;</p>\n"
+      it "CM573" $
+        "<foo@bar.example.com>" ==->
+          "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n"
+      it "CM574" $
+        "<foo+special@Bar.baz-bar0.com>" ==->
+          "<p><a href=\"mailto:foo+special@Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n"
+      it "CM575" $
+        "<foo\\+@bar.example.com>" ==->
+          "<p>&lt;foo+@bar.example.com&gt;</p>\n"
+      it "CM576" $
+        "<>" ==->
+          "<p>&lt;&gt;</p>\n"
+      it "CM577" $
+        "< http://foo.bar >" ==->
+          "<p>&lt; http://foo.bar &gt;</p>\n"
+      it "CM578" $
+        "<m:abc>" ==->
+          "<p><a href=\"m:abc\">m:abc</a></p>\n"
+      it "CM579" $
+        "<foo.bar.baz>" ==->
+          "<p><a href=\"foo.bar.baz\">foo.bar.baz</a></p>\n"
+      it "CM580" $
+        "http://example.com" ==->
+          "<p>http://example.com</p>\n"
+      it "CM581" $
+        "foo@bar.example.com" ==->
+          "<p>foo@bar.example.com</p>\n"
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
       -- markup as space before newline.
@@ -1062,6 +1125,16 @@ ueib = ulabel "end of inline block"
 
 eeib :: Ord t => ET t
 eeib = elabel "end of inline block"
+
+-- | Expecting end of URI literal.
+
+euri :: Ord t => ET t
+euri = elabel "end of URI literal"
+
+-- | Expecting the rest of path piece.
+
+eppi :: Ord t => ET t
+eppi = elabel "the rest of path piece"
 
 -- | Expecting inline content.
 

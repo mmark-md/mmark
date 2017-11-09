@@ -11,6 +11,7 @@
 
 {-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE CPP                #-}
+{-# LANGUAGE DataKinds          #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE FlexibleContexts   #-}
@@ -32,7 +33,7 @@ import Control.Monad.State.Strict
 import Data.Data (Data)
 import Data.Default.Class
 import Data.List.NonEmpty (NonEmpty (..), (<|))
-import Data.Maybe (isJust)
+import Data.Maybe (isNothing, isJust, fromJust)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -40,12 +41,16 @@ import GHC.Generics
 import Text.MMark.Internal
 import Text.Megaparsec hiding (parse)
 import Text.Megaparsec.Char hiding (eol)
+import Text.URI (URI)
 import qualified Control.Applicative.Combinators.NonEmpty as NE
 import qualified Data.Char                                as Char
 import qualified Data.List.NonEmpty                       as NE
 import qualified Data.Set                                 as E
 import qualified Data.Text                                as T
+import qualified Data.Text.Encoding                       as TE
+import qualified Text.Email.Validate                      as Email
 import qualified Text.Megaparsec.Char.Lexer               as L
+import qualified Text.URI                                 as URI
 
 ----------------------------------------------------------------------------
 -- Data types
@@ -142,7 +147,7 @@ parse file input =
     Left err -> Left (nes err)
     Right blocks ->
       let parsed = fmap (runIsp (pInlines def <* eof)) <$> blocks
-          getErrs (Left e) es = replaceEof e : es
+          getErrs (Left e) es = replaceEof "end of inline block" e : es
           getErrs _        es = es
           fromRight (Right x) = x
           fromRight _         =
@@ -306,9 +311,11 @@ pInlines InlineConfig {..} =
       [ pCodeSpan ] <>
       [ pInlineLink | iconfigAllowLinks ] <>
       [ pImage | iconfigAllowImages ] <>
-      [ pEnclosedInline
+      [ try (angel pAutolink)
+      , pEnclosedInline
       , try pHardLineBreak
       , pPlain ]
+    angel = between (char '<') (char '>')
 
 pCodeSpan :: IParser Inline
 pCodeSpan = do
@@ -329,9 +336,10 @@ pInlineLink = do
   xs     <- between (char '[') (char ']') $
     pInlines def { iconfigAllowLinks = False }
   void (char '(') <* sc
-  dest   <- pUrl
+  dest   <- pUri
   mtitle <- optional (sc1 *> pTitle)
   sc <* char ')'
+  put OtherChar
   return (Link xs dest mtitle)
 
 pImage :: IParser Inline
@@ -340,19 +348,37 @@ pImage = do
         (pInlines def { iconfigAllowImages = False })
   alt    <- nes (Plain "") <$ string "![]" <|> nonEmptyDesc
   void (char '(') <* sc
-  src    <- pUrl
+  src    <- pUri
   mtitle <- optional (sc1 *> pTitle)
   sc <* char ')'
+  put OtherChar
   return (Image alt src mtitle)
 
-pUrl :: IParser Text
-pUrl = enclosedLink <|> normalLink
+pUri :: IParser URI
+pUri = do
+  uri <- between (char '<') (char '>') URI.parser <|> naked
+  put OtherChar
+  return uri
   where
-    enclosedLink = between (char '<') (char '>') $
-      manyEscapedWith (linkChar '<' '>') "unescaped link character"
-    normalLink =
-      manyEscapedWith (linkChar '(' ')') "unescaped link character"
-    linkChar x y ch = not (isSpaceN ch) && ch /= x && ch /= y
+    naked = do
+      startPos <- getPosition
+      input    <- takeWhileP Nothing $ \x ->
+        not (isSpaceN x || x == ')')
+      let pst = State
+            { stateInput           = input
+            , statePos             = nes startPos
+            , stateTokensProcessed = 0
+            , stateTabWidth        = mkPos 4 }
+      case snd (runParser' (URI.parser <* eof) pst) of
+        Left err' ->
+          case replaceEof "end of URI literal" err' of
+            TrivialError pos us es -> do
+              setPosition (NE.head pos)
+              failure us es
+            FancyError pos xs -> do
+              setPosition (NE.head pos)
+              fancyFailure xs
+        Right x -> return x
 
 pTitle :: IParser Text
 pTitle = choice
@@ -362,6 +388,20 @@ pTitle = choice
   where
     p start end = between (char start) (char end) $
       manyEscapedWith (/= end) "unescaped character"
+
+pAutolink :: IParser Inline
+pAutolink = do
+  notFollowedBy (char '>') -- empty links don't make sense
+  uri <- URI.parser
+  put OtherChar
+  return $ case isEmailUri uri of
+    Nothing ->
+      let txt = (nes . Plain . URI.render) uri
+      in Link txt uri Nothing
+    Just email ->
+      let txt  = nes (Plain email)
+          uri' = URI.makeAbsolute mailtoScheme uri
+      in Link txt uri' Nothing
 
 pEnclosedInline :: IParser Inline
 pEnclosedInline = do
@@ -456,11 +496,12 @@ pPlain = Plain . T.pack <$> some
     pNonEscapedChar = label "unescaped non-markup character" . choice $
       [ try (char '\\' <* notFollowedBy eol)        <* put OtherChar
       , try (char '!'  <* notFollowedBy (char '[')) <* put SpaceChar
+      , try (char '<'  <* notFollowedBy (pAutolink <* char '>')) <* put OtherChar
       , spaceChar                                   <* put SpaceChar
       , satisfy isTrans                             <* put SpaceChar
       , satisfy isOther                             <* put OtherChar ]
     isTrans x = isTransparentPunctuation x && x /= '!'
-    isOther x = not (isMarkupChar x) && x /= '\\' && x /= '!'
+    isOther x = not (isMarkupChar x) && x /= '\\' && x /= '!' && x /= '<'
 
 ----------------------------------------------------------------------------
 -- Parsing helpers
@@ -662,12 +703,12 @@ liftFrame = \case
   SubscriptFrame   -> Subscript
   SuperscriptFrame -> Superscript
 
-replaceEof :: ParseError Char e -> ParseError Char e
-replaceEof = \case
+replaceEof :: String -> ParseError Char e -> ParseError Char e
+replaceEof altLabel = \case
   TrivialError pos us es -> TrivialError pos (f <$> us) (E.map f es)
   FancyError   pos xs    -> FancyError pos xs
   where
-    f EndOfInput = Label (NE.fromList "end of inline block")
+    f EndOfInput = Label (NE.fromList altLabel)
     f x          = x
 
 mmarkErr :: MonadParsec MMarkErr s m => MMarkErr -> m a
@@ -675,3 +716,17 @@ mmarkErr = fancyFailure . E.singleton . ErrorCustom
 
 toNesTokens :: Text -> NonEmpty Char
 toNesTokens = NE.fromList . T.unpack
+
+isEmailUri :: URI -> Maybe Text
+isEmailUri uri =
+  case URI.unRText <$> URI.uriPath uri of
+    [x] ->
+      if Email.isValid (TE.encodeUtf8 x) &&
+          (isNothing (URI.uriScheme uri) ||
+           URI.uriScheme uri == Just mailtoScheme)
+        then Just x
+        else Nothing
+    _ -> Nothing
+
+mailtoScheme :: URI.RText 'URI.Scheme
+mailtoScheme = fromJust (URI.mkScheme "mailto")
