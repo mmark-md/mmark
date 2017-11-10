@@ -336,11 +336,11 @@ pInlines InlineConfig {..} =
     else stuff
   where
     stuff = NE.some . label "inline content" . choice $
-      [ pCodeSpan ] <>
-      [ pInlineLink | iconfigAllowLinks ] <>
-      [ pImage | iconfigAllowImages ] <>
-      [ try (angel pAutolink)
-      , pEnclosedInline
+      [ pCodeSpan                                  ] <>
+      [ pInlineLink           | iconfigAllowLinks  ] <>
+      [ pImage                | iconfigAllowImages ] <>
+      [ try (angel pAutolink) | iconfigAllowLinks  ] <>
+      [ pEnclosedInline
       , try pHardLineBreak
       , pPlain ]
     angel = between (char '<') (char '>')
