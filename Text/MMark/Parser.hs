@@ -28,15 +28,17 @@ module Text.MMark.Parser
 where
 
 import Control.Applicative
+import Control.Arrow (first)
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Data (Data)
 import Data.Default.Class
 import Data.List.NonEmpty (NonEmpty (..), (<|))
-import Data.Maybe (isNothing, isJust, fromJust)
+import Data.Maybe (isNothing, isJust, fromJust, fromMaybe)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
+import Data.Void
 import GHC.Generics
 import Text.MMark.Internal
 import Text.Megaparsec hiding (parse)
@@ -48,6 +50,7 @@ import qualified Data.List.NonEmpty                       as NE
 import qualified Data.Set                                 as E
 import qualified Data.Text                                as T
 import qualified Data.Text.Encoding                       as TE
+import qualified Data.Yaml                                as Yaml
 import qualified Text.Email.Validate                      as Email
 import qualified Text.Megaparsec.Char.Lexer               as L
 import qualified Text.URI                                 as URI
@@ -62,13 +65,18 @@ type Parser = Parsec MMarkErr Text
 -- | MMark custom parse errors.
 
 data MMarkErr
-  = NonFlankingDelimiterRun (NonEmpty Char)
+  = YamlParseError String
+    -- ^ YAML error that occurred during parsing of a YAML block
+  | NonFlankingDelimiterRun (NonEmpty Char)
     -- ^ This delimiter run should be in left- or right- flanking position
   deriving (Eq, Ord, Show, Read, Generic, Typeable, Data)
 
 instance ShowErrorComponent MMarkErr where
-  showErrorComponent (NonFlankingDelimiterRun dels) =
-    showTokens dels ++ " should be in left- or right- flanking position"
+  showErrorComponent = \case
+    YamlParseError str ->
+      "YAML parse error: " ++ str
+    NonFlankingDelimiterRun dels ->
+      showTokens dels ++ " should be in left- or right- flanking position"
 
 -- | Parser type for inlines.
 
@@ -141,11 +149,11 @@ parse
   -> Either (NonEmpty (ParseError Char MMarkErr)) MMark
      -- ^ Parse errors or parsed document
 parse file input =
-  case runParser pBlocks file input of
+  case runParser ((,) <$> optional pYamlBlock <*> pBlocks) file input of
     -- NOTE This parse error only happens when document structure on block
     -- level cannot be parsed, which should not normally happen.
     Left err -> Left (nes err)
-    Right blocks ->
+    Right (myaml, blocks) ->
       let parsed = fmap (runIsp (pInlines def <* eof)) <$> blocks
           getErrs (Left e) es = replaceEof "end of inline block" e : es
           getErrs _        es = es
@@ -154,10 +162,30 @@ parse file input =
             error "Text.MMark.Parser.parse: impossible happened"
       in case NE.nonEmpty (foldMap (foldr getErrs []) parsed) of
            Nothing -> Right MMark
-             { mmarkYaml      = Nothing
+             { mmarkYaml      = myaml
              , mmarkBlocks    = fmap fromRight <$> parsed
              , mmarkExtension = mempty }
            Just es -> Left es
+
+pYamlBlock :: Parser Yaml.Value
+pYamlBlock = do
+  dpos <- getPosition
+  void (string "---")
+  let go = do
+        l <- takeWhileP Nothing notNewline
+        void (optional eol)
+        e <- atEnd
+        if e || l == "---"
+          then return []
+          else (l :) <$> go
+  ls <- go
+  case (Yaml.decodeEither . TE.encodeUtf8 . T.intercalate "\n") ls of
+    Left err' -> do
+      let (apos, err) = splitYamlError (sourceName dpos) err'
+      setPosition (fromMaybe dpos apos)
+      (fancyFailure . E.singleton . ErrorCustom . YamlParseError) err
+    Right v ->
+      return v
 
 pBlocks :: Parser [Block Isp]
 pBlocks = do
@@ -730,3 +758,16 @@ isEmailUri uri =
 
 mailtoScheme :: URI.RText 'URI.Scheme
 mailtoScheme = fromJust (URI.mkScheme "mailto")
+
+splitYamlError :: FilePath -> String -> (Maybe SourcePos, String)
+splitYamlError file str = maybe (Nothing, str) (first pure) (parseMaybe p str)
+  where
+    p :: Parsec Void String (SourcePos, String)
+    p = do
+      void (string "YAML parse exception at line ")
+      l <- mkPos . (+ 1) <$> L.decimal
+      void (string ", column ")
+      c <- mkPos . (+ 1) <$> L.decimal
+      void (string ":\n")
+      r <- takeRest
+      return (SourcePos file l c, r)
