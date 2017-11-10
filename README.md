@@ -28,8 +28,7 @@ Another difference between Common Mark and MMark is that the latter supports
 more common markdown extensions out-of-the-box. In particular, MMark
 supports:
 
-* parsing of optional YAML metadata block (NOT YET)
-* automatic turning of bare URIs into links (NOT YET)
+* parsing of optional YAML block
 * strikeout using `~~this~~` syntax
 * superscript using `^this^` syntax
 * subscript using `~this~` syntax
@@ -155,9 +154,6 @@ it.
 
 ### Other differences
 
-Other differences/incompatibilities with Common Mark specification include
-(the list will hopefully get shorter as the library matures):
-
 * Fenced code blocks must be explicitly closed by a closing fence. They are
   not closed by the end of document or by start of another block.
 * MMark does not support hard line breaks represented as double space before
@@ -181,6 +177,11 @@ Other differences/incompatibilities with Common Mark specification include
 * HTML blocks are not supported yet.
 * HTML inlines are not supported yet.
 * Entity and numeric character references are not supported yet.
+
+### Additional information about MMark-specific extensions
+
+* YAML block must start with three hyphens `---` and end with three hyphens
+  `---`. It can only be placed at the beginning of markdown document.
 
 ## Contribution
 

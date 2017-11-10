@@ -29,8 +29,7 @@
 -- supports more common markdown extensions out-of-the-box. In particular,
 -- MMark supports:
 --
---     * parsing of optional YAML metadata block (NOT YET)
---     * automatic turning of bare URIs into links (NOT YET)
+--     * parsing of optional YAML block
 --     * strikeout using @~~this~~@ syntax
 --     * superscript using @^this^@ syntax
 --     * subscript using @~this~@ syntax

@@ -3,6 +3,7 @@
 
 module Text.MMarkSpec (spec) where
 
+import Data.Aeson
 import Data.Char
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid
@@ -1085,10 +1086,20 @@ spec = parallel $ do
       it "returns Nothing" $ do
         doc <- mkDoc "Here we go."
         MMark.projectYaml doc `shouldBe` Nothing
-    context "when document contains a YAML section" $
-      it "return the YAML section" $ do
-        doc <- mkDoc "---\nx: 100\ny: 200\n---Here we go."
-        MMark.projectYaml doc `shouldBe` Nothing -- FIXME when we support YAML blocks
+    context "when document contains a YAML section" $ do
+      context "when it is valid" $
+        it "returns the YAML section" $ do
+          doc <- mkDoc "---\nx: 100\ny: 200\n---Here we go."
+          let r = object
+                [ "x" .= Number 100
+                , "y" .= Number 200 ]
+          MMark.projectYaml doc `shouldBe` Just r
+      context "when it is invalid" $
+        it "signal correct parse error" $
+          let s = "---\nx: 100\ny: x:\n---Here we go."
+          in s ~-> errFancy (posN 15 s)
+             (fancy . ErrorCustom . YamlParseError $
+              "mapping values are not allowed in this context")
 
 ----------------------------------------------------------------------------
 -- Testing extensions
