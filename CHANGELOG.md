@@ -1,3 +1,3 @@
-## MMark 0.1.0
+## MMark 0.0.1.0
 
 * Initial release.
