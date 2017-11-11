@@ -170,12 +170,12 @@ parse file input =
 pYamlBlock :: Parser Yaml.Value
 pYamlBlock = do
   dpos <- getPosition
-  void (string "---")
+  string "---" *> sc' *> eol
   let go = do
         l <- takeWhileP Nothing notNewline
         void (optional eol)
         e <- atEnd
-        if e || l == "---"
+        if e || T.stripEnd l == "---"
           then return []
           else (l :) <$> go
   ls <- go
@@ -765,7 +765,7 @@ splitYamlError file str = maybe (Nothing, str) (first pure) (parseMaybe p str)
     p :: Parsec Void String (SourcePos, String)
     p = do
       void (string "YAML parse exception at line ")
-      l <- mkPos . (+ 1) <$> L.decimal
+      l <- mkPos . (+ 2) <$> L.decimal
       void (string ", column ")
       c <- mkPos . (+ 1) <$> L.decimal
       void (string ":\n")
