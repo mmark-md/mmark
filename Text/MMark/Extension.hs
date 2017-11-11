@@ -44,7 +44,7 @@ import qualified Control.Foldl as L
 -- 'Block's, not their 'Inline' contents which are denoted here as a
 -- universally quantified variable @a@.
 
-blockTrans :: (forall a. Block a -> Block a) -> Extension
+blockTrans :: (Block (NonEmpty Inline) -> Block (NonEmpty Inline)) -> Extension
 blockTrans f = mempty { extBlockTrans = Endo f }
 
 -- | Create an extension that replaces or augments rendering of 'Block's of

@@ -87,7 +87,7 @@ data MMark = MMark
 -- list passed to 'mconcat' will be applied later.
 
 data Extension = Extension
-  { extBlockTrans :: forall a. Endo (Block a)
+  { extBlockTrans :: Endo (Block (NonEmpty Inline))
     -- ^ Block transformation
   , extBlockRender :: Render (Block (Html ()))
     -- ^ Block render
@@ -160,9 +160,9 @@ render MMark {..} =
   where
     Extension {..} = mmarkExtension
     produceBlock   = applyBlockRender extBlockRender
-      . appEndo extBlockTrans
       . fmap (mapM_ (applyInlineRender extInlineRender) .
               fmap  (appEndo extInlineTrans))
+      . appEndo extBlockTrans
 
 -- | We can think of a markdown document as a collection of
 -- blocks—structural elements like paragraphs, block quotations, lists,
