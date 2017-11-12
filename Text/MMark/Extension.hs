@@ -20,6 +20,7 @@ module Text.MMark.Extension
   ( -- * Extension construction
     Extension
     -- ** Block-level manipulation
+  , Bni
   , Block (..)
   , blockTrans
   , blockRender
@@ -33,7 +34,6 @@ module Text.MMark.Extension
   , asPlainText )
 where
 
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Lucid
 import Text.MMark.Internal
@@ -42,7 +42,7 @@ import qualified Control.Foldl as L
 -- | Create an extension that performs a transformation on 'Block's of
 -- markdown document.
 
-blockTrans :: (Block (NonEmpty Inline) -> Block (NonEmpty Inline)) -> Extension
+blockTrans :: (Bni -> Bni) -> Extension
 blockTrans f = mempty { extBlockTrans = Endo f }
 
 -- | Create an extension that replaces or augments rendering of 'Block's of
@@ -78,7 +78,7 @@ inlineRender f = mempty { extInlineRender = Render f }
 
 scanner
   :: a                 -- ^ Initial state
-  -> (a -> Block (NonEmpty Inline) -> a) -- ^ Folding function
-  -> L.Fold (Block (NonEmpty Inline)) a -- ^ Resulting 'L.Fold'
+  -> (a -> Bni -> a)   -- ^ Folding function
+  -> L.Fold Bni a      -- ^ Resulting 'L.Fold'
 scanner a f = L.Fold f a id
 {-# INLINE scanner #-}

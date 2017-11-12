@@ -25,6 +25,7 @@ module Text.MMark.Internal
   , useExtension
   , useExtensions
   , render
+  , Bni
   , Block (..)
   , Inline (..)
   , Render (..)
@@ -58,7 +59,7 @@ import qualified Text.URI      as URI
 data MMark = MMark
   { mmarkYaml :: Maybe Value
     -- ^ Parsed YAML document at the beginning (optional)
-  , mmarkBlocks :: [Block (NonEmpty Inline)]
+  , mmarkBlocks :: [Bni]
     -- ^ Actual contents of the document
   , mmarkExtension :: Extension
     -- ^ Extension specifying how to process and render the blocks
@@ -87,7 +88,7 @@ data MMark = MMark
 -- list passed to 'mconcat' will be applied later.
 
 data Extension = Extension
-  { extBlockTrans :: Endo (Block (NonEmpty Inline))
+  { extBlockTrans :: Endo Bni
     -- ^ Block transformation
   , extBlockRender :: Render (Block (Html ()))
     -- ^ Block render
@@ -142,7 +143,7 @@ useExtensions exts = useExtension (mconcat exts)
 
 runScanner
   :: MMark             -- ^ Document to scan
-  -> L.Fold (Block (NonEmpty Inline)) a -- ^ 'L.Fold' to use
+  -> L.Fold Bni a      -- ^ 'L.Fold' to use
   -> a                 -- ^ Result of scanning
 runScanner MMark {..} f = L.fold f mmarkBlocks
 {-# INLINE runScanner #-}
@@ -163,6 +164,11 @@ render MMark {..} =
       . fmap (mapM_ (applyInlineRender extInlineRender) .
               fmap  (appEndo extInlineTrans))
       . appEndo extBlockTrans
+
+-- | A shortcut for the frequently used type @'Block' ('NonEmpty'
+-- 'Inline')@.
+
+type Bni = Block (NonEmpty Inline)
 
 -- | We can think of a markdown document as a collection of
 -- blocks—structural elements like paragraphs, block quotations, lists,
