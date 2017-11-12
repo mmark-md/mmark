@@ -46,7 +46,7 @@
 --
 -- The module is intended to be imported qualified:
 --
--- > import Text.MMark (MMark, (.&+))
+-- > import Text.MMark (MMark)
 -- > import qualified Text.MMark as MMark
 --
 -- Working with MMark happens in three stages:

@@ -40,9 +40,7 @@ import Text.MMark.Internal
 import qualified Control.Foldl as L
 
 -- | Create an extension that performs a transformation on 'Block's of
--- markdown document. Note that this transformation can only change
--- 'Block's, not their 'Inline' contents which are denoted here as a
--- universally quantified variable @a@.
+-- markdown document.
 
 blockTrans :: (Block (NonEmpty Inline) -> Block (NonEmpty Inline)) -> Extension
 blockTrans f = mempty { extBlockTrans = Endo f }
