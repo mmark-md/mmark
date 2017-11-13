@@ -52,7 +52,7 @@ spec = parallel $ do
         " - foo\n   - bar\n\t - baz" ==->
           "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n"
       it "CM10" $
-        "#\tFoo" ==-> "<h1>Foo</h1>\n"
+        "#\tFoo" ==-> "<h1 id=\"foo\">Foo</h1>\n"
       it "CM11" $
         "*\t*\t*\t" ==-> "<hr>\n"
     context "3.1 Precedence" $
@@ -110,7 +110,7 @@ spec = parallel $ do
     context "4.2 ATX headings" $ do
       it "CM32" $
         "# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo" ==->
-          "<h1>foo</h1>\n<h2>foo</h2>\n<h3>foo</h3>\n<h4>foo</h4>\n<h5>foo</h5>\n<h6>foo</h6>\n"
+          "<h1 id=\"foo\">foo</h1>\n<h2 id=\"foo\">foo</h2>\n<h3 id=\"foo\">foo</h3>\n<h4 id=\"foo\">foo</h4>\n<h5 id=\"foo\">foo</h5>\n<h6 id=\"foo\">foo</h6>\n"
       it "CM33" $
         "####### foo" ==-> "<p>####### foo</p>\n"
       it "CM34" $
@@ -118,41 +118,41 @@ spec = parallel $ do
       it "CM35" $
         "\\## foo" ==-> "<p>## foo</p>\n"
       it "CM36" $
-        "# foo *bar* \\*baz\\*" ==-> "<h1>foo <em>bar</em> *baz*</h1>\n"
+        "# foo *bar* \\*baz\\*" ==-> "<h1 id=\"foo-bar-*baz*\">foo <em>bar</em> *baz*</h1>\n"
       it "CM37" $
         "#                  foo                     " ==->
-          "<h1>foo</h1>\n"
+          "<h1 id=\"foo\">foo</h1>\n"
       it "CM38" $
         " ### foo\n  ## foo\n   # foo" ==->
-          "<h3>foo</h3>\n<h2>foo</h2>\n<h1>foo</h1>\n"
+          "<h3 id=\"foo\">foo</h3>\n<h2 id=\"foo\">foo</h2>\n<h1 id=\"foo\">foo</h1>\n"
       it "CM39" $
         "    # foo" ==-> "<pre><code># foo\n</code></pre>\n"
       it "CM40" $
         "foo\n    # bar" ==-> "<p>foo\n# bar</p>\n"
       it "CM41" $
         "## foo ##\n  ###   bar    ###" ==->
-          "<h2>foo</h2>\n<h3>bar</h3>\n"
+          "<h2 id=\"foo\">foo</h2>\n<h3 id=\"bar\">bar</h3>\n"
       it "CM42" $
         "# foo ##################################\n##### foo ##" ==->
-          "<h1>foo</h1>\n<h5>foo</h5>\n"
+          "<h1 id=\"foo\">foo</h1>\n<h5 id=\"foo\">foo</h5>\n"
       it "CM43" $
-        "### foo ###     " ==-> "<h3>foo</h3>\n"
+        "### foo ###     " ==-> "<h3 id=\"foo\">foo</h3>\n"
       it "CM44" $
-        "### foo ### b" ==-> "<h3>foo ### b</h3>\n"
+        "### foo ### b" ==-> "<h3 id=\"foo-###-b\">foo ### b</h3>\n"
       it "CM45" $
-        "# foo#" ==-> "<h1>foo#</h1>\n"
+        "# foo#" ==-> "<h1 id=\"foo#\">foo#</h1>\n"
       it "CM46" $
         "### foo \\###\n## foo #\\##\n# foo \\#" ==->
-          "<h3>foo ###</h3>\n<h2>foo ###</h2>\n<h1>foo #</h1>\n"
+          "<h3 id=\"foo-###\">foo ###</h3>\n<h2 id=\"foo-###\">foo ###</h2>\n<h1 id=\"foo-#\">foo #</h1>\n"
       it "CM47" $
         "****\n## foo\n****" ==->
-          "<hr>\n<h2>foo</h2>\n<hr>\n"
+          "<hr>\n<h2 id=\"foo\">foo</h2>\n<hr>\n"
       it "CM48" $
         "Foo bar\n# baz\nBar foo" ==->
-          "<p>Foo bar</p>\n<h1>baz</h1>\n<p>Bar foo</p>\n"
+          "<p>Foo bar</p>\n<h1 id=\"baz\">baz</h1>\n<p>Bar foo</p>\n"
       it "CM49" $
         "## \n#\n### ###" ==->
-          "<h2></h2>\n<h1></h1>\n<h3></h3>\n"
+          "<h2 id></h2>\n<h1 id></h1>\n<h3 id></h3>\n"
     context "4.4 Indented code blocks" $ do
       it "CM76" $
         "    a simple\n      indented code block" ==->
@@ -303,7 +303,7 @@ spec = parallel $ do
     context "4.9 Blank lines" $
       it "CM188" $
         "  \n\naaa\n  \n\n# aaa\n\n  " ==->
-          "<p>aaa</p>\n<h1>aaa</h1>\n"
+          "<p>aaa</p>\n<h1 id=\"aaa\">aaa</h1>\n"
     context "6 Inlines" $
       it "CM286" $
         let s  = "`hi`lo`\n"
@@ -998,9 +998,9 @@ spec = parallel $ do
       xit "CM615" $
         "foo  " ==-> "<p>foo</p>\n"
       it "CM616" $
-        "### foo\\" ==-> "<h3>foo\\</h3>\n"
+        "### foo\\" ==-> "<h3 id=\"foo\\\">foo\\</h3>\n"
       it "CM617" $
-        "### foo  " ==-> "<h3>foo</h3>\n"
+        "### foo  " ==-> "<h3 id=\"foo\">foo</h3>\n"
     context "6.10 Soft line breaks" $ do
       it "CM618" $
         "foo\nbaz" ==-> "<p>foo\nbaz</p>\n"
@@ -1072,11 +1072,11 @@ spec = parallel $ do
       doc <- mkDoc "Here we go, pals."
       let n = MMark.runScanner doc (length_scan (const True))
       n `shouldBe` 17
-  describe "(.&+)" $
+  describe "combining of scanners" $
     it "combines scanners" $ do
       doc <- mkDoc "Here we go, pals."
       let scan = (,,)
-            <$>length_scan (const True)
+            <$> length_scan (const True)
             <*> length_scan isSpace
             <*> length_scan isPunctuation
           r = MMark.runScanner doc scan

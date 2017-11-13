@@ -36,6 +36,7 @@ module Text.MMark.Extension
   , headerFragment )
 where
 
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Lucid
 import Text.MMark.Internal
@@ -49,16 +50,23 @@ blockTrans f = mempty { extBlockTrans = Endo f }
 
 -- | Create an extension that replaces or augments rendering of 'Block's of
 -- markdown document. The argument of 'blockRender' will be given rendering
--- function constructed so far @'Block' ('Html' ()) -> 'Html' ()@ as well as
--- actual block to render—@'Block' ('Html' ())@. You can then decide whether
--- to replace\/reuse that function to get the final rendering of the type
--- @'Html' ()@. The argument of 'blockRender' can also be thought of as a
--- function that transforms rendering function constructed so far:
+-- function constructed so far @'Block' ('NonEmpty' 'Inline', 'Html' ()) ->
+-- 'Html' ()@ as well as actual block to render—@'Block' ('NonEmpty'
+-- 'Inline', 'Html' ())@. You can then decide whether to replace\/reuse that
+-- function to get the final rendering of the type @'Html' ()@. The argument
+-- of 'blockRender' can also be thought of as a function that transforms
+-- rendering function constructed so far:
 --
--- > (Block (Html ()) -> Html ()) -> (Block (Html ()) -> Html ())
+-- > (Block (NonEmpty Inline, Html ()) -> Html ()) -> (Block (NonEmpty Inline, Html ()) -> Html ())
+
+-- TODO Improve the docs, explain in more detail about the tuple.
+
+-- TODO We need to prevent messing with NonEmpty Inline component and make
+-- sure it's passed around unchanged, it's only available for inspection.
 
 blockRender
-  :: ((Block (Html ()) -> Html ()) -> Block (Html ()) -> Html ())
+  :: ((Block (NonEmpty Inline, Html ()) -> Html ())
+       -> Block (NonEmpty Inline, Html ()) -> Html ())
   -> Extension
 blockRender f = mempty { extBlockRender = Render f }
 

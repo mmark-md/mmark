@@ -40,6 +40,7 @@ module Text.MMark.Internal
   , headerFragment )
 where
 
+import Control.Arrow
 import Control.DeepSeq
 import Control.Monad
 import Data.Aeson
@@ -99,7 +100,7 @@ data MMark = MMark
 data Extension = Extension
   { extBlockTrans :: Endo Bni
     -- ^ Block transformation
-  , extBlockRender :: Render (Block (Html ()))
+  , extBlockRender :: Render (Block (NonEmpty Inline, Html ()))
     -- ^ Block render
   , extInlineTrans :: Endo Inline
     -- ^ Inline transformation
@@ -248,7 +249,7 @@ render MMark {..} =
   where
     Extension {..} = mmarkExtension
     produceBlock   = applyBlockRender extBlockRender
-      . fmap (mapM_ (applyInlineRender extInlineRender) .
+      . fmap ((id &&& mapM_ (applyInlineRender extInlineRender)) .
               fmap  (appEndo extInlineTrans))
       . appEndo extBlockTrans
 
@@ -268,7 +269,10 @@ instance Monoid (Render a) where
 
 -- | Apply a 'Render' to a given @'Block' 'Html' ()@.
 
-applyBlockRender :: Render (Block (Html ())) -> Block (Html ()) -> Html ()
+applyBlockRender
+  :: Render (Block (NonEmpty Inline, Html ()))
+  -> Block (NonEmpty Inline, Html ())
+  -> Html ()
 applyBlockRender r = getRender r defaultBlockRender
 
 -- | The default 'Block' render. Note that it does not care about what we
@@ -276,27 +280,27 @@ applyBlockRender r = getRender r defaultBlockRender
 -- just pass it something dummy as the second argument of the inner
 -- function.
 
-defaultBlockRender :: Block (Html ()) -> Html ()
+defaultBlockRender :: Block (NonEmpty Inline, Html ()) -> Html ()
 defaultBlockRender = \case
   ThematicBreak ->
     hr_ [] >> newline
-  Heading1 html ->
-    h1_ html >> newline
-  Heading2 html ->
-    h2_ html >> newline
-  Heading3 html ->
-    h3_ html >> newline
-  Heading4 html ->
-    h4_ html >> newline
-  Heading5 html ->
-    h5_ html >> newline
-  Heading6 html ->
-    h6_ html >> newline
+  Heading1 (h,html) ->
+    h1_ [id_ (headerId h)] html >> newline
+  Heading2 (h,html) ->
+    h2_ [id_ (headerId h)] html >> newline
+  Heading3 (h,html) ->
+    h3_ [id_ (headerId h)] html >> newline
+  Heading4 (h,html) ->
+    h4_ [id_ (headerId h)] html >> newline
+  Heading5 (h,html) ->
+    h5_ [id_ (headerId h)] html >> newline
+  Heading6 (h,html) ->
+    h6_ [id_ (headerId h)] html >> newline
   CodeBlock infoString txt -> do
     let f x = class_ $ "language-" <> T.takeWhile (not . isSpace) x
     pre_ $ code_ (maybe [] (pure . f) infoString) (toHtml txt)
     newline
-  Paragraph html ->
+  Paragraph (_,html) ->
     p_ html >> newline
   Blockquote blocks ->
     blockquote_ (mapM_ defaultBlockRender blocks)
@@ -314,7 +318,7 @@ defaultBlockRender = \case
         li_ (mapM_ defaultBlockRender x)
         newline
     newline
-  Naked html ->
+  Naked (_,html) ->
     html
 
 -- | Apply a render to a given 'Inline'.
