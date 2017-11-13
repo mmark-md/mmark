@@ -390,7 +390,7 @@ headerId = T.intercalate "-" . T.words . T.toLower . asPlainText
 -- | Generate a 'URI' with just fragment from its textual representation.
 -- Useful for getting URL from id of a header.
 
-headerFragment :: Text -> URI
+headerFragment :: Text -> URI -- TODO fix these explicitly
 headerFragment fragment = URI
   { uriScheme    = Nothing
   , uriAuthority = Left False

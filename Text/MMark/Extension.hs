@@ -14,6 +14,9 @@
 -- > import Text.MMark.Extension (Block (..), Inline (..))
 -- > import qualified Text.MMark.Extension as Ext
 
+-- TODO Put text here that explains in which order and how all the
+-- transformations are applied.
+
 {-# LANGUAGE RankNTypes #-}
 
 module Text.MMark.Extension
