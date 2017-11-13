@@ -31,7 +31,9 @@ module Text.MMark.Extension
     -- * Scanner construction
   , scanner
     -- * Utils
-  , asPlainText )
+  , asPlainText
+  , headerId
+  , headerFragment )
 where
 
 import Data.Monoid hiding ((<>))
