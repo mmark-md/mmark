@@ -200,14 +200,12 @@ data Block a
     -- ^ Paragraph, leaf block
   | Blockquote [Block a]
     -- ^ Blockquote container block
-  | OrderedList (NonEmpty (Block a))
+  | OrderedList (NonEmpty [Block a])
     -- ^ Ordered list, container block
-  | TightOrderedList (NonEmpty a)
-    -- ^ Tight ordered list, leaf block
-  | UnorderedList (NonEmpty (Block a))
+  | UnorderedList (NonEmpty [Block a])
     -- ^ Unordered list, container block
-  | TightUnorderedList (NonEmpty a)
-    -- ^ Tight unordered list, leaf block
+  | Naked a
+    -- ^ Naked content, without an enclosing tag
   deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor, Foldable)
 
 instance NFData a => NFData (Block a)
@@ -290,14 +288,22 @@ defaultBlockRender = \case
     p_ html >> newline
   Blockquote blocks ->
     blockquote_ (mapM_ defaultBlockRender blocks)
-  OrderedList items ->
-    ol_ $ forM_ items (li_ . defaultBlockRender)
-  TightOrderedList items ->
-    ol_ $ forM_ items li_
-  UnorderedList items ->
-    ul_ $ forM_ items (li_ . defaultBlockRender)
-  TightUnorderedList items ->
-    ul_ $ forM_ items li_
+  OrderedList items -> do
+    ol_ $ do
+      newline
+      forM_ items $ \x -> do
+        li_ (mapM_ defaultBlockRender x)
+        newline
+    newline
+  UnorderedList items -> do
+    ul_ $ do
+      newline
+      forM_ items $ \x -> do
+        li_ (mapM_ defaultBlockRender x)
+        newline
+    newline
+  Naked html ->
+    html
 
 -- | Apply a render to a given 'Inline'.
 
