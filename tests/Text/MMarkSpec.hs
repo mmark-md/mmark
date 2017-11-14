@@ -17,6 +17,7 @@ import Text.Megaparsec (ErrorFancy (..))
 import qualified Control.Foldl        as L
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Text            as T
+import qualified Data.Text.IO         as TIO
 import qualified Text.MMark           as MMark
 import qualified Text.MMark.Extension as Ext
 
@@ -1053,6 +1054,9 @@ spec = parallel $ do
         s ~~->
           [ err (posN 5  s) pe
           , err (posN 13 s) pe ]
+    context "given a complete, comprehensive document" $
+      it "outputs expected the HTML fragment" $
+        withFiles "data/comprehensive-0.md" "data/comprehensive-0.html"
   describe "parseErrorsPretty" $
     it "renders parse errors correctly" $ do
       let s = "Foo\nBar\nBaz\n"
@@ -1131,6 +1135,21 @@ length_scan p = Ext.scanner 0 $ \n block ->
   where
     f (Plain txt) = (Sum . T.length) (T.filter p txt)
     f _           = mempty
+
+----------------------------------------------------------------------------
+-- For testing with documents loaded externally
+
+-- | Load a complete markdown document from an external file and compare the
+-- final HTML rendering with contents of another file.
+
+withFiles
+  :: FilePath          -- ^ Markdown document
+  -> FilePath          -- ^ HTML document containing the correct result
+  -> Expectation
+withFiles input output = do
+  i <- TIO.readFile input
+  o <- TIO.readFile output
+  i ==-> o
 
 ----------------------------------------------------------------------------
 -- Helpers

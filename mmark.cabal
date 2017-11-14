@@ -14,6 +14,8 @@ build-type:           Simple
 description:          Strict markdown processor for writers.
 extra-doc-files:      CHANGELOG.md
                     , README.md
+data-files:           data/*.md
+                    , data/*.html
 
 source-repository head
   type:               git
