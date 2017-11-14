@@ -17,22 +17,22 @@ spec = parallel $ do
     it "works" $ do
       doc <- mkDoc "# My heading"
       toText (MMark.useExtension h1_to_h2 doc)
-        `shouldBe` "<h2>My heading</h2>\n"
+        `shouldBe` "<h2 id=\"my-heading\">My heading</h2>\n"
   describe "blockRender" $
     it "works" $ do
       doc <- mkDoc "# My heading"
-      toText (MMark.useExtension (add_h1_id "foo") doc)
-        `shouldBe` "<h1 id=\"foo\">My heading</h1>\n"
+      toText (MMark.useExtension (add_h1_class "foo") doc)
+        `shouldBe` "<h1 id=\"my-heading\" class=\"foo\">My heading</h1>\n"
   describe "inlineTrans" $
     it "works" $ do
       doc <- mkDoc "# My *heading*"
       toText (MMark.useExtension em_to_strong doc)
-        `shouldBe` "<h1>My <strong>heading</strong></h1>\n"
+        `shouldBe` "<h1 id=\"my-heading\">My <strong>heading</strong></h1>\n"
   describe "inlineRender" $
     it "works" $ do
       doc <- mkDoc "# My *heading*"
       toText (MMark.useExtension (add_em_class "foo") doc)
-        `shouldBe` "<h1>My <em class=\"foo\">heading</em></h1>\n"
+        `shouldBe` "<h1 id=\"my-heading\">My <em class=\"foo\">heading</em></h1>\n"
 
 ----------------------------------------------------------------------------
 -- Testing extensions
@@ -44,12 +44,12 @@ h1_to_h2 = Ext.blockTrans $ \case
   Heading1 inner -> Heading2 inner
   other          -> other
 
--- | Add given id to all headings with on level 1.
+-- | Add given class to all headings of level 1.
 
-add_h1_id :: Text -> MMark.Extension
-add_h1_id given = Ext.blockRender $ \old block ->
+add_h1_class :: Text -> MMark.Extension
+add_h1_class given = Ext.blockRender $ \old block ->
   case block of
-    Heading1 inner -> L.with (old (Heading1 inner)) [L.id_ given]
+    Heading1 inner -> L.with (old (Heading1 inner)) [L.class_ given]
     other          -> old other
 
 -- | Covert all 'Emphasis' to 'Strong'.

@@ -33,6 +33,7 @@
 --     * strikeout using @~~this~~@ syntax
 --     * superscript using @^this^@ syntax
 --     * subscript using @~this~@ syntax
+--     * automatic assignment of ids to headers
 --     * PHP-style footnotes, e.g. @[^1]@ (NOT YET)
 --     * “pipe” tables (as used on GitHub) (NOT YET)
 --

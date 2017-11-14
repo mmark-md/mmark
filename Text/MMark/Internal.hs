@@ -19,21 +19,28 @@
 {-# LANGUAGE RecordWildCards    #-}
 
 module Text.MMark.Internal
-  ( MMark (..)
+  ( -- * Types
+    MMark (..)
   , Extension (..)
-  , runScanner
-  , useExtension
-  , useExtensions
-  , render
   , Bni
   , Block (..)
   , Inline (..)
+    -- * Extensions
+  , runScanner
+  , useExtension
+  , useExtensions
+    -- * Renders
+  , render
   , Render (..)
   , defaultBlockRender
   , defaultInlineRender
-  , asPlainText )
+    -- * Utils
+  , asPlainText
+  , headerId
+  , headerFragment )
 where
 
+import Control.Arrow
 import Control.DeepSeq
 import Control.Monad
 import Data.Aeson
@@ -47,10 +54,13 @@ import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
 import Lucid
-import Text.URI (URI)
+import Text.URI (URI (..))
 import qualified Control.Foldl as L
 import qualified Data.Text     as T
 import qualified Text.URI      as URI
+
+----------------------------------------------------------------------------
+-- Types
 
 -- | Representation of complete markdown document. You can't look inside of
 -- 'MMark' on purpose. The only way to influence an 'MMark' document you
@@ -90,7 +100,7 @@ data MMark = MMark
 data Extension = Extension
   { extBlockTrans :: Endo Bni
     -- ^ Block transformation
-  , extBlockRender :: Render (Block (Html ()))
+  , extBlockRender :: Render (Block (NonEmpty Inline, Html ()))
     -- ^ Block render
   , extInlineTrans :: Endo Inline
     -- ^ Inline transformation
@@ -112,58 +122,6 @@ instance Monoid Extension where
     , extInlineTrans  = mempty
     , extInlineRender = mempty }
   mappend = (<>)
-
--- | Apply an 'Extension' to an 'MMark' document. The order in which you
--- apply 'Extension's /does matter/. Extensions you apply first take effect
--- first. The extension system is designed in such a way that in many cases
--- the order doesn't matter, but sometimes the difference is important.
-
-useExtension :: Extension -> MMark -> MMark
-useExtension ext mmark =
-  mmark { mmarkExtension = ext <> mmarkExtension mmark }
-
--- | Apply several 'Extension's to an 'MMark' document.
---
--- This is a simple shortcut:
---
--- > useExtensions exts = useExtension (mconcat exts)
---
--- As mentioned in the docs for 'useExtension', the order in which you apply
--- extensions matters. Extensions closer to beginning of the list are
--- applied later, i.e. the last extension in the list is applied first.
-
-useExtensions :: [Extension] -> MMark -> MMark
-useExtensions exts = useExtension (mconcat exts)
-
--- | Scan an 'MMark' document efficiently in one pass. This uses the
--- excellent 'L.Fold' type, which see.
---
--- Take a look at the "Text.MMark.Extension" module if you want to create
--- scanners of your own.
-
-runScanner
-  :: MMark             -- ^ Document to scan
-  -> L.Fold Bni a      -- ^ 'L.Fold' to use
-  -> a                 -- ^ Result of scanning
-runScanner MMark {..} f = L.fold f mmarkBlocks
-{-# INLINE runScanner #-}
-
--- | Render a 'MMark' markdown document. You can then render @'Html' ()@ to
--- various things:
---
---     * to lazy 'Data.Taxt.Lazy.Text' with 'renderText'
---     * to lazy 'Data.ByteString.Lazy.ByteString' with 'renderBS'
---     * directly to file with 'renderToFile'
-
-render :: MMark -> Html ()
-render MMark {..} =
-  mapM_ produceBlock mmarkBlocks
-  where
-    Extension {..} = mmarkExtension
-    produceBlock   = applyBlockRender extBlockRender
-      . fmap (mapM_ (applyInlineRender extInlineRender) .
-              fmap  (appEndo extInlineTrans))
-      . appEndo extBlockTrans
 
 -- | A shortcut for the frequently used type @'Block' ('NonEmpty'
 -- 'Inline')@.
@@ -238,7 +196,62 @@ data Inline
 instance NFData Inline
 
 ----------------------------------------------------------------------------
+-- Extensions
+
+-- | Apply an 'Extension' to an 'MMark' document. The order in which you
+-- apply 'Extension's /does matter/. Extensions you apply first take effect
+-- first. The extension system is designed in such a way that in many cases
+-- the order doesn't matter, but sometimes the difference is important.
+
+useExtension :: Extension -> MMark -> MMark
+useExtension ext mmark =
+  mmark { mmarkExtension = ext <> mmarkExtension mmark }
+
+-- | Apply several 'Extension's to an 'MMark' document.
+--
+-- This is a simple shortcut:
+--
+-- > useExtensions exts = useExtension (mconcat exts)
+--
+-- As mentioned in the docs for 'useExtension', the order in which you apply
+-- extensions matters. Extensions closer to beginning of the list are
+-- applied later, i.e. the last extension in the list is applied first.
+
+useExtensions :: [Extension] -> MMark -> MMark
+useExtensions exts = useExtension (mconcat exts)
+
+-- | Scan an 'MMark' document efficiently in one pass. This uses the
+-- excellent 'L.Fold' type, which see.
+--
+-- Take a look at the "Text.MMark.Extension" module if you want to create
+-- scanners of your own.
+
+runScanner
+  :: MMark             -- ^ Document to scan
+  -> L.Fold Bni a      -- ^ 'L.Fold' to use
+  -> a                 -- ^ Result of scanning
+runScanner MMark {..} f = L.fold f mmarkBlocks
+{-# INLINE runScanner #-}
+
+----------------------------------------------------------------------------
 -- Renders
+
+-- | Render a 'MMark' markdown document. You can then render @'Html' ()@ to
+-- various things:
+--
+--     * to lazy 'Data.Taxt.Lazy.Text' with 'renderText'
+--     * to lazy 'Data.ByteString.Lazy.ByteString' with 'renderBS'
+--     * directly to file with 'renderToFile'
+
+render :: MMark -> Html ()
+render MMark {..} =
+  mapM_ produceBlock mmarkBlocks
+  where
+    Extension {..} = mmarkExtension
+    produceBlock   = applyBlockRender extBlockRender
+      . fmap ((id &&& mapM_ (applyInlineRender extInlineRender)) .
+              fmap  (appEndo extInlineTrans))
+      . appEndo extBlockTrans
 
 -- | An internal type that captures the extensible rendering process we use.
 -- 'Render' has a function inside which transforms a rendering function of
@@ -256,7 +269,10 @@ instance Monoid (Render a) where
 
 -- | Apply a 'Render' to a given @'Block' 'Html' ()@.
 
-applyBlockRender :: Render (Block (Html ())) -> Block (Html ()) -> Html ()
+applyBlockRender
+  :: Render (Block (NonEmpty Inline, Html ()))
+  -> Block (NonEmpty Inline, Html ())
+  -> Html ()
 applyBlockRender r = getRender r defaultBlockRender
 
 -- | The default 'Block' render. Note that it does not care about what we
@@ -264,27 +280,27 @@ applyBlockRender r = getRender r defaultBlockRender
 -- just pass it something dummy as the second argument of the inner
 -- function.
 
-defaultBlockRender :: Block (Html ()) -> Html ()
+defaultBlockRender :: Block (NonEmpty Inline, Html ()) -> Html ()
 defaultBlockRender = \case
   ThematicBreak ->
     hr_ [] >> newline
-  Heading1 html ->
-    h1_ html >> newline
-  Heading2 html ->
-    h2_ html >> newline
-  Heading3 html ->
-    h3_ html >> newline
-  Heading4 html ->
-    h4_ html >> newline
-  Heading5 html ->
-    h5_ html >> newline
-  Heading6 html ->
-    h6_ html >> newline
+  Heading1 (h,html) ->
+    h1_ [id_ (headerId h)] html >> newline
+  Heading2 (h,html) ->
+    h2_ [id_ (headerId h)] html >> newline
+  Heading3 (h,html) ->
+    h3_ [id_ (headerId h)] html >> newline
+  Heading4 (h,html) ->
+    h4_ [id_ (headerId h)] html >> newline
+  Heading5 (h,html) ->
+    h5_ [id_ (headerId h)] html >> newline
+  Heading6 (h,html) ->
+    h6_ [id_ (headerId h)] html >> newline
   CodeBlock infoString txt -> do
     let f x = class_ $ "language-" <> T.takeWhile (not . isSpace) x
     pre_ $ code_ (maybe [] (pure . f) infoString) (toHtml txt)
     newline
-  Paragraph html ->
+  Paragraph (_,html) ->
     p_ html >> newline
   Blockquote blocks ->
     blockquote_ (mapM_ defaultBlockRender blocks)
@@ -302,7 +318,7 @@ defaultBlockRender = \case
         li_ (mapM_ defaultBlockRender x)
         newline
     newline
-  Naked html ->
+  Naked (_,html) ->
     html
 
 -- | Apply a render to a given 'Inline'.
@@ -361,3 +377,23 @@ asPlainText = foldMap $ \case
   CodeSpan   txt -> txt
   Link    xs _ _ -> asPlainText xs
   Image   xs _ _ -> asPlainText xs
+
+-- | Generate value of id attribute for a given header. This is used during
+-- rendering and also can be used to get id of a header for linking to it in
+-- extensions.
+--
+-- See also: 'headerFragment'.
+
+headerId :: NonEmpty Inline -> Text
+headerId = T.intercalate "-" . T.words . T.toLower . asPlainText
+
+-- | Generate a 'URI' with just fragment from its textual representation.
+-- Useful for getting URL from id of a header.
+
+headerFragment :: Text -> URI -- TODO fix these explicitly
+headerFragment fragment = URI
+  { uriScheme    = Nothing
+  , uriAuthority = Left False
+  , uriPath      = []
+  , uriQuery     = []
+  , uriFragment  = URI.mkFragment fragment }
