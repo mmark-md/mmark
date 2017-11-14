@@ -1053,6 +1053,14 @@ spec = parallel $ do
         s ~~->
           [ err (posN 5  s) pe
           , err (posN 13 s) pe ]
+  describe "parseErrorsPretty" $
+    it "renders parse errors correctly" $ do
+      let s = "Foo\nBar\nBaz\n"
+          e0 = err posI       (utok 'F' <> etok 'Z')
+          e1 = err (posN 4 s) (utok 'B' <> etok 'Z')
+          e2 = err (posN 8 s) (utok 'B' <> etok 'Z')
+      MMark.parseErrorsPretty s (e0:|[e1,e2]) `shouldBe`
+        "1:1:\n  |\n1 | Foo\n  | ^\nunexpected 'F'\nexpecting 'Z'\n2:1:\n  |\n2 | Bar\n  | ^\nunexpected 'B'\nexpecting 'Z'\n3:1:\n  |\n3 | Baz\n  | ^\nunexpected 'B'\nexpecting 'Z'\n"
   describe "useExtension" $
     it "applies given extension" $ do
       doc <- mkDoc "Here we go."
