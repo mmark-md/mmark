@@ -11,11 +11,29 @@
 --
 -- We suggest using a qualified import, like this:
 --
--- > import Text.MMark.Extension (Block (..), Inline (..))
+-- > import Text.MMark.Extension (Bni, Block (..), Inline (..))
 -- > import qualified Text.MMark.Extension as Ext
-
--- TODO Put text here that explains in which order and how all the
--- transformations are applied.
+--
+-- === Details about extensions
+--
+-- There are four kinds of extension-producing functions. They correspond
+-- internally to four functions that are applied to the parsed document in
+-- turn:
+--
+--     * 'blockTrans' is applied first, as it's quite general and can change
+--       block-level structure of document as well as inline-level
+--       structure.
+--     * 'inlineTrans' is applied to every inline in the document obtained
+--       in the previous step.
+--     * 'inlineRender' is applied to every inline; this function produces
+--       HTML rendition of the inlines and we also preserve the original
+--       inline so 'blockRender' can look at it (sometimes it is useful).
+--     * 'blockRender' is applied to every block to obtain HTML rendition of
+--       the whole document.
+--
+-- When one combines different extensions, extensions of the same kind get
+-- fused together into a single function. This allows for faster processing
+-- in the end.
 
 {-# LANGUAGE RankNTypes #-}
 
