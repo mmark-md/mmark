@@ -31,6 +31,8 @@ module Text.MMark.Internal
   , useExtensions
     -- * Renders
   , render
+  , Ois
+  , getOis
   , Render (..)
   , defaultBlockRender
   , defaultInlineRender
@@ -100,7 +102,7 @@ data MMark = MMark
 data Extension = Extension
   { extBlockTrans :: Endo Bni
     -- ^ Block transformation
-  , extBlockRender :: Render (Block (NonEmpty Inline, Html ()))
+  , extBlockRender :: Render (Block (Ois, Html ()))
     -- ^ Block render
   , extInlineTrans :: Endo Inline
     -- ^ Inline transformation
@@ -130,9 +132,9 @@ type Bni = Block (NonEmpty Inline)
 
 -- | We can think of a markdown document as a collection of
 -- blocks—structural elements like paragraphs, block quotations, lists,
--- headings, rules, and code blocks. Some blocks (like block quotes and list
--- items) contain other blocks; others (like headings and paragraphs)
--- contain inline content, see 'Inline'.
+-- headings, thematic breaks, and code blocks. Some blocks (like block
+-- quotes and list items) contain other blocks; others (like headings and
+-- paragraphs) contain inline content, see 'Inline'.
 --
 -- We can divide blocks into two types: container blocks, which can contain
 -- other blocks, and leaf blocks, which cannot.
@@ -249,9 +251,22 @@ render MMark {..} =
   where
     Extension {..} = mmarkExtension
     produceBlock   = applyBlockRender extBlockRender
-      . fmap ((id &&& mapM_ (applyInlineRender extInlineRender)) .
+      . fmap ((Ois &&& mapM_ (applyInlineRender extInlineRender)) .
               fmap  (appEndo extInlineTrans))
       . appEndo extBlockTrans
+
+-- | A wrapper for “originial inlines”. Source inlines are wrapped in this
+-- during rendering of inline components and then it's available to block
+-- render, but only for inspection. Altering of 'Ois' is not possible
+-- because the user cannot construct a value of the 'Ois' type, she can only
+-- inspect it with 'getOis'.
+
+newtype Ois = Ois (NonEmpty Inline)
+
+-- | Project @'NonEmpty' 'Inline'@ from 'Ois'.
+
+getOis :: Ois -> NonEmpty Inline
+getOis (Ois inlines) = inlines
 
 -- | An internal type that captures the extensible rendering process we use.
 -- 'Render' has a function inside which transforms a rendering function of
@@ -270,8 +285,8 @@ instance Monoid (Render a) where
 -- | Apply a 'Render' to a given @'Block' 'Html' ()@.
 
 applyBlockRender
-  :: Render (Block (NonEmpty Inline, Html ()))
-  -> Block (NonEmpty Inline, Html ())
+  :: Render (Block (Ois, Html ()))
+  -> Block (Ois, Html ())
   -> Html ()
 applyBlockRender r = getRender r defaultBlockRender
 
@@ -280,22 +295,22 @@ applyBlockRender r = getRender r defaultBlockRender
 -- just pass it something dummy as the second argument of the inner
 -- function.
 
-defaultBlockRender :: Block (NonEmpty Inline, Html ()) -> Html ()
+defaultBlockRender :: Block (Ois, Html ()) -> Html ()
 defaultBlockRender = \case
   ThematicBreak ->
     hr_ [] >> newline
   Heading1 (h,html) ->
-    h1_ [id_ (headerId h)] html >> newline
+    h1_ (mkId h) html >> newline
   Heading2 (h,html) ->
-    h2_ [id_ (headerId h)] html >> newline
+    h2_ (mkId h) html >> newline
   Heading3 (h,html) ->
-    h3_ [id_ (headerId h)] html >> newline
+    h3_ (mkId h) html >> newline
   Heading4 (h,html) ->
-    h4_ [id_ (headerId h)] html >> newline
+    h4_ (mkId h) html >> newline
   Heading5 (h,html) ->
-    h5_ [id_ (headerId h)] html >> newline
+    h5_ (mkId h) html >> newline
   Heading6 (h,html) ->
-    h6_ [id_ (headerId h)] html >> newline
+    h6_ (mkId h) html >> newline
   CodeBlock infoString txt -> do
     let f x = class_ $ "language-" <> T.takeWhile (not . isSpace) x
     pre_ $ code_ (maybe [] (pure . f) infoString) (toHtml txt)
@@ -320,6 +335,8 @@ defaultBlockRender = \case
     newline
   Naked (_,html) ->
     html
+  where
+    mkId (Ois x) = [id_ (headerId x)]
 
 -- | Apply a render to a given 'Inline'.
 
