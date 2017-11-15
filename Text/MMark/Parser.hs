@@ -29,6 +29,7 @@ where
 
 import Control.Applicative
 import Control.Arrow (first)
+import Control.DeepSeq
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Data (Data)
@@ -77,6 +78,8 @@ instance ShowErrorComponent MMarkErr where
       "YAML parse error: " ++ str
     NonFlankingDelimiterRun dels ->
       showTokens dels ++ " should be in left- or right- flanking position"
+
+instance NFData MMarkErr
 
 -- | Parser type for inlines.
 
