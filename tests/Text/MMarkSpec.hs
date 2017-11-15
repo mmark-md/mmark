@@ -97,8 +97,8 @@ spec = parallel $ do
         "- foo\n***\n- bar" ==->
          "<ul>\n<li>foo</li>\n</ul>\n<hr />\n<ul>\n<li>bar</li>\n</ul>\n"
       it "CM28" $
-        "Foo\n***\nbar" ==->
-          "<p>Foo</p>\n<hr>\n<p>bar</p>\n"
+        let s = "Foo\n***\nbar"
+        in s ~-> errFancy (posN 6 s) (nonFlanking "*")
       xit "CM29" $ -- FIXME pending setext headings
         "Foo\n---\nbar" ==->
           "<h2>Foo</h2>\n<p>bar</p>\n"
@@ -150,7 +150,7 @@ spec = parallel $ do
           "<hr>\n<h2 id=\"foo\">foo</h2>\n<hr>\n"
       it "CM48" $
         "Foo bar\n# baz\nBar foo" ==->
-          "<p>Foo bar</p>\n<h1 id=\"baz\">baz</h1>\n<p>Bar foo</p>\n"
+          "<p>Foo bar\n# baz\nBar foo</p>\n"
       it "CM49" $
         "## \n#\n### ###" ==->
           "<h2 id></h2>\n<h1 id></h1>\n<h3 id></h3>\n"
@@ -258,7 +258,7 @@ spec = parallel $ do
            (ueof <> elabel "closing code fence" <> elabel "code block content")
       it "CM108" $
         "foo\n```\nbar\n```\nbaz" ==->
-          "<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n"
+          "<p>foo\n<code>bar</code>\nbaz</p>\n"
       xit "CM109" $ -- FIXME pending setext headings
         "foo\n---\n~~~\nbar\n~~~\n# baz" ==->
           "<h2>foo</h2>\n<pre><code>bar\n</code></pre>\n<h1>baz</h1>\n"

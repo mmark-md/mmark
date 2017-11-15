@@ -35,7 +35,7 @@ import Control.Monad.State.Strict
 import Data.Data (Data)
 import Data.Default.Class
 import Data.List.NonEmpty (NonEmpty (..), (<|))
-import Data.Maybe (isNothing, isJust, fromJust, fromMaybe)
+import Data.Maybe (isNothing, fromJust, fromMaybe)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -298,10 +298,7 @@ pParagraph = do
         case ml of
           Nothing -> return []
           Just l ->
-            if or [ isThematicBreak l
-                  , isHeading l
-                  , isFencedCodeBlock l
-                  , isBlank l ]
+            if isBlank l
               then return []
               else do
                 void nonEmptyLine
@@ -593,20 +590,6 @@ isThematicBreak l' = T.length l >= 3 && indentLevel l' < 4 &&
    T.all (== '_') l)
   where
     l = T.filter (not . isSpace) l'
-
-isHeading :: Text -> Bool
-isHeading = isJust . parseMaybe p . stripIndent (mkPos 4)
-  where
-    p :: Parser ()
-    p = count' 1 6 (char '#') *>
-      (eof <|> eol <|> void (char ' ' <* takeRest))
-
-isFencedCodeBlock :: Text -> Bool
-isFencedCodeBlock txt' = f '`' || f '~'
-  where
-    f ch = (T.replicate 3 (T.singleton ch) `T.isPrefixOf` txt) &&
-      not (T.any (== ch) (T.dropWhile (== ch) txt))
-    txt = stripIndent (mkPos 4) txt'
 
 ----------------------------------------------------------------------------
 -- Other helpers

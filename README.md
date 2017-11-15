@@ -155,6 +155,8 @@ it.
 
 ### Other differences
 
+* Headings, thematic breaks, code blocks should be separated from paragraphs
+  by at least one empty line.
 * Fenced code blocks must be explicitly closed by a closing fence. They are
   not closed by the end of document or by start of another block.
 * MMark does not support hard line breaks represented as double space before
