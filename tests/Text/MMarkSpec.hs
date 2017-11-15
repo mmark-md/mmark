@@ -113,9 +113,11 @@ spec = parallel $ do
         "# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo" ==->
           "<h1 id=\"foo\">foo</h1>\n<h2 id=\"foo\">foo</h2>\n<h3 id=\"foo\">foo</h3>\n<h4 id=\"foo\">foo</h4>\n<h5 id=\"foo\">foo</h5>\n<h6 id=\"foo\">foo</h6>\n"
       it "CM33" $
-        "####### foo" ==-> "<p>####### foo</p>\n"
+        let s = "####### foo"
+        in s ~-> err (posN 6 s) (utok '#' <> elabel "white space")
       it "CM34" $
-        "#5 bolt\n\n#hashtag" ==-> "<p>#5 bolt</p>\n<p>#hashtag</p>\n"
+        let s = "#5 bolt\n\n#hashtag"
+        in s ~-> err (posN 1 s) (utok '5' <> etok '#' <> elabel "white space")
       it "CM35" $
         "\\## foo" ==-> "<p>## foo</p>\n"
       it "CM36" $
@@ -152,8 +154,8 @@ spec = parallel $ do
         "Foo bar\n# baz\nBar foo" ==->
           "<p>Foo bar\n# baz\nBar foo</p>\n"
       it "CM49" $
-        "## \n#\n### ###" ==->
-          "<h2 id></h2>\n<h1 id></h1>\n<h3 id></h3>\n"
+        let s = "## \n#\n### ###"
+        in s ~-> err (posN 3 s) (utok '\n' <> elabel "heading character" <> elabel "white space")
     context "4.4 Indented code blocks" $ do
       it "CM76" $
         "    a simple\n      indented code block" ==->

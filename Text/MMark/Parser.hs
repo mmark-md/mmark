@@ -198,7 +198,7 @@ pBlocks = do
 pBlock :: Parser (Block Isp)
 pBlock = choice
   [ try pThematicBreak
-  , try pAtxHeading
+  , pAtxHeading
   , pFencedCodeBlock
   , try pIndentedCodeBlock
   , pParagraph ]
@@ -206,29 +206,18 @@ pBlock = choice
 pThematicBreak :: Parser (Block Isp)
 pThematicBreak = do
   void casualLevel
-  l <- nonEmptyLine
+  l <- lookAhead nonEmptyLine
   if isThematicBreak l
-    then ThematicBreak <$ sc
+    then ThematicBreak <$ nonEmptyLine <* sc
     else empty
 
 pAtxHeading :: Parser (Block Isp)
 pAtxHeading = do
-  void casualLevel
-  hlevel <- length <$> some (char '#')
-  guard (hlevel <= 6)
-  finished <- (True <$ eof) <|> eol'
-  (ispPos, heading) <-
-    if finished
-      then (,) <$> getPosition <*> pure ""
-      else do
-        sc1'
-        ispPos <- getPosition
-        let normalHeading = manyTill anyChar . try $
-              optional (sc1' *> some (char '#') *> sc') *> (eof <|> eol)
-            emptyHeading = "" <$
-              optional (some (char '#') *> sc') <* (eof <|> eol)
-        r <- try emptyHeading <|> normalHeading
-        return (ispPos, T.pack r)
+  hlevel <- length <$> try (casualLevel *> count' 1 6 (char '#'))
+  sc1'
+  ispPos <- getPosition
+  r <- someTill (satisfy notNewline <?> "heading character") . try $
+    optional (sc1' *> some (char '#') *> sc') *> (eof <|> eol)
   let toBlock = case hlevel of
         1 -> Heading1
         2 -> Heading2
@@ -236,7 +225,7 @@ pAtxHeading = do
         4 -> Heading4
         5 -> Heading5
         _ -> Heading6
-  toBlock (Isp ispPos (T.strip heading)) <$ sc
+  toBlock (Isp ispPos (T.strip (T.pack r))) <$ sc
 
 pFencedCodeBlock :: Parser (Block Isp)
 pFencedCodeBlock = do
