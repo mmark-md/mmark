@@ -155,6 +155,11 @@ it.
 
 ### Other differences
 
+* Headings, thematic breaks, code blocks should be separated from paragraphs
+  by at least one empty line.
+* If a line starts with hash signs it is expected to be a valid *non-empty*
+  header (level 1–6 inclusive). If you want to start a paragraph with
+  hashes, just escape the first hash with backslash and that will be enough.
 * Fenced code blocks must be explicitly closed by a closing fence. They are
   not closed by the end of document or by start of another block.
 * MMark does not support hard line breaks represented as double space before

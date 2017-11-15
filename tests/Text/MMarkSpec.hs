@@ -97,8 +97,8 @@ spec = parallel $ do
         "- foo\n***\n- bar" ==->
          "<ul>\n<li>foo</li>\n</ul>\n<hr />\n<ul>\n<li>bar</li>\n</ul>\n"
       it "CM28" $
-        "Foo\n***\nbar" ==->
-          "<p>Foo</p>\n<hr>\n<p>bar</p>\n"
+        let s = "Foo\n***\nbar"
+        in s ~-> errFancy (posN 6 s) (nonFlanking "*")
       xit "CM29" $ -- FIXME pending setext headings
         "Foo\n---\nbar" ==->
           "<h2>Foo</h2>\n<p>bar</p>\n"
@@ -113,9 +113,11 @@ spec = parallel $ do
         "# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo" ==->
           "<h1 id=\"foo\">foo</h1>\n<h2 id=\"foo\">foo</h2>\n<h3 id=\"foo\">foo</h3>\n<h4 id=\"foo\">foo</h4>\n<h5 id=\"foo\">foo</h5>\n<h6 id=\"foo\">foo</h6>\n"
       it "CM33" $
-        "####### foo" ==-> "<p>####### foo</p>\n"
+        let s = "####### foo"
+        in s ~-> err (posN 6 s) (utok '#' <> elabel "white space")
       it "CM34" $
-        "#5 bolt\n\n#hashtag" ==-> "<p>#5 bolt</p>\n<p>#hashtag</p>\n"
+        let s = "#5 bolt\n\n#hashtag"
+        in s ~-> err (posN 1 s) (utok '5' <> etok '#' <> elabel "white space")
       it "CM35" $
         "\\## foo" ==-> "<p>## foo</p>\n"
       it "CM36" $
@@ -150,10 +152,10 @@ spec = parallel $ do
           "<hr>\n<h2 id=\"foo\">foo</h2>\n<hr>\n"
       it "CM48" $
         "Foo bar\n# baz\nBar foo" ==->
-          "<p>Foo bar</p>\n<h1 id=\"baz\">baz</h1>\n<p>Bar foo</p>\n"
+          "<p>Foo bar\n# baz\nBar foo</p>\n"
       it "CM49" $
-        "## \n#\n### ###" ==->
-          "<h2 id></h2>\n<h1 id></h1>\n<h3 id></h3>\n"
+        let s = "## \n#\n### ###"
+        in s ~-> err (posN 3 s) (utok '\n' <> elabel "heading character" <> elabel "white space")
     context "4.4 Indented code blocks" $ do
       it "CM76" $
         "    a simple\n      indented code block" ==->
@@ -258,7 +260,7 @@ spec = parallel $ do
            (ueof <> elabel "closing code fence" <> elabel "code block content")
       it "CM108" $
         "foo\n```\nbar\n```\nbaz" ==->
-          "<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n"
+          "<p>foo\n<code>bar</code>\nbaz</p>\n"
       xit "CM109" $ -- FIXME pending setext headings
         "foo\n---\n~~~\nbar\n~~~\n# baz" ==->
           "<h2>foo</h2>\n<pre><code>bar\n</code></pre>\n<h1>baz</h1>\n"

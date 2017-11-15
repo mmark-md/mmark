@@ -29,12 +29,13 @@ where
 
 import Control.Applicative
 import Control.Arrow (first)
+import Control.DeepSeq
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Data (Data)
 import Data.Default.Class
 import Data.List.NonEmpty (NonEmpty (..), (<|))
-import Data.Maybe (isNothing, isJust, fromJust, fromMaybe)
+import Data.Maybe (isNothing, fromJust, fromMaybe)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -77,6 +78,8 @@ instance ShowErrorComponent MMarkErr where
       "YAML parse error: " ++ str
     NonFlankingDelimiterRun dels ->
       showTokens dels ++ " should be in left- or right- flanking position"
+
+instance NFData MMarkErr
 
 -- | Parser type for inlines.
 
@@ -195,7 +198,7 @@ pBlocks = do
 pBlock :: Parser (Block Isp)
 pBlock = choice
   [ try pThematicBreak
-  , try pAtxHeading
+  , pAtxHeading
   , pFencedCodeBlock
   , try pIndentedCodeBlock
   , pParagraph ]
@@ -203,29 +206,18 @@ pBlock = choice
 pThematicBreak :: Parser (Block Isp)
 pThematicBreak = do
   void casualLevel
-  l <- nonEmptyLine
+  l <- lookAhead nonEmptyLine
   if isThematicBreak l
-    then ThematicBreak <$ sc
+    then ThematicBreak <$ nonEmptyLine <* sc
     else empty
 
 pAtxHeading :: Parser (Block Isp)
 pAtxHeading = do
-  void casualLevel
-  hlevel <- length <$> some (char '#')
-  guard (hlevel <= 6)
-  finished <- (True <$ eof) <|> eol'
-  (ispPos, heading) <-
-    if finished
-      then (,) <$> getPosition <*> pure ""
-      else do
-        sc1'
-        ispPos <- getPosition
-        let normalHeading = manyTill anyChar . try $
-              optional (sc1' *> some (char '#') *> sc') *> (eof <|> eol)
-            emptyHeading = "" <$
-              optional (some (char '#') *> sc') <* (eof <|> eol)
-        r <- try emptyHeading <|> normalHeading
-        return (ispPos, T.pack r)
+  hlevel <- length <$> try (casualLevel *> count' 1 6 (char '#'))
+  sc1'
+  ispPos <- getPosition
+  r <- someTill (satisfy notNewline <?> "heading character") . try $
+    optional (sc1' *> some (char '#') *> sc') *> (eof <|> eol)
   let toBlock = case hlevel of
         1 -> Heading1
         2 -> Heading2
@@ -233,7 +225,7 @@ pAtxHeading = do
         4 -> Heading4
         5 -> Heading5
         _ -> Heading6
-  toBlock (Isp ispPos (T.strip heading)) <$ sc
+  toBlock (Isp ispPos (T.strip (T.pack r))) <$ sc
 
 pFencedCodeBlock :: Parser (Block Isp)
 pFencedCodeBlock = do
@@ -295,10 +287,7 @@ pParagraph = do
         case ml of
           Nothing -> return []
           Just l ->
-            if or [ isThematicBreak l
-                  , isHeading l
-                  , isFencedCodeBlock l
-                  , isBlank l ]
+            if isBlank l
               then return []
               else do
                 void nonEmptyLine
@@ -590,20 +579,6 @@ isThematicBreak l' = T.length l >= 3 && indentLevel l' < 4 &&
    T.all (== '_') l)
   where
     l = T.filter (not . isSpace) l'
-
-isHeading :: Text -> Bool
-isHeading = isJust . parseMaybe p . stripIndent (mkPos 4)
-  where
-    p :: Parser ()
-    p = count' 1 6 (char '#') *>
-      (eof <|> eol <|> void (char ' ' <* takeRest))
-
-isFencedCodeBlock :: Text -> Bool
-isFencedCodeBlock txt' = f '`' || f '~'
-  where
-    f ch = (T.replicate 3 (T.singleton ch) `T.isPrefixOf` txt) &&
-      not (T.any (== ch) (T.dropWhile (== ch) txt))
-    txt = stripIndent (mkPos 4) txt'
 
 ----------------------------------------------------------------------------
 -- Other helpers
