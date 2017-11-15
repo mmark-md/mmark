@@ -6,7 +6,12 @@ import qualified Text.MMark   as MMark
 
 main :: IO ()
 main = defaultMain
-  [ bparser "data/bench-paragraph.md"
+  [ bparser "data/bench-yaml-block.md"
+  , bparser "data/bench-thematic-break.md"
+  , bparser "data/bench-heading.md"
+  , bparser "data/bench-fenced-code-block.md"
+  , bparser "data/bench-indented-code-block.md"
+  , bparser "data/bench-paragraph.md"
   ]
 
 ----------------------------------------------------------------------------
