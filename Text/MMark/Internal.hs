@@ -77,6 +77,9 @@ data MMark = MMark
     -- ^ Extension specifying how to process and render the blocks
   }
 
+instance NFData MMark where
+  rnf MMark {..} = rnf mmarkYaml `seq` rnf mmarkBlocks
+
 -- | An extension. You can apply extensions with 'useExtension' and
 -- 'useExtensions' functions. The "Text.MMark.Extension" module provides
 -- tools for extension creation.
