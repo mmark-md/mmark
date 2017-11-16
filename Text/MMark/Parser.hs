@@ -46,15 +46,15 @@ import Text.Megaparsec hiding (parse)
 import Text.Megaparsec.Char hiding (eol)
 import Text.URI (URI)
 import qualified Control.Applicative.Combinators.NonEmpty as NE
-import qualified Data.Char                                as Char
-import qualified Data.List.NonEmpty                       as NE
-import qualified Data.Set                                 as E
-import qualified Data.Text                                as T
-import qualified Data.Text.Encoding                       as TE
-import qualified Data.Yaml                                as Yaml
-import qualified Text.Email.Validate                      as Email
-import qualified Text.Megaparsec.Char.Lexer               as L
-import qualified Text.URI                                 as URI
+import qualified Data.Char                  as Char
+import qualified Data.List.NonEmpty         as NE
+import qualified Data.Set                   as E
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as TE
+import qualified Data.Yaml                  as Yaml
+import qualified Text.Email.Validate        as Email
+import qualified Text.Megaparsec.Char.Lexer as L
+import qualified Text.URI                   as URI
 
 ----------------------------------------------------------------------------
 -- Data types
@@ -90,33 +90,33 @@ type IParser = StateT CharType (Parsec MMarkErr Text)
 data Isp = Isp SourcePos Text
   deriving (Eq, Ord, Show)
 
--- | Type of character: white space, markup character, or other?
+-- | Type of last seen character.
 
 data CharType
-  = SpaceChar
-  | LeftFlankingDel
-  | RightFlankingDel
-  | OtherChar
+  = SpaceChar          -- ^ White space
+  | LeftFlankingDel    -- ^ Left flanking delimiter
+  | RightFlankingDel   -- ^ Right flaking delimiter
+  | OtherChar          -- ^ Other character
   deriving (Eq, Ord, Show)
 
 -- | Frame that describes where we are in parsing inlines.
 
 data InlineFrame
-  = EmphasisFrame
-  | EmphasisFrame_
-  | StrongFrame
-  | StrongFrame_
-  | StrikeoutFrame
-  | SubscriptFrame
-  | SuperscriptFrame
+  = EmphasisFrame      -- ^ Emphasis with asterisk @*@
+  | EmphasisFrame_     -- ^ Emphasis with underscore @_@
+  | StrongFrame        -- ^ Strong emphasis with asterisk @**@
+  | StrongFrame_       -- ^ Strong emphasis with underscore @__@
+  | StrikeoutFrame     -- ^ Strikeout
+  | SubscriptFrame     -- ^ Subscript
+  | SuperscriptFrame   -- ^ Superscript
   deriving (Eq, Ord, Show)
 
 -- | State of inline parsing that specifies whether we expect to close one
 -- frame or there is a possibility to close one of two alternatives.
 
 data InlineState
-  = SingleFrame InlineFrame
-  | DoubleFrame InlineFrame InlineFrame
+  = SingleFrame InlineFrame             -- ^ One frame to be closed
+  | DoubleFrame InlineFrame InlineFrame -- ^ Two frames to be closed
   deriving (Eq, Ord, Show)
 
 -- | Configuration in inline parser.
@@ -221,7 +221,7 @@ pThematicBreak = do
     then ThematicBreak <$ nonEmptyLine <* sc
     else empty
 
-pAtxHeading :: Parser (Either (ParseError Char MMarkErr) (Block Isp))
+pAtxHeading :: Parser (E (Block Isp))
 pAtxHeading = do
   (void . lookAhead . try) start
   withRecovery recover $ do
@@ -317,12 +317,12 @@ pParagraph = do
 ----------------------------------------------------------------------------
 -- Inline parser
 
--- | Run given parser on 'Isp'.
+-- | Run a given parser on 'Isp'.
 
 runIsp
-  :: IParser a
-  -> Isp
-  -> Either (ParseError Char MMarkErr) a
+  :: IParser a         -- ^ The parser to run
+  -> Isp               -- ^ Input for the parser
+  -> Either (ParseError Char MMarkErr) a -- ^ Result of parsing
 runIsp p (Isp startPos input) =
   snd (runParser' (evalStateT p SpaceChar) pst)
   where
@@ -331,8 +331,6 @@ runIsp p (Isp startPos input) =
       , statePos             = nes startPos
       , stateTokensProcessed = 0
       , stateTabWidth        = mkPos 4 }
-
--- | Parse a stream of 'Inline's.
 
 pInlines :: InlineConfig -> IParser (NonEmpty Inline)
 pInlines InlineConfig {..} =
