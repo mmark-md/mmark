@@ -117,7 +117,9 @@ spec = parallel $ do
         in s ~-> err (posN 6 s) (utok '#' <> elabel "white space")
       it "CM34" $
         let s = "#5 bolt\n\n#hashtag"
-        in s ~-> err (posN 1 s) (utok '5' <> etok '#' <> elabel "white space")
+        in s ~~->
+             [ err (posN 1 s)  (utok '5' <> etok '#' <> elabel "white space")
+             , err (posN 10 s) (utok 'h' <> etok '#' <> elabel "white space") ]
       it "CM35" $
         "\\## foo" ==-> "<p>## foo</p>\n"
       it "CM36" $
@@ -155,7 +157,9 @@ spec = parallel $ do
           "<p>Foo bar\n# baz\nBar foo</p>\n"
       it "CM49" $
         let s = "## \n#\n### ###"
-        in s ~-> err (posN 3 s) (utok '\n' <> elabel "heading character" <> elabel "white space")
+        in s ~~->
+             [ err (posN 3 s) (utok '\n' <> elabel "heading character" <> elabel "white space")
+             , err (posN 5 s) (utok '\n' <> etok '#' <> elabel "white space") ]
     context "4.4 Indented code blocks" $ do
       it "CM76" $
         "    a simple\n      indented code block" ==->

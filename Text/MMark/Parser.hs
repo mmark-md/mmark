@@ -28,10 +28,10 @@ module Text.MMark.Parser
 where
 
 import Control.Applicative
-import Control.Arrow (first)
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.State.Strict
+import Data.Bifunctor (Bifunctor (..))
 import Data.Data (Data)
 import Data.Default.Class
 import Data.List.NonEmpty (NonEmpty (..), (<|))
@@ -137,6 +137,11 @@ instance Default InlineConfig where
     , iconfigAllowImages = True
     }
 
+-- | A shortcut type synonym for sub-parsers that may fail and we can
+-- recover from the failure.
+
+type E = Either (ParseError Char MMarkErr)
+
 ----------------------------------------------------------------------------
 -- Block parser
 
@@ -154,15 +159,20 @@ parse
 parse file input =
   case runParser ((,) <$> optional pYamlBlock <*> pBlocks) file input of
     -- NOTE This parse error only happens when document structure on block
-    -- level cannot be parsed, which should not normally happen.
+    -- level cannot be parsed even with recovery, which should not normally
+    -- happen.
     Left err -> Left (nes err)
     Right (myaml, blocks) ->
-      let parsed = fmap (runIsp (pInlines def <* eof)) <$> blocks
-          getErrs (Left e) es = replaceEof "end of inline block" e : es
+      let parsed = doInline <$> blocks
+          doInline = \case
+            Left err -> Naked (Left err)
+            Right x  -> first (replaceEof "end of inline block")
+              . runIsp (pInlines def <* eof) <$> x
+          getErrs (Left e) es = e : es
           getErrs _        es = es
           fromRight (Right x) = x
           fromRight _         =
-            error "Text.MMark.Parser.parse: impossible happened"
+            error "Text.MMark.Parser.parse: the impossible happened"
       in case NE.nonEmpty (foldMap (foldr getErrs []) parsed) of
            Nothing -> Right MMark
              { mmarkYaml      = myaml
@@ -190,18 +200,18 @@ pYamlBlock = do
     Right v ->
       return v
 
-pBlocks :: Parser [Block Isp]
+pBlocks :: Parser [E (Block Isp)]
 pBlocks = do
   setTabWidth (mkPos 4)
   sc *> manyTill pBlock eof
 
-pBlock :: Parser (Block Isp)
+pBlock :: Parser (E (Block Isp))
 pBlock = choice
-  [ try pThematicBreak
+  [ try (pure <$> pThematicBreak)
   , pAtxHeading
-  , pFencedCodeBlock
-  , try pIndentedCodeBlock
-  , pParagraph ]
+  , pure <$> pFencedCodeBlock
+  , try (pure <$> pIndentedCodeBlock)
+  , pure <$> pParagraph ]
 
 pThematicBreak :: Parser (Block Isp)
 pThematicBreak = do
@@ -211,21 +221,27 @@ pThematicBreak = do
     then ThematicBreak <$ nonEmptyLine <* sc
     else empty
 
-pAtxHeading :: Parser (Block Isp)
+pAtxHeading :: Parser (Either (ParseError Char MMarkErr) (Block Isp))
 pAtxHeading = do
-  hlevel <- length <$> try (casualLevel *> count' 1 6 (char '#'))
-  sc1'
-  ispPos <- getPosition
-  r <- someTill (satisfy notNewline <?> "heading character") . try $
-    optional (sc1' *> some (char '#') *> sc') *> (eof <|> eol)
-  let toBlock = case hlevel of
-        1 -> Heading1
-        2 -> Heading2
-        3 -> Heading3
-        4 -> Heading4
-        5 -> Heading5
-        _ -> Heading6
-  toBlock (Isp ispPos (T.strip (T.pack r))) <$ sc
+  (void . lookAhead . try) start
+  withRecovery recover $ do
+    hlevel <- length <$> start
+    sc1'
+    ispPos <- getPosition
+    r <- someTill (satisfy notNewline <?> "heading character") . try $
+      optional (sc1' *> some (char '#') *> sc') *> (eof <|> eol)
+    let toBlock = case hlevel of
+          1 -> Heading1
+          2 -> Heading2
+          3 -> Heading3
+          4 -> Heading4
+          5 -> Heading5
+          _ -> Heading6
+    (Right . toBlock) (Isp ispPos (T.strip (T.pack r))) <$ sc
+  where
+    start = casualLevel *> count' 1 6 (char '#')
+    recover err =
+      Left err <$ takeWhileP Nothing notNewline <* optional eol
 
 pFencedCodeBlock :: Parser (Block Isp)
 pFencedCodeBlock = do
