@@ -21,7 +21,7 @@ MMark in its current state features:
   makes sense.
 * An extension system allowing to create extensions that alter parsed
   markdown document in some way. Some of them are available in the
-  [`mmark-ext`](https://hackage.haskell.org/package/lucid) package.
+  [`mmark-ext`](https://hackage.haskell.org/package/mmark-ext) package.
 * A [`lucid`](https://hackage.haskell.org/package/lucid)-based render.
 
 There is also a blog post announcing the project:
