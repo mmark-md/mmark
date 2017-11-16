@@ -1062,7 +1062,7 @@ spec = parallel $ do
           , err (posN 13 s) pe ]
     context "given a complete, comprehensive document" $
       it "outputs expected the HTML fragment" $
-        withFiles "data/comprehensive-0.md" "data/comprehensive-0.html"
+        withFiles "data/comprehensive.md" "data/comprehensive.html"
   describe "parseErrorsPretty" $
     it "renders parse errors correctly" $ do
       let s = "Foo\nBar\nBaz\n"
