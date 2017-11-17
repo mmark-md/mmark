@@ -213,7 +213,7 @@ Not-yet-implemented things:
 
 * YAML block must start with three hyphens `---` and end with three hyphens
   `---`. It can only be placed at the beginning of a markdown document.
-  Trailing white space after the `---** sequences is tolerated.
+  Trailing white space after the `---` sequences is allowed.
 
 ## Contribution
 
