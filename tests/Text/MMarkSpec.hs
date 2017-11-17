@@ -1053,13 +1053,18 @@ spec = parallel $ do
       it "a composite, complex example" $
         "***Something ~~~is not~~ going~ ^so well^** today*." ==->
           "<p><em><strong>Something <sub><del>is not</del> going</sub> <sup>so well</sup></strong> today</em>.</p>\n"
-    context "multiple parse errors" $
+    context "multiple parse errors" $ do
       it "they are reported in correct order" $ do
         let s = "Foo `\n\nBar `.\n"
             pe = ueib <> etok '`' <> elabel "code span content"
         s ~~->
           [ err (posN 5  s) pe
           , err (posN 13 s) pe ]
+      it "invalid headers are skipped properly" $ do
+        let s = "#My header\n\nSomething goes __here __.\n"
+        s ~~->
+          [ err (posN 1 s) (utok 'M' <> etok '#' <> elabel "white space")
+          , errFancy (posN 35 s) (nonFlanking "_") ]
     context "given a complete, comprehensive document" $
       it "outputs expected the HTML fragment" $
         withFiles "data/comprehensive.md" "data/comprehensive.html"
