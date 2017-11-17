@@ -241,7 +241,7 @@ pAtxHeading = do
   where
     start = casualLevel *> count' 1 6 (char '#')
     recover err =
-      Left err <$ takeWhileP Nothing notNewline <* optional eol
+      Left err <$ takeWhileP Nothing notNewline <* sc
 
 pFencedCodeBlock :: Parser (Block Isp)
 pFencedCodeBlock = do
