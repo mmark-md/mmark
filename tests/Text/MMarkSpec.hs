@@ -123,7 +123,7 @@ spec = parallel $ do
       it "CM35" $
         "\\## foo" ==-> "<p>## foo</p>\n"
       it "CM36" $
-        "# foo *bar* \\*baz\\*" ==-> "<h1 id=\"foo-bar-*baz*\">foo <em>bar</em> *baz*</h1>\n"
+        "# foo *bar* \\*baz\\*" ==-> "<h1 id=\"foo-bar-baz\">foo <em>bar</em> *baz*</h1>\n"
       it "CM37" $
         "#                  foo                     " ==->
           "<h1 id=\"foo\">foo</h1>\n"
@@ -143,12 +143,12 @@ spec = parallel $ do
       it "CM43" $
         "### foo ###     " ==-> "<h3 id=\"foo\">foo</h3>\n"
       it "CM44" $
-        "### foo ### b" ==-> "<h3 id=\"foo-###-b\">foo ### b</h3>\n"
+        "### foo ### b" ==-> "<h3 id=\"foo-b\">foo ### b</h3>\n"
       it "CM45" $
-        "# foo#" ==-> "<h1 id=\"foo#\">foo#</h1>\n"
+        "# foo#" ==-> "<h1 id=\"foo\">foo#</h1>\n"
       it "CM46" $
         "### foo \\###\n## foo #\\##\n# foo \\#" ==->
-          "<h3 id=\"foo-###\">foo ###</h3>\n<h2 id=\"foo-###\">foo ###</h2>\n<h1 id=\"foo-#\">foo #</h1>\n"
+          "<h3 id=\"foo\">foo ###</h3>\n<h2 id=\"foo\">foo ###</h2>\n<h1 id=\"foo\">foo #</h1>\n"
       it "CM47" $
         "****\n## foo\n****" ==->
           "<hr>\n<h2 id=\"foo\">foo</h2>\n<hr>\n"
@@ -1005,7 +1005,7 @@ spec = parallel $ do
       xit "CM615" $
         "foo  " ==-> "<p>foo</p>\n"
       it "CM616" $
-        "### foo\\" ==-> "<h3 id=\"foo\\\">foo\\</h3>\n"
+        "### foo\\" ==-> "<h3 id=\"foo\">foo\\</h3>\n"
       it "CM617" $
         "### foo  " ==-> "<h3 id=\"foo\">foo</h3>\n"
     context "6.10 Soft line breaks" $ do

@@ -46,7 +46,7 @@ import Control.Arrow
 import Control.DeepSeq
 import Control.Monad
 import Data.Aeson
-import Data.Char (isSpace)
+import Data.Char (isSpace, isAlphaNum)
 import Data.Data (Data)
 import Data.Function (on)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -405,7 +405,11 @@ asPlainText = foldMap $ \case
 -- See also: 'headerFragment'.
 
 headerId :: NonEmpty Inline -> Text
-headerId = T.intercalate "-" . T.words . T.toLower . asPlainText
+headerId = T.intercalate "-"
+  . T.words
+  . T.filter (\x -> isAlphaNum x || isSpace x)
+  . T.toLower
+  . asPlainText
 
 -- | Generate a 'URI' with just fragment from its textual representation.
 -- Useful for getting URL from id of a header.
