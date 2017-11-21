@@ -63,14 +63,53 @@
 -- The structure of the documentation below corresponds to these stages and
 -- should clarify the details.
 --
+-- === “Getting started” example
+--
+-- Here is a complete example of a program that reads a markdown file named
+-- @\"input.md\"@ and outputs an HTML file named @\"output.md\"@:
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- >
+-- > module Main (main) where
+-- >
+-- > import qualified Data.Text.IO      as T
+-- > import qualified Data.Text.Lazy.IO as TL
+-- > import qualified Lucid             as L
+-- > import qualified Text.MMark        as MMark
+-- >
+-- > main :: IO ()
+-- > main = do
+-- >   let input = "input.md"
+-- >   txt <- T.readFile input -- (1)
+-- >   case MMark.parse input txt of -- (2)
+-- >     Left errs -> putStrLn (MMark.parseErrorsPretty txt errs) -- (3)
+-- >     Right r -> TL.writeFile "output.html" -- (6)
+-- >       . L.renderText -- (5)
+-- >       . MMark.render -- (4)
+-- >       $ r
+--
+-- Let's break it down:
+--
+--     1. We read a source markdown file as strict 'Text'.
+--     2. The source is fed into the 'parse' function which does the
+--        parsing. It can either fail with a collection of parse errors
+--        or succeed returning a value of the opaque 'MMark' type.
+--     3. If parsing fails, we pretty-print the parse errors with
+--     'parseErrorsPretty'.
+--     4. Then we just render the document with `render` first to Lucid's
+--        @'Lucid.Html' ()@.
+--     5. …and then to lazy 'Data.Text.Lazy.Text' with 'Lucid.renderText'.
+--     6. Finally we write the result as @\"output.html\"@.
+--
 -- === Other modules of interest
 --
--- This module contains all the “core” functionality you may need. However,
--- one of the main selling points of MMark is that it's possible to write
--- your own extensions which stay highly composable (if done right), so
--- proliferation of third-party extensions is to be expected and encouraged.
--- To write an extension of your own import the "Text.MMark.Extension"
--- module, which has some documentation focusing on extension writing.
+-- The "Text.MMark" module contains all the “core” functionality you may
+-- need. However, one of the main selling points of MMark is that it's
+-- possible to write your own extensions which stay highly composable (if
+-- done right), so proliferation of third-party extensions is to be expected
+-- and encouraged. To write an extension of your own import the
+-- "Text.MMark.Extension" module, which has some documentation focusing on
+-- extension writing.
 
 module Text.MMark
   ( -- * Parsing
