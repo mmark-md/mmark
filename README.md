@@ -180,6 +180,7 @@ Block-level parsing:
 * If a line starts with hash signs it is expected to be a valid *non-empty*
   header (level 1–6 inclusive). If you want to start a paragraph with
   hashes, just escape the first hash with backslash and that will be enough.
+* Setext headings are not supported for the sake of simplicity.
 * Fenced code blocks must be explicitly closed by a closing fence. They are
   not closed by the end of document or by start of another block.
 
@@ -203,7 +204,6 @@ Not-yet-implemented things:
 * Separate declaration of image's source and title is not (yet?) supported.
 * Blockquotes are not implemented yet.
 * Lists (unordered and ordered) are not implemented yet.
-* Setext headings are not implemented yet.
 * Reference links are not implemented yet.
 * HTML blocks are not implemented yet.
 * HTML inlines are not implemented yet.
