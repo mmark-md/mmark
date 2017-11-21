@@ -34,22 +34,22 @@ spec = parallel $ do
       it "CM3" $
         "    a\ta\n    ὐ\ta" ==->
           "<pre><code>a\ta\nὐ\ta\n</code></pre>\n"
-      xit "CM4" $ -- FIXME pending lists
+      it "CM4" $
         "  - foo\n\n\tbar" ==->
           "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n"
-      xit "CM5" $ -- FIXME pending lists
+      it "CM5" $
         "- foo\n\n\t\tbar" ==->
           "<ul>\n<li>\n<p>foo</p>\n<pre><code>  bar\n</code></pre>\n</li>\n</ul>\n"
-      xit "CM6" $ -- FIXME pending blockquotes
+      it "CM6" $
         ">\t\tfoo" ==->
           "<blockquote>\n<pre><code>  foo\n</code></pre>\n</blockquote>\n"
-      xit "CM7" $ -- FIXME pending lists
+      it "CM7" $
         "-\t\tfoo" ==->
           "<ul>\n<li>\n<pre><code>  foo\n</code></pre>\n</li>\n</ul>\n"
       it "CM8" $
         "    foo\n\tbar" ==->
           "<pre><code>foo\nbar\n</code></pre>\n"
-      xit "CM9" $ -- FIXME pending lists
+      it "CM9" $
         " - foo\n   - bar\n\t - baz" ==->
           "<ul>\n<li>foo\n<ul>\n<li>bar\n<ul>\n<li>baz</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n"
       it "CM10" $
@@ -57,7 +57,7 @@ spec = parallel $ do
       it "CM11" $
         "*\t*\t*\t" ==-> "<hr>\n"
     context "3.1 Precedence" $
-      xit "CM12" $ -- FIXME pending lists
+      it "CM12" $
         "- `one\n- two`" ==->
           "<ul>\n<li>`one</li>\n<li>two`</li>\n</ul>\n"
     context "4.1 Thematic breaks" $ do
@@ -93,7 +93,7 @@ spec = parallel $ do
         in s ~-> errFancy posI (nonFlanking "_")
       it "CM26" $
         " *\\-*" ==-> "<p><em>-</em></p>\n"
-      xit "CM27" $ -- FIXME pending lists
+      it "CM27" $
         "- foo\n***\n- bar" ==->
          "<ul>\n<li>foo</li>\n</ul>\n<hr />\n<ul>\n<li>bar</li>\n</ul>\n"
       it "CM28" $
@@ -102,10 +102,10 @@ spec = parallel $ do
       xit "CM29" $ -- FIXME pending setext headings
         "Foo\n---\nbar" ==->
           "<h2>Foo</h2>\n<p>bar</p>\n"
-      xit "CM30" $ -- FIXME pending lists
+      it "CM30" $
         "* Foo\n* * *\n* Bar" ==->
           "<ul>\n<li>Foo</li>\n</ul>\n<hr />\n<ul>\n<li>Bar</li>\n</ul>\n"
-      xit "CM31" $ -- FIXME pending lists
+      it "CM31" $
         "- Foo\n- * * *" ==->
           "<ul>\n<li>Foo</li>\n<li>\n<hr />\n</li>\n</ul>\n"
     context "4.2 ATX headings" $ do
@@ -164,10 +164,10 @@ spec = parallel $ do
       it "CM76" $
         "    a simple\n      indented code block" ==->
           "<pre><code>a simple\n  indented code block\n</code></pre>\n"
-      xit "CM77" $ -- FIXME pending lists
+      it "CM77" $
         "  - foo\n\n    bar" ==->
           "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n"
-      xit "CM78" $ -- FIXME pending lists
+      it "CM78" $
         "1.  foo\n\n    - bar" ==->
            "<ol>\n<li>\n<p>foo</p>\n<ul>\n<li>bar</li>\n</ul>\n</li>\n</ol>\n"
       it "CM79" $
@@ -224,7 +224,7 @@ spec = parallel $ do
         let s = "`````\n\n```\naaa\n"
         in s ~-> err (posN 15 s)
            (ueof <> elabel "closing code fence" <> elabel "code block content")
-      xit "CM96" $ -- FIXME pending blockquotes
+      it "CM96" $
         "> ```\n> aaa\n\nbbb" ==->
           "<blockquote>\n<pre><code>aaa\n</code></pre>\n</blockquote>\n<p>bbb</p>\n"
       it "CM97" $
@@ -311,6 +311,77 @@ spec = parallel $ do
       it "CM188" $
         "  \n\naaa\n  \n\n# aaa\n\n  " ==->
           "<p>aaa</p>\n<h1 id=\"aaa\">aaa</h1>\n"
+    context "5.1 Block quotes" $ do
+      it "CM189" $
+        "> # Foo\n> bar\n> baz\n" ==->
+          "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
+      it "CM190" $
+        "># Foo\n>bar\n> baz\n" ==->
+          "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
+      it "CM191" $
+        "   > # Foo\n   > bar\n > baz\n" ==->
+          "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
+      it "CM192" $
+        "    > # Foo\n    > bar\n    > baz\n" ==->
+          "<pre><code>&gt; # Foo\n&gt; bar\n&gt; baz\n</code></pre>\n"
+      it "CM193" $
+        "> # Foo\n> bar\nbaz\n" ==->
+          "<blockquote>\n<h1>Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
+      it "CM194" $
+        "> bar\nbaz\n> foo\n" ==->
+          "<blockquote>\n<p>bar\nbaz\nfoo</p>\n</blockquote>\n"
+      it "CM195" $
+        "> foo\n---\n" ==->
+          "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr />\n"
+      it "CM196" $
+        "> - foo\n- bar\n" ==->
+          "<blockquote>\n<ul>\n<li>foo</li>\n</ul>\n</blockquote>\n<ul>\n<li>bar</li>\n</ul>\n"
+      it "CM197" $
+        ">     foo\n    bar\n" ==->
+          "<blockquote>\n<pre><code>foo\n</code></pre>\n</blockquote>\n<pre><code>bar\n</code></pre>\n"
+      it "CM198" $
+        "> ```\nfoo\n```\n" ==->
+          "<blockquote>\n<pre><code></code></pre>\n</blockquote>\n<p>foo</p>\n<pre><code></code></pre>\n"
+      it "CM199" $
+        "> foo\n    - bar\n" ==->
+          "<blockquote>\n<p>foo\n- bar</p>\n</blockquote>\n"
+      it "CM200" $
+        ">\n" ==->
+          "<blockquote>\n</blockquote>\n"
+      it "CM201" $
+        ">\n>  \n> \n" ==->
+          "<blockquote>\n</blockquote>\n"
+      it "CM202" $
+        ">\n> foo\n>  \n" ==->
+          "<blockquote>\n<p>foo</p>\n</blockquote>\n"
+      it "CM203" $
+        "> foo\n\n> bar\n" ==->
+          "<blockquote>\n<p>foo</p>\n</blockquote>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
+      it "CM204" $
+        "> foo\n> bar\n" ==->
+          "<blockquote>\n<p>foo\nbar</p>\n</blockquote>\n"
+    context "5.2 List items" $ do
+      it "CM214" $
+        "A paragraph\nwith two lines.\n\n    indented code\n\n> A block quote.\n" ==->
+          "<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n"
+      it "CM215" $
+        "1.  A paragraph\n    with two lines.\n\n        indented code\n\n    > A block quote.\n" ==->
+          "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n"
+      it "CM216" $
+        "- one\n\n two\n" ==->
+          "<ul>\n<li>one</li>\n</ul>\n<p>two</p>\n"
+      it "CM217" $
+        "- one\n\n  two\n" ==->
+          "<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n"
+      it "CM218" $
+        " -    one\n\n     two\n" ==->
+          "<ul>\n<li>one</li>\n</ul>\n<pre><code> two\n</code></pre>\n"
+      it "CM219" $
+        " -    one\n\n      two\n" ==->
+          "<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n"
+      it "CM220" $
+        "   > > 1.  one\n>>\n>>     two\n" ==->
+          "<blockquote>\n<blockquote>\n<ol>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ol>\n</blockquote>\n</blockquote>\n"
     context "6 Inlines" $
       it "CM286" $
         let s  = "`hi`lo`\n"
