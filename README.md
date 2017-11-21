@@ -174,15 +174,23 @@ do, the closing `*` won't be in right-flanking position anymore. God dammit.
 
 Block-level parsing:
 
-* Headings, thematic breaks, code blocks should be separated from paragraphs
-  by at least one empty line. This makes the parser a lot simpler and forces
-  markdown sources to be in a more readable form too.
+* Code blocks and thematic breaks should be separated from paragraphs and
+  lists by at least one empty line.
 * If a line starts with hash signs it is expected to be a valid *non-empty*
   header (level 1–6 inclusive). If you want to start a paragraph with
   hashes, just escape the first hash with backslash and that will be enough.
 * Setext headings are not supported for the sake of simplicity.
 * Fenced code blocks must be explicitly closed by a closing fence. They are
   not closed by the end of document or by start of another block.
+* Lists and block quotes are defined by column at which their content
+  starts. Content belonging to a particular list or block quote should start
+  at the same column (or greater column, up to the column where indented
+  code blocks start).
+* Block quotes are started by a single `>` character, it's not necessary to
+  put a `>` character at beginning of every line belonging to a quote (in
+  fact, this would make every line a separate block quote).
+* Paragraphs can be interrupted by unordered list and ordered lists with any
+  valid starting index.
 
 Inline-level parsing:
 
@@ -202,8 +210,6 @@ Inline-level parsing:
 Not-yet-implemented things:
 
 * Separate declaration of image's source and title is not (yet?) supported.
-* Blockquotes are not implemented yet.
-* Lists (unordered and ordered) are not implemented yet.
 * Reference links are not implemented yet.
 * HTML blocks are not implemented yet.
 * HTML inlines are not implemented yet.

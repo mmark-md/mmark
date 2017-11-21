@@ -7,7 +7,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- MMark parser.
+-- MMark markdown parser.
 
 {-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE CPP                #-}
@@ -30,13 +30,15 @@ where
 import Control.Applicative
 import Control.DeepSeq
 import Control.Monad
+import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Bifunctor (Bifunctor (..))
 import Data.Data (Data)
 import Data.Default.Class
 import Data.List.NonEmpty (NonEmpty (..), (<|))
-import Data.Maybe (isNothing, fromJust, fromMaybe)
-import Data.Semigroup ((<>))
+import Data.Maybe (isNothing, isJust, fromJust, fromMaybe)
+import Data.Monoid (Any (..))
+import Data.Semigroup (Semigroup (..))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Data.Void
@@ -59,15 +61,51 @@ import qualified Text.URI                   as URI
 ----------------------------------------------------------------------------
 -- Data types
 
--- | Parser type we use internally.
+-- | Block-level parser type. The 'Reader' monad inside allows to access
+-- current reference level: 1 column for top-level of document, column where
+-- content starts for block quotes and lists.
 
-type Parser = Parsec MMarkErr Text
+type BParser = ParsecT MMarkErr Text (Reader BlockEnv)
+
+-- | Block-level parser environment.
+
+data BlockEnv = BlockEnv
+  { benvAllowNaked :: !Bool
+    -- ^ Should we consider a single paragraph naked?
+  , benvRefLevel :: !Pos
+    -- ^ Reference level
+  }
+
+instance Default BlockEnv where
+  def = BlockEnv
+    { benvAllowNaked = False
+    , benvRefLevel   = pos1
+    }
+
+-- | Block-level parsing mode.
+
+data BlockMode
+  = UnorderedListMode Char
+    -- ^ We're currently parsing an unordered list with this bullet
+  | OrderedListMode Char
+    -- ^ We're currently parsing an ordered list with this delimiter
+  | NormalMode
+    -- ^ We're currently parsing something else
+  deriving (Eq, Ord, Show)
+
+instance Default BlockMode where
+  def = NormalMode
 
 -- | MMark custom parse errors.
 
 data MMarkErr
   = YamlParseError String
     -- ^ YAML error that occurred during parsing of a YAML block
+  | ListStartIndexTooBig Word
+    -- ^ Ordered list start numbers must be nine digits or less
+  | ListIndexOutOfOrder Word Word
+    -- ^ The index in an ordered list is out of order, first number is the
+    -- actual index we ran into, the second number is the expected index
   | NonFlankingDelimiterRun (NonEmpty Char)
     -- ^ This delimiter run should be in left- or right- flanking position
   deriving (Eq, Ord, Show, Read, Generic, Typeable, Data)
@@ -76,24 +114,34 @@ instance ShowErrorComponent MMarkErr where
   showErrorComponent = \case
     YamlParseError str ->
       "YAML parse error: " ++ str
+    ListStartIndexTooBig n ->
+      "Ordered list start numbers must be nine digits or less, " ++ show n
+        ++ " is too big"
+    ListIndexOutOfOrder actual expected ->
+      "List index out of order: " ++ show actual ++ ", expected " ++ show expected
     NonFlankingDelimiterRun dels ->
       showTokens dels ++ " should be in left- or right- flanking position"
 
 instance NFData MMarkErr
 
--- | Parser type for inlines.
+-- | Inline-level parser type. We store type of the last consumed character
+-- in the state.
 
 type IParser = StateT CharType (Parsec MMarkErr Text)
 
 -- | 'Inline' source pending parsing.
 
-data Isp = Isp SourcePos Text
-  deriving (Eq, Ord, Show)
+data Isp
+  = IspSpan SourcePos Text
+    -- ^ We have an inline source pending parsnig
+  | IspError (ParseError Char MMarkErr)
+    -- ^ We should just return this parse error
+  deriving (Eq, Show)
 
 -- | Type of last seen character.
 
 data CharType
-  = SpaceChar          -- ^ White space
+  = SpaceChar          -- ^ White space or a transparent character
   | LeftFlankingDel    -- ^ Left flanking delimiter
   | RightFlankingDel   -- ^ Right flaking delimiter
   | OtherChar          -- ^ Other character
@@ -119,7 +167,7 @@ data InlineState
   | DoubleFrame InlineFrame InlineFrame -- ^ Two frames to be closed
   deriving (Eq, Ord, Show)
 
--- | Configuration in inline parser.
+-- | Configuration of inline parser.
 
 data InlineConfig = InlineConfig
   { iconfigAllowEmpty :: !Bool
@@ -137,10 +185,32 @@ instance Default InlineConfig where
     , iconfigAllowImages = True
     }
 
--- | A shortcut type synonym for sub-parsers that may fail and we can
--- recover from the failure.
+-- | A shortcut type synonym for collection of parse errors.
 
-type E = Either (ParseError Char MMarkErr)
+type Errs = NonEmpty (ParseError Char MMarkErr)
+
+-- | An auxiliary type for collapsing levels of 'Either's.
+
+data Pair s a
+  = PairL s
+  | PairR ([a] -> [a])
+
+instance Semigroup s => Semigroup (Pair s a) where
+  (PairL l) <> (PairL r) = PairL (l <> r)
+  (PairL l) <> (PairR _) = PairL l
+  (PairR _) <> (PairL r) = PairL r
+  (PairR l) <> (PairR r) = PairR (l . r)
+
+instance Semigroup s => Monoid (Pair s a) where
+  mempty  = PairR id
+  mappend = (<>)
+
+-- | Convert @'Either' a b@ to @'Pair' a b@.
+
+e2p :: Either a b -> Pair a b
+e2p = \case
+  Left  a -> PairL a
+  Right b -> PairR (b:)
 
 ----------------------------------------------------------------------------
 -- Block parser
@@ -157,30 +227,33 @@ parse
   -> Either (NonEmpty (ParseError Char MMarkErr)) MMark
      -- ^ Parse errors or parsed document
 parse file input =
-  case runParser ((,) <$> optional pYamlBlock <*> pBlocks) file input of
+  case runReader (runParserT p file input) def of
     -- NOTE This parse error only happens when document structure on block
     -- level cannot be parsed even with recovery, which should not normally
     -- happen.
     Left err -> Left (nes err)
-    Right (myaml, blocks) ->
-      let parsed = doInline <$> blocks
-          doInline = \case
-            Left err -> Naked (Left err)
-            Right x  -> first (replaceEof "end of inline block")
-              . runIsp (pInlines def <* eof) <$> x
-          getErrs (Left e) es = e : es
-          getErrs _        es = es
-          fromRight (Right x) = x
-          fromRight _         =
-            error "Text.MMark.Parser.parse: the impossible happened"
-      in case NE.nonEmpty (foldMap (foldr getErrs []) parsed) of
-           Nothing -> Right MMark
+    Right (myaml, rawBlocks) ->
+      let parsed :: [Block (Either Errs (NonEmpty Inline))]
+          parsed = doInline <$> rawBlocks
+          doInline :: Block Isp -> Block (Either Errs (NonEmpty Inline))
+          doInline = fmap
+            $ first (nes . replaceEof "end of inline block")
+            . runIsp (pInlines def <* eof)
+          g block =
+            case foldMap e2p block of
+              PairL errs -> PairL errs
+              PairR _    -> PairR (fmap fromRight block :)
+      in case foldMap g parsed of
+           PairL errs   -> Left errs
+           PairR blocks -> Right MMark
              { mmarkYaml      = myaml
-             , mmarkBlocks    = fmap fromRight <$> parsed
+             , mmarkBlocks    = blocks []
              , mmarkExtension = mempty }
-           Just es -> Left es
+  where
+    p = (,) <$> optional pYamlBlock
+            <*> between (setTabWidth (mkPos 4)) eof pBlocks
 
-pYamlBlock :: Parser Yaml.Value
+pYamlBlock :: BParser Yaml.Value
 pYamlBlock = do
   dpos <- getPosition
   string "---" *> sc' *> eol
@@ -200,28 +273,42 @@ pYamlBlock = do
     Right v ->
       return v
 
-pBlocks :: Parser [E (Block Isp)]
-pBlocks = do
-  setTabWidth (mkPos 4)
-  sc *> manyTill pBlock eof
+pBlocks :: BParser [Block Isp]
+pBlocks = many pBlock
 
-pBlock :: Parser (E (Block Isp))
-pBlock = choice
-  [ try (pure <$> pThematicBreak)
-  , pAtxHeading
-  , pure <$> pFencedCodeBlock
-  , try (pure <$> pIndentedCodeBlock)
-  , pure <$> pParagraph ]
+pBlock :: BParser (Block Isp)
+pBlock = do
+  sc
+  rlevel <- asks benvRefLevel
+  alevel <- L.indentLevel
+  done   <- atEnd
+  if done || alevel < rlevel then empty else
+    case compare alevel (ilevel rlevel) of
+      LT -> choice
+        [ pThematicBreak
+        , pAtxHeading
+        , pFencedCodeBlock
+        , pUnorderedList
+        , pOrderedList
+        , pBlockquote
+        , pParagraph ]
+      _  ->
+          pIndentedCodeBlock
 
-pThematicBreak :: Parser (Block Isp)
+pThematicBreak :: BParser (Block Isp)
 pThematicBreak = do
-  void casualLevel
-  l <- lookAhead nonEmptyLine
-  if isThematicBreak l
+  l'     <- lookAhead nonEmptyLine
+  clevel <- ilevel <$> asks benvRefLevel
+  let l = T.filter (not . isSpace) l'
+  if T.length    l >= 3      &&
+     indentLevel l' < clevel &&
+     (T.all (== '*') l ||
+      T.all (== '-') l ||
+      T.all (== '_') l)
     then ThematicBreak <$ nonEmptyLine <* sc
     else empty
 
-pAtxHeading :: Parser (E (Block Isp))
+pAtxHeading :: BParser (Block Isp)
 pAtxHeading = do
   (void . lookAhead . try) start
   withRecovery recover $ do
@@ -237,15 +324,14 @@ pAtxHeading = do
           4 -> Heading4
           5 -> Heading5
           _ -> Heading6
-    (Right . toBlock) (Isp ispPos (T.strip (T.pack r))) <$ sc
+    toBlock (IspSpan ispPos (T.strip (T.pack r))) <$ sc
   where
-    start = casualLevel *> count' 1 6 (char '#')
+    start = count' 1 6 (char '#')
     recover err =
-      Left err <$ takeWhileP Nothing notNewline <* sc
+      Heading1 (IspError err) <$ takeWhileP Nothing notNewline <* sc
 
-pFencedCodeBlock :: Parser (Block Isp)
+pFencedCodeBlock :: BParser (Block Isp)
 pFencedCodeBlock = do
-  level <- casualLevel
   let p ch = try $ do
         void $ count 3 (char ch)
         n  <- (+ 3) . length <$> many (char ch)
@@ -259,23 +345,28 @@ pFencedCodeBlock = do
                  if T.null l
                    then Nothing
                    else Just l)
+  alevel <- L.indentLevel
   (ch, n, infoString) <- (p '`' <|> p '~') <* eol
   let content = label "code block content" (option "" nonEmptyLine <* eol)
       closingFence = try . label "closing code fence" $ do
-        void casualLevel'
+        rlevel <- asks benvRefLevel
+        void $ L.indentGuard sc' LT (ilevel rlevel)
         void $ count n (char ch)
         (void . many . char) ch
         sc'
         eof <|> eol
   ls <- manyTill content closingFence
-  CodeBlock infoString (assembleCodeBlock level ls) <$ sc
+  CodeBlock infoString (assembleCodeBlock alevel ls) <$ sc
 
-pIndentedCodeBlock :: Parser (Block Isp)
+pIndentedCodeBlock :: BParser (Block Isp)
 pIndentedCodeBlock = do
-  initialIndent <- codeBlockLevel
+  initialIndent <- L.indentLevel
+  clevel <- ilevel <$> asks benvRefLevel
   let go ls = do
-        immediate <- lookAhead (True <$ try codeBlockLevel' <|> pure False)
-        eventual  <- lookAhead (True <$ try codeBlockLevel  <|> pure False)
+        immediate <- lookAhead $
+          (>= clevel) <$> (sc' *> L.indentLevel)
+        eventual  <- lookAhead $
+          (>= clevel) <$> (sc *> L.indentLevel)
         if not immediate && not eventual
           then return ls
           else do
@@ -292,27 +383,121 @@ pIndentedCodeBlock = do
       g []     = []
       g (x:xs) = f x : xs
   ls <- g . reverse . dropWhile isBlank <$> go []
-  CodeBlock Nothing (assembleCodeBlock (mkPos 5) ls) <$ sc
+  CodeBlock Nothing (assembleCodeBlock clevel ls) <$ sc
 
-pParagraph :: Parser (Block Isp)
+pUnorderedList :: BParser (Block Isp)
+pUnorderedList = do
+  (bullet, startBulletPos, alevel, level') <- try $ do
+    p <- getPosition
+    alevel <- (<> mkPos 2) <$> L.indentLevel
+    b <- char '-' <|> char '+' <|> char '*'
+    eof <|> sc1
+    level' <- L.indentLevel
+    return (b, p, alevel, level')
+  let innerBlocks l l' bulletPos = do
+        p <- getPosition
+        let tooFar = sourceLine p > sourceLine bulletPos <> pos1
+        if tooFar || sourceColumn p < alevel
+          then return [if tooFar then emptyParagraph else emptyNaked]
+          else subEnv True (slevel l l') pBlocks
+  x      <- innerBlocks alevel level' startBulletPos
+  xs     <- many $ do
+    (bulletPos, alevel', level'') <- try $ do
+      p <- getPosition
+      guard (sourceColumn p >= sourceColumn startBulletPos)
+      alevel' <- (<> mkPos 2) <$> L.indentLevel
+      void (char bullet)
+      eof <|> sc1
+      level'' <- L.indentLevel
+      return (p, alevel', level'')
+    innerBlocks alevel' level'' bulletPos
+  return (UnorderedList (normalizeListItems (x:|xs)))
+
+pOrderedList :: BParser (Block Isp)
+pOrderedList = do
+  pos' <- getPosition
+  (start, del, alevel, startIndexPos,level') <- try $ do
+    p      <- getPosition
+    start  <- L.decimal
+    del    <- char '.' <|> char ')'
+    alevel <- (<> pos1) <$> L.indentLevel
+    eof <|> sc1
+    level' <- L.indentLevel
+    return (start, del, alevel, p, level')
+  let innerBlocks l l' indexPos = do
+        p <- getPosition
+        let tooFar = sourceLine p > sourceLine indexPos <> pos1
+        if tooFar || sourceColumn p < l
+          then return [if tooFar then emptyParagraph else emptyNaked]
+          else subEnv True (slevel l l') pBlocks
+  x     <- innerBlocks alevel level' startIndexPos
+  xs    <- manyIndexed (start + 1) $ \expected -> do
+    pos <- getPosition
+    (actual, alevel', indexPos,level'') <- try $ do
+      p <- getPosition
+      guard (sourceColumn p >= sourceColumn startIndexPos)
+      i <- L.decimal
+      void (char del)
+      alevel' <- (<> pos1) <$> L.indentLevel
+      eof <|> sc1
+      level'' <- L.indentLevel
+      return (i, alevel', p, level'')
+    let sie = Naked . IspError $ FancyError
+          (nes pos)
+          (E.singleton . ErrorCustom $ ListIndexOutOfOrder actual expected)
+        f items =
+          if actual == expected
+            then items
+            else sie:items
+    f <$> innerBlocks alevel' level'' indexPos
+  let sie = Naked . IspError $ FancyError
+        (nes pos')
+        (E.singleton . ErrorCustom $ ListStartIndexTooBig start)
+      x' = if start <= 999999999 then x else sie:x
+  return (OrderedList start (normalizeListItems (x':|xs)))
+
+-- TODO Still not sure about the block quote syntax. Apparently (see e.g.
+-- CM197), it makes some cases ambiguous and not user-friendly. We probably
+-- should bite the bullet and implement the original markdown block quote
+-- syntax. Also restore some tests to their original form, because I have
+-- altered some of them already.
+
+pBlockquote :: BParser (Block Isp)
+pBlockquote = do
+  alevel <- (<> mkPos 2) <$> L.indentLevel
+  try $ do
+    void (char '>')
+    sc
+    l <- L.indentLevel
+    guard (l >= alevel)
+  level' <- L.indentLevel
+  xs <- subEnv False (slevel alevel level') pBlocks
+  return (Blockquote xs)
+
+pParagraph :: BParser (Block Isp)
 pParagraph = do
-  void casualLevel
-  startPos <- getPosition
-  let go = do
-        ml <- lookAhead (optional nonEmptyLine)
-        case ml of
-          Nothing -> return []
-          Just l ->
-            if isBlank l
-              then return []
-              else do
-                void nonEmptyLine
-                continue <- eol'
-                (l :) <$> if continue then go else return []
+  startPos   <- getPosition
+  allowNaked <- asks benvAllowNaked
+  rlevel     <- asks benvRefLevel
+  let go ls = do
+        l <- lookAhead (option "" nonEmptyLine)
+        case (isBlank l, isParagraphBroken rlevel l) of
+          (True, _) -> return (reverse ls, Paragraph)
+          (_, True) -> return (reverse ls, Naked)
+          (_, False) -> do
+            void nonEmptyLine
+            continue <- eol'
+            if continue
+              then go (l:ls)
+              else return (reverse (l:ls), Naked)
   l        <- nonEmptyLine
   continue <- eol'
-  ls       <- if continue then go else return []
-  Paragraph (Isp startPos (assembleParagraph (l:ls))) <$ sc
+  (ls, toBlock) <-
+    if continue
+      then go []
+      else return ([], Naked)
+  (if allowNaked then toBlock else Paragraph)
+    (IspSpan startPos (assembleParagraph (l:ls))) <$ sc
 
 ----------------------------------------------------------------------------
 -- Inline parser
@@ -323,7 +508,8 @@ runIsp
   :: IParser a         -- ^ The parser to run
   -> Isp               -- ^ Input for the parser
   -> Either (ParseError Char MMarkErr) a -- ^ Result of parsing
-runIsp p (Isp startPos input) =
+runIsp _ (IspError err) = Left err
+runIsp p (IspSpan startPos input) =
   snd (runParser' (evalStateT p SpaceChar) pst)
   where
     pst = State
@@ -470,12 +656,12 @@ pEnclosedInline = do
 pLfdr :: InlineState -> IParser InlineState
 pLfdr st = try $ do
   let dels = inlineStateDel st
-  mpos <- getNextTokenPosition
+  pos <- getPosition
   void (string dels)
   leftChar   <- get
   mrightChar <- lookAhead (optional anyChar)
   let failNow = do
-        forM_ mpos setPosition
+        setPosition pos
         (mmarkErr . NonFlankingDelimiterRun . toNesTokens) dels
   case (leftChar, isTransparent <$> mrightChar) of
     (_, Nothing)          -> failNow
@@ -490,12 +676,12 @@ pLfdr st = try $ do
 pRfdr :: InlineFrame -> IParser InlineFrame
 pRfdr frame = try $ do
   let dels = inlineFrameDel frame
-  mpos <- getNextTokenPosition
+  pos <- getPosition
   void (string dels)
   leftChar   <- get
   mrightChar <- lookAhead (optional anyChar)
   let failNow = do
-        forM_ mpos setPosition
+        setPosition pos
         (mmarkErr . NonFlankingDelimiterRun . toNesTokens) dels
   case (leftChar, mrightChar) of
     (SpaceChar, _) -> failNow
@@ -537,19 +723,7 @@ pPlain = Plain . T.pack <$> some
 ----------------------------------------------------------------------------
 -- Parsing helpers
 
-casualLevel :: Parser Pos
-casualLevel = L.indentGuard sc LT (mkPos 5)
-
-casualLevel' :: Parser Pos
-casualLevel' = L.indentGuard sc' LT (mkPos 5)
-
-codeBlockLevel :: Parser Pos
-codeBlockLevel = L.indentGuard sc GT (mkPos 4)
-
-codeBlockLevel' :: Parser Pos
-codeBlockLevel' = L.indentGuard sc' GT (mkPos 4)
-
-nonEmptyLine :: Parser Text
+nonEmptyLine :: BParser Text
 nonEmptyLine = takeWhile1P Nothing notNewline
 
 manyEscapedWith :: MonadParsec e Text m => (Char -> Bool) -> String -> m Text
@@ -583,16 +757,14 @@ eol = void . label "newline" $ choice
 eol' :: MonadParsec e Text m => m Bool
 eol' = option False (True <$ eol)
 
-----------------------------------------------------------------------------
--- Block-level predicates
+subEnv :: Bool -> Pos -> BParser a -> BParser a
+subEnv benvAllowNaked benvRefLevel = local (const BlockEnv {..})
 
-isThematicBreak :: Text -> Bool
-isThematicBreak l' = T.length l >= 3 && indentLevel l' < 4 &&
-  (T.all (== '*') l ||
-   T.all (== '-') l ||
-   T.all (== '_') l)
-  where
-    l = T.filter (not . isSpace) l'
+slevel :: Pos -> Pos -> Pos
+slevel a l = if l >= ilevel a then a else l
+
+ilevel :: Pos -> Pos
+ilevel = (<> mkPos 4)
 
 ----------------------------------------------------------------------------
 -- Other helpers
@@ -651,6 +823,25 @@ isTransparent x = Char.isSpace x || isTransparentPunctuation x
 nes :: a -> NonEmpty a
 nes a = a :| []
 
+assembleCodeBlock :: Pos -> [Text] -> Text
+assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)
+
+isParagraphBroken :: Pos -> Text -> Bool
+isParagraphBroken rlevel = isJust . parseMaybe (p <* takeRest)
+  where
+    p :: Parsec Void Text ()
+    p = do
+      setTabWidth (mkPos 4)
+      sc
+      alevel <- L.indentLevel
+      guard (alevel < ilevel rlevel)
+      unless (alevel < rlevel) . choice $
+        [ void (char '>')
+        , try $ choice (char <$> ("-+*#" :: String)) *> (eof <|> sc1')
+        , try $ (L.decimal :: Parsec Void Text Integer) *>
+            (char '.' <|> char ')') *> (eof <|> sc1')
+        ]
+
 assembleParagraph :: [Text] -> Text
 assembleParagraph = go
   where
@@ -658,21 +849,19 @@ assembleParagraph = go
     go [x]    = T.dropWhileEnd isSpace x
     go (x:xs) = x <> "\n" <> go xs
 
-assembleCodeBlock :: Pos -> [Text] -> Text
-assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)
-
-indentLevel :: Text -> Int
-indentLevel = T.foldl' f 0 . T.takeWhile isSpace
+indentLevel :: Text -> Pos
+indentLevel = T.foldl' f pos1 . T.takeWhile isSpace
   where
     f n ch
-      | ch == ' '  = n + 1
-      | ch == '\t' = n + 4
+      | ch == ' '  = n <> pos1
+      | ch == '\t' = n <> mkPos 4
       | otherwise  = n
 
 stripIndent :: Pos -> Text -> Text
 stripIndent indent txt = T.drop m txt
   where
-    m = snd $ T.foldl' f (0, 0) (T.takeWhile isSpace txt)
+    m = snd $ T.foldl' f (0, 0) (T.takeWhile p txt)
+    p x = isSpace x || x == '>'
     f (!j, !n) ch
       | j  >= i    = (j, n)
       | ch == ' '  = (j + 1, n + 1)
@@ -760,3 +949,39 @@ splitYamlError file str = maybe (Nothing, str) (first pure) (parseMaybe p str)
       void (string ":\n")
       r <- takeRest
       return (SourcePos file l c, r)
+
+fromRight :: Either a b -> b
+fromRight (Right x) = x
+fromRight _         =
+  error "Text.MMark.Parser.fromRight: the impossible happened"
+
+manyIndexed :: (Alternative m, Num n) => n -> (n -> m a) -> m [a]
+manyIndexed n' m = go n'
+  where
+    go !n = liftA2 (:) (m n) (go (n + 1)) <|> pure []
+
+emptyParagraph :: Block Isp
+emptyParagraph = Paragraph (IspSpan (initialPos "") "")
+
+emptyNaked :: Block Isp
+emptyNaked = Naked (IspSpan (initialPos "") "")
+
+normalizeListItems :: NonEmpty [Block Isp] -> NonEmpty [Block Isp]
+normalizeListItems xs' =
+  if getAny $ foldMap (foldMap (Any . isParagraph)) (drop 1 x :| xs)
+    then fmap toParagraph <$> xs'
+    else case x of
+           [] -> xs'
+           (y:ys) -> r $ (toNaked y : ys) :| xs
+  where
+    (x:|xs) = r xs'
+    r = NE.reverse . fmap reverse
+    isParagraph = \case
+      OrderedList _ _ -> False
+      UnorderedList _ -> False
+      Naked         _ -> False
+      _               -> True
+    toParagraph (Naked inner) = Paragraph inner
+    toParagraph other         = other
+    toNaked (Paragraph inner) = Naked inner
+    toNaked other             = other

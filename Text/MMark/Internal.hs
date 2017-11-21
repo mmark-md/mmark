@@ -164,8 +164,8 @@ data Block a
     -- ^ Paragraph, leaf block
   | Blockquote [Block a]
     -- ^ Blockquote container block
-  | OrderedList (NonEmpty [Block a])
-    -- ^ Ordered list, container block
+  | OrderedList Word (NonEmpty [Block a])
+    -- ^ Ordered list ('Word' is the start index), container block
   | UnorderedList (NonEmpty [Block a])
     -- ^ Unordered list, container block
   | Naked a
@@ -336,24 +336,26 @@ defaultBlockRender = \case
     newline
   Paragraph (_,html) ->
     p_ html >> newline
-  Blockquote blocks ->
-    blockquote_ (mapM_ defaultBlockRender blocks)
-  OrderedList items -> do
-    ol_ $ do
+  Blockquote blocks -> do
+    blockquote_ (newline <* mapM_ defaultBlockRender blocks)
+    newline
+  OrderedList i items -> do
+    let startIndex = [start_ (T.pack $ show i) | i /= 1]
+    ol_ startIndex $ do
       newline
       forM_ items $ \x -> do
-        li_ (mapM_ defaultBlockRender x)
+        li_ (newline <* mapM_ defaultBlockRender x)
         newline
     newline
   UnorderedList items -> do
     ul_ $ do
       newline
       forM_ items $ \x -> do
-        li_ (mapM_ defaultBlockRender x)
+        li_ (newline <* mapM_ defaultBlockRender x)
         newline
     newline
   Naked (_,html) ->
-    html
+    html >> newline
   where
     mkId (Ois x) = [id_ (headerId x)]
 
