@@ -53,6 +53,7 @@ module Text.MMark.Extension
   , inlineRender
     -- * Scanner construction
   , scanner
+  , scannerM
     -- * Utils
   , asPlainText
   , headerId
@@ -111,3 +112,13 @@ scanner
   -> L.Fold Bni a      -- ^ Resulting 'L.Fold'
 scanner a f = L.Fold f a id
 {-# INLINE scanner #-}
+
+-- | Create a 'L.FoldM' from an initial state and a folding function.
+
+scannerM
+  :: Monad m
+  => m a               -- ^ Initial state
+  -> (a -> Bni -> m a) -- ^ Folding function
+  -> L.FoldM m Bni a   -- ^ Resulting 'L.FoldM'
+scannerM a f = L.FoldM f a return
+{-# INLINE scannerM #-}

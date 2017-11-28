@@ -27,6 +27,7 @@ module Text.MMark.Internal
   , Inline (..)
     -- * Extensions
   , runScanner
+  , runScannerM
   , useExtension
   , useExtensions
     -- * Renders
@@ -237,6 +238,20 @@ runScanner
   -> a                 -- ^ Result of scanning
 runScanner MMark {..} f = L.fold f mmarkBlocks
 {-# INLINE runScanner #-}
+
+-- | Scan an 'MMark' document efficiently in one pass in a monadic context. This
+-- uses the excellent 'L.FoldM' type.
+--
+-- Take a look at the "Text.MMark.Extension" module if you want to create
+-- scanners of your own.
+
+runScannerM
+  :: Monad m
+  => MMark             -- ^ Document to scan
+  -> L.FoldM m Bni a   -- ^ 'L.FoldM' to use
+  -> m a               -- ^ Result of scanning
+runScannerM MMark {..} f = L.foldM f mmarkBlocks
+{-# INLINE runScannerM #-}
 
 ----------------------------------------------------------------------------
 -- Renders

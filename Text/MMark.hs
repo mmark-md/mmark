@@ -123,6 +123,7 @@ module Text.MMark
   , useExtensions
     -- * Scanning
   , runScanner
+  , runScannerM
   , projectYaml
     -- * Rendering
   , render )
