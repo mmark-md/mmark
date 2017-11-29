@@ -122,8 +122,8 @@ module Text.MMark
   , useExtension
   , useExtensions
     -- * Scanning
-  , runScanner
-  , runScannerM
+  , fold
+  , foldM
   , projectYaml
     -- * Rendering
   , render )
