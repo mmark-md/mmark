@@ -1093,7 +1093,7 @@ spec = parallel $ do
   describe "runScanner and scanner" $
     it "extracts information from markdown document" $ do
       doc <- mkDoc "Here we go, pals."
-      let n = MMark.runScanner doc (length_scan (const True))
+      let n = L.purely (MMark.fold doc) (length_scan (const True))
       n `shouldBe` 17
   describe "combining of scanners" $
     it "combines scanners" $ do
@@ -1102,7 +1102,7 @@ spec = parallel $ do
             <$> length_scan (const True)
             <*> length_scan isSpace
             <*> length_scan isPunctuation
-          r = MMark.runScanner doc scan
+          r = L.purely (MMark.fold doc) scan
       r `shouldBe` (17, 3, 2)
   describe "projectYaml" $ do
     context "when document does not contain a YAML section" $
@@ -1141,8 +1141,8 @@ append_ext y = Ext.inlineTrans $ \case
 -- inlines.
 
 length_scan :: (Char -> Bool) -> L.Fold (Ext.Block (NonEmpty Inline)) Int
-length_scan p = Ext.scanner 0 $ \n block ->
-  getSum $ Sum n <> foldMap (foldMap f) block
+length_scan p =
+  L.Fold (\n block -> getSum $ Sum n <> foldMap (foldMap f) block) 0 id
   where
     f (Plain txt) = (Sum . T.length) (T.filter p txt)
     f _           = mempty

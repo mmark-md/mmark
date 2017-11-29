@@ -51,9 +51,6 @@ module Text.MMark.Extension
   , Inline (..)
   , inlineTrans
   , inlineRender
-    -- * Scanner construction
-  , scanner
-  , scannerM
     -- * Utils
   , asPlainText
   , headerId
@@ -63,7 +60,6 @@ where
 import Data.Monoid hiding ((<>))
 import Lucid
 import Text.MMark.Internal
-import qualified Control.Foldl as L
 
 -- | Create an extension that performs a transformation on 'Block's of
 -- markdown document.
@@ -103,22 +99,3 @@ inlineRender
   :: ((Inline -> Html ()) -> Inline -> Html ())
   -> Extension
 inlineRender f = mempty { extInlineRender = Render f }
-
--- | Create a 'L.Fold' from an initial state and a folding function.
-
-scanner
-  :: a                 -- ^ Initial state
-  -> (a -> Bni -> a)   -- ^ Folding function
-  -> L.Fold Bni a      -- ^ Resulting 'L.Fold'
-scanner a f = L.Fold f a id
-{-# INLINE scanner #-}
-
--- | Create a 'L.FoldM' from an initial state and a folding function.
-
-scannerM
-  :: Monad m
-  => m a               -- ^ Initial state
-  -> (a -> Bni -> m a) -- ^ Folding function
-  -> L.FoldM m Bni a   -- ^ Resulting 'L.FoldM'
-scannerM a f = L.FoldM f a return
-{-# INLINE scannerM #-}

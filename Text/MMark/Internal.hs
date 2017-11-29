@@ -26,8 +26,8 @@ module Text.MMark.Internal
   , Block (..)
   , Inline (..)
     -- * Extensions
-  , runScanner
-  , runScannerM
+  , fold
+  , foldM
   , useExtension
   , useExtensions
     -- * Renders
@@ -45,7 +45,7 @@ where
 
 import Control.Arrow
 import Control.DeepSeq
-import Control.Monad
+import Control.Monad hiding (foldM)
 import Data.Aeson
 import Data.Char (isSpace, isAlphaNum)
 import Data.Data (Data)
@@ -58,7 +58,6 @@ import Data.Typeable (Typeable)
 import GHC.Generics
 import Lucid
 import Text.URI (URI (..))
-import qualified Control.Foldl as L
 import qualified Data.Text     as T
 import qualified Text.URI      as URI
 
@@ -226,32 +225,32 @@ useExtension ext mmark =
 useExtensions :: [Extension] -> MMark -> MMark
 useExtensions exts = useExtension (mconcat exts)
 
--- | Scan an 'MMark' document efficiently in one pass. This uses the
--- excellent 'L.Fold' type, which see.
---
--- Take a look at the "Text.MMark.Extension" module if you want to create
--- scanners of your own.
+-- | Scan an 'MMark' document efficiently in one pass.
 
-runScanner
-  :: MMark             -- ^ Document to scan
-  -> L.Fold Bni a      -- ^ 'L.Fold' to use
-  -> a                 -- ^ Result of scanning
-runScanner MMark {..} f = L.fold f mmarkBlocks
-{-# INLINE runScanner #-}
+fold
+  :: MMark
+  -> (x -> Bni -> x) -> x -> (x -> b)
+  -> b
+fold MMark {..} step begin done = foldr cons done mmarkBlocks begin
+  where
+    cons a k x = k $! step x a
+{-# INLINE fold #-}
 
--- | Scan an 'MMark' document efficiently in one pass in a monadic context. This
--- uses the excellent 'L.FoldM' type.
---
--- Take a look at the "Text.MMark.Extension" module if you want to create
--- scanners of your own.
+-- | Scan an 'MMark' document efficiently in one pass.
 
-runScannerM
+foldM
   :: Monad m
-  => MMark             -- ^ Document to scan
-  -> L.FoldM m Bni a   -- ^ 'L.FoldM' to use
-  -> m a               -- ^ Result of scanning
-runScannerM MMark {..} f = L.foldM f mmarkBlocks
-{-# INLINE runScannerM #-}
+  => MMark
+  -> (x -> Bni -> m x) -> m x -> (x -> m b)
+  -> m b
+foldM MMark {..} step begin done = do
+  x0 <- begin
+  foldr step' done mmarkBlocks $! x0
+  where
+    step' a k x = do
+        x' <- step x a
+        k $! x'
+{-# INLINE foldM #-}
 
 ----------------------------------------------------------------------------
 -- Renders
