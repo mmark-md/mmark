@@ -113,7 +113,10 @@ scanner
 scanner a f = L.Fold f a id
 {-# INLINE scanner #-}
 
--- | Create a 'L.FoldM' from an initial state and a folding function.
+-- | Create a 'L.FoldM' from an initial state and a folding function
+-- operating in monadic context.
+--
+-- @since 0.0.2.0
 
 scannerM
   :: Monad m

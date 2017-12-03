@@ -239,11 +239,12 @@ runScanner
 runScanner MMark {..} f = L.fold f mmarkBlocks
 {-# INLINE runScanner #-}
 
--- | Scan an 'MMark' document efficiently in one pass in a monadic context. This
--- uses the excellent 'L.FoldM' type.
+-- | Like 'runScanner', but allows to run scanners with monadic context.
 --
--- Take a look at the "Text.MMark.Extension" module if you want to create
--- scanners of your own.
+-- To bring 'L.Fold' and 'L.FoldM' types to the “least common denominator”
+-- use 'L.generalize' and 'L.simplify'.
+--
+-- @since 0.0.2.0
 
 runScannerM
   :: Monad m
