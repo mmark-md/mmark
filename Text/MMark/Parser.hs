@@ -575,6 +575,8 @@ runIsp p (IspSpan startPos input) =
       , stateTokensProcessed = 0
       , stateTabWidth        = mkPos 4 }
 
+-- | Parse inlines using settings from given 'InlineConfig'.
+
 pInlines :: InlineConfig -> IParser (NonEmpty Inline)
 pInlines InlineConfig {..} =
   if iconfigAllowEmpty
@@ -591,6 +593,8 @@ pInlines InlineConfig {..} =
       , pPlain ]
     angel = between (char '<') (char '>')
 
+-- | Parse a code span.
+
 pCodeSpan :: IParser Inline
 pCodeSpan = do
   n <- try (length <$> some (char '`'))
@@ -605,6 +609,8 @@ pCodeSpan = do
   put OtherChar
   return r
 
+-- | Parse a link.
+
 pInlineLink :: IParser Inline
 pInlineLink = do
   xs     <- between (char '[') (char ']') $
@@ -615,6 +621,8 @@ pInlineLink = do
   sc <* char ')'
   put OtherChar
   return (Link xs dest mtitle)
+
+-- | Parse an image.
 
 pImage :: IParser Inline
 pImage = do
@@ -627,6 +635,8 @@ pImage = do
   sc <* char ')'
   put OtherChar
   return (Image alt src mtitle)
+
+-- | Parse a URI.
 
 pUri :: IParser URI
 pUri = do
@@ -654,6 +664,8 @@ pUri = do
               fancyFailure xs
         Right x -> return x
 
+-- | Parse a title of a link or an image.
+
 pTitle :: IParser Text
 pTitle = choice
   [ p '\"' '\"'
@@ -662,6 +674,8 @@ pTitle = choice
   where
     p start end = between (char start) (char end) $
       manyEscapedWith (/= end) "unescaped character"
+
+-- | Parse an autolink.
 
 pAutolink :: IParser Inline
 pAutolink = do
@@ -676,6 +690,9 @@ pAutolink = do
       let txt  = nes (Plain email)
           uri' = URI.makeAbsolute mailtoScheme uri
       in Link txt uri' Nothing
+
+-- | Parse inline content inside some sort of emphasis, strikeout,
+-- superscript, and\/or subscript markup.
 
 pEnclosedInline :: IParser Inline
 pEnclosedInline = do
@@ -710,6 +727,8 @@ pEnclosedInline = do
           return . liftFrame thatFrame $
             liftFrame thisFrame inlines0 <| inlines1
 
+-- | Parse an opening markup sequence corresponding to given 'InlineState'
+
 pLfdr :: InlineState -> IParser InlineState
 pLfdr st = try $ do
   let dels = inlineStateDel st
@@ -729,6 +748,8 @@ pLfdr st = try $ do
     (LeftFlankingDel, _)  -> return ()
   put LeftFlankingDel
   return st
+
+-- | Parse a closing markdup sequence corresponding to given 'InlineFrame'.
 
 pRfdr :: InlineFrame -> IParser InlineFrame
 pRfdr frame = try $ do
@@ -751,6 +772,8 @@ pRfdr frame = try $ do
   put RightFlankingDel
   return frame
 
+-- | Parse a hard line break.
+
 pHardLineBreak :: IParser Inline
 pHardLineBreak = do
   void (char '\\')
@@ -759,6 +782,8 @@ pHardLineBreak = do
   sc'
   put SpaceChar
   return LineBreak
+
+-- | Parse plain text.
 
 pPlain :: IParser Inline
 pPlain = Plain . T.pack <$> some
