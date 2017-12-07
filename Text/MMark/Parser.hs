@@ -297,11 +297,9 @@ pBlock = do
 
 pThematicBreak :: BParser (Block Isp)
 pThematicBreak = do
-  l'     <- lookAhead nonEmptyLine
-  clevel <- ilevel <$> asks benvRefLevel
+  l' <- lookAhead nonEmptyLine
   let l = T.filter (not . isSpace) l'
-  if T.length    l >= 3      &&
-     indentLevel l' < clevel &&
+  if T.length l >= 3   &&
      (T.all (== '*') l ||
       T.all (== '-') l ||
       T.all (== '_') l)
@@ -842,14 +840,14 @@ eol' = option False (True <$ eol)
 subEnv :: Bool -> Pos -> BParser a -> BParser a
 subEnv benvAllowNaked benvRefLevel = local (const BlockEnv {..})
 
+----------------------------------------------------------------------------
+-- Other helpers
+
 slevel :: Pos -> Pos -> Pos
 slevel a l = if l >= ilevel a then a else l
 
 ilevel :: Pos -> Pos
 ilevel = (<> mkPos 4)
-
-----------------------------------------------------------------------------
--- Other helpers
 
 isSpace :: Char -> Bool
 isSpace x = x == ' ' || x == '\t'
@@ -902,26 +900,8 @@ isTransparentPunctuation = \case
 isTransparent :: Char -> Bool
 isTransparent x = Char.isSpace x || isTransparentPunctuation x
 
-nes :: a -> NonEmpty a
-nes a = a :| []
-
 assembleCodeBlock :: Pos -> [Text] -> Text
 assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)
-
-assembleParagraph :: [Text] -> Text
-assembleParagraph = go
-  where
-    go []     = ""
-    go [x]    = T.dropWhileEnd isSpace x
-    go (x:xs) = x <> "\n" <> go xs
-
-indentLevel :: Text -> Pos
-indentLevel = T.foldl' f pos1 . T.takeWhile isSpace
-  where
-    f n ch
-      | ch == ' '  = n <> pos1
-      | ch == '\t' = n <> mkPos 4
-      | otherwise  = n
 
 stripIndent :: Pos -> Text -> Text
 stripIndent indent txt = T.drop m txt
@@ -934,6 +914,13 @@ stripIndent indent txt = T.drop m txt
       | ch == '\t' = (j + 4, n + 1)
       | otherwise  = (j, n)
     i = unPos indent - 1
+
+assembleParagraph :: [Text] -> Text
+assembleParagraph = go
+  where
+    go []     = ""
+    go [x]    = T.dropWhileEnd isSpace x
+    go (x:xs) = x <> "\n" <> go xs
 
 collapseWhiteSpace :: Text -> Text
 collapseWhiteSpace =
@@ -983,12 +970,6 @@ replaceEof altLabel = \case
     f EndOfInput = Label (NE.fromList altLabel)
     f x          = x
 
-mmarkErr :: MonadParsec MMarkErr s m => MMarkErr -> m a
-mmarkErr = fancyFailure . E.singleton . ErrorCustom
-
-toNesTokens :: Text -> NonEmpty Char
-toNesTokens = NE.fromList . T.unpack
-
 isEmailUri :: URI -> Maybe Text
 isEmailUri uri =
   case URI.unRText <$> URI.uriPath uri of
@@ -999,9 +980,6 @@ isEmailUri uri =
         then Just x
         else Nothing
     _ -> Nothing
-
-mailtoScheme :: URI.RText 'URI.Scheme
-mailtoScheme = fromJust (URI.mkScheme "mailto")
 
 splitYamlError :: FilePath -> String -> (Maybe SourcePos, String)
 splitYamlError file str = maybe (Nothing, str) (first pure) (parseMaybe p str)
@@ -1016,21 +994,16 @@ splitYamlError file str = maybe (Nothing, str) (first pure) (parseMaybe p str)
       r <- takeRest
       return (SourcePos file l c, r)
 
-fromRight :: Either a b -> b
-fromRight (Right x) = x
-fromRight _         =
-  error "Text.MMark.Parser.fromRight: the impossible happened"
-
-manyIndexed :: (Alternative m, Num n) => n -> (n -> m a) -> m [a]
-manyIndexed n' m = go n'
-  where
-    go !n = liftA2 (:) (m n) (go (n + 1)) <|> pure []
-
 emptyParagraph :: Block Isp
 emptyParagraph = Paragraph (IspSpan (initialPos "") "")
 
 emptyNaked :: Block Isp
 emptyNaked = Naked (IspSpan (initialPos "") "")
+
+manyIndexed :: (Alternative m, Num n) => n -> (n -> m a) -> m [a]
+manyIndexed n' m = go n'
+  where
+    go !n = liftA2 (:) (m n) (go (n + 1)) <|> pure []
 
 normalizeListItems :: NonEmpty [Block Isp] -> NonEmpty [Block Isp]
 normalizeListItems xs' =
@@ -1052,8 +1025,6 @@ normalizeListItems xs' =
     toNaked (Paragraph inner) = Naked inner
     toNaked other             = other
 
--- | Convert @'Either' a b@ to @'Pair' a b@.
-
 e2p :: Either a b -> Pair a b
 e2p = \case
   Left  a -> PairL a
@@ -1066,3 +1037,20 @@ prependErr :: SourcePos -> MMarkErr -> [Block Isp] -> [Block Isp]
 prependErr pos custom blocks = Naked (IspError err) : blocks
   where
     err = FancyError (nes pos) (E.singleton $ ErrorCustom custom)
+
+mmarkErr :: MonadParsec MMarkErr s m => MMarkErr -> m a
+mmarkErr = fancyFailure . E.singleton . ErrorCustom
+
+mailtoScheme :: URI.RText 'URI.Scheme
+mailtoScheme = fromJust (URI.mkScheme "mailto")
+
+toNesTokens :: Text -> NonEmpty Char
+toNesTokens = NE.fromList . T.unpack
+
+nes :: a -> NonEmpty a
+nes a = a :| []
+
+fromRight :: Either a b -> b
+fromRight (Right x) = x
+fromRight _         =
+  error "Text.MMark.Parser.fromRight: the impossible happened"
