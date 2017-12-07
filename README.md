@@ -174,8 +174,8 @@ do, the closing `*` won't be in right-flanking position anymore. God dammit.
 
 Block-level parsing:
 
-* Code blocks and thematic breaks should be separated from paragraphs and
-  lists by at least one empty line.
+* Code blocks should be separated from paragraphs and lists by at least one
+  empty line.
 * If a line starts with hash signs it is expected to be a valid *non-empty*
   header (level 1–6 inclusive). If you want to start a paragraph with
   hashes, just escape the first hash with backslash and that will be enough.

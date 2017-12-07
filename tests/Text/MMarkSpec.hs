@@ -99,8 +99,8 @@ spec = parallel $ do
         "- foo\n***\n- bar" ==->
           "<ul>\n<li>\nfoo\n</li>\n</ul>\n<hr>\n<ul>\n<li>\nbar\n</li>\n</ul>\n"
       it "CM28" $
-        let s = "Foo\n***\nbar"
-        in s ~-> errFancy (posN 6 s) (nonFlanking "*")
+        "Foo\n***\nbar" ==->
+          "<p>Foo</p>\n<hr>\n<p>bar</p>\n"
       xit "CM29" $ -- FIXME pending setext headings
         "Foo\n---\nbar" ==->
           "<h2>Foo</h2>\n<p>bar</p>\n"
@@ -537,7 +537,7 @@ spec = parallel $ do
           "<ol>\n<li>\n<ul>\n<li>\n<ol start=\"2\">\n<li>\nfoo\n</li>\n</ol>\n</li>\n</ul>\n</li>\n</ol>\n"
       it "CM261" $
         "- # Foo\n- Bar\n  ---\n  baz" ==->
-          "<ul>\n<li>\n<h1 id=\"foo\">Foo</h1>\n</li>\n<li>\n<p>Bar\n---\nbaz</p>\n</li>\n</ul>\n"
+          "<ul>\n<li>\n<h1 id=\"foo\">Foo</h1>\n</li>\n<li>\n<p>Bar</p>\n<hr>\n<p>baz</p>\n</li>\n</ul>\n"
     context "5.3 Lists" $ do
       it "CM262" $
         "- foo\n- bar\n+ baz" ==->
@@ -1446,17 +1446,23 @@ spec = parallel $ do
     context "when document contains a YAML section" $ do
       context "when it is valid" $
         it "returns the YAML section" $ do
-          doc <- mkDoc "---\nx: 100\ny: 200\n---Here we go."
+          doc <- mkDoc "---\nx: 100\ny: 200\n---\nHere we go."
           let r = object
                 [ "x" .= Number 100
                 , "y" .= Number 200 ]
           MMark.projectYaml doc `shouldBe` Just r
-      context "when it is invalid" $
+      context "when it is invalid" $ do
+        let mappingErr = fancy . ErrorCustom . YamlParseError $
+              "mapping values are not allowed in this context"
         it "signal correct parse error" $
-          let s = "---\nx: 100\ny: x:\n---Here we go."
-          in s ~-> errFancy (posN 15 s)
-             (fancy . ErrorCustom . YamlParseError $
-              "mapping values are not allowed in this context")
+          let s = "---\nx: 100\ny: x:\n---\nHere we go."
+          in s ~-> errFancy (posN 15 s) mappingErr
+        it "does not choke and can report more parse errors" $
+          let s = "---\nx: 100\ny: x:\n---\nHere we *go."
+          in s ~~->
+              [ errFancy (posN 15 s) mappingErr
+              , err (posN 33 s) (ueib <> etok '*' <> eic <> eric)
+              ]
 
 ----------------------------------------------------------------------------
 -- Testing extensions

@@ -36,7 +36,7 @@ import Data.Bifunctor (Bifunctor (..))
 import Data.Data (Data)
 import Data.Default.Class
 import Data.List.NonEmpty (NonEmpty (..), (<|))
-import Data.Maybe (isNothing, isJust, fromJust, fromMaybe)
+import Data.Maybe (isNothing, fromJust, fromMaybe)
 import Data.Monoid (Any (..))
 import Data.Semigroup (Semigroup (..))
 import Data.Text (Text)
@@ -61,9 +61,7 @@ import qualified Text.URI                   as URI
 ----------------------------------------------------------------------------
 -- Data types
 
--- | Block-level parser type. The 'Reader' monad inside allows to access
--- current reference level: 1 column for top-level of document, column where
--- content starts for block quotes and lists.
+-- | Block-level parser type.
 
 type BParser = ParsecT MMarkErr Text (Reader BlockEnv)
 
@@ -71,9 +69,12 @@ type BParser = ParsecT MMarkErr Text (Reader BlockEnv)
 
 data BlockEnv = BlockEnv
   { benvAllowNaked :: !Bool
-    -- ^ Should we consider a single paragraph naked?
+    -- ^ Should we consider a paragraph that does not end with a blank line
+    -- 'Naked'? It does not make sense to do so for top-level document, but
+    -- in lists, 'Naked' text is pretty common.
   , benvRefLevel :: !Pos
-    -- ^ Reference level
+    -- ^ Current reference level: 1 column for top-level of document, column
+    -- where content starts for block quotes and lists.
   }
 
 instance Default BlockEnv where
@@ -81,20 +82,6 @@ instance Default BlockEnv where
     { benvAllowNaked = False
     , benvRefLevel   = pos1
     }
-
--- | Block-level parsing mode.
-
-data BlockMode
-  = UnorderedListMode Char
-    -- ^ We're currently parsing an unordered list with this bullet
-  | OrderedListMode Char
-    -- ^ We're currently parsing an ordered list with this delimiter
-  | NormalMode
-    -- ^ We're currently parsing something else
-  deriving (Eq, Ord, Show)
-
-instance Default BlockMode where
-  def = NormalMode
 
 -- | MMark custom parse errors.
 
@@ -133,7 +120,7 @@ type IParser = StateT CharType (Parsec MMarkErr Text)
 
 data Isp
   = IspSpan SourcePos Text
-    -- ^ We have an inline source pending parsnig
+    -- ^ We have an inline source pending parsing
   | IspError (ParseError Char MMarkErr)
     -- ^ We should just return this parse error
   deriving (Eq, Show)
@@ -185,10 +172,6 @@ instance Default InlineConfig where
     , iconfigAllowImages = True
     }
 
--- | A shortcut type synonym for collection of parse errors.
-
-type Errs = NonEmpty (ParseError Char MMarkErr)
-
 -- | An auxiliary type for collapsing levels of 'Either's.
 
 data Pair s a
@@ -205,18 +188,11 @@ instance Semigroup s => Monoid (Pair s a) where
   mempty  = PairR id
   mappend = (<>)
 
--- | Convert @'Either' a b@ to @'Pair' a b@.
-
-e2p :: Either a b -> Pair a b
-e2p = \case
-  Left  a -> PairL a
-  Right b -> PairR (b:)
-
 ----------------------------------------------------------------------------
 -- Block parser
 
 -- | Parse a markdown document in the form of a strict 'Text' value and
--- either report parse errors or return a 'MMark' document. Note that the
+-- either report parse errors or return an 'MMark' document. Note that the
 -- parser has the ability to report multiple parse errors at once.
 
 parse
@@ -227,33 +203,46 @@ parse
   -> Either (NonEmpty (ParseError Char MMarkErr)) MMark
      -- ^ Parse errors or parsed document
 parse file input =
-  case runReader (runParserT p file input) def of
+  case runReader (runParserT pMMark file input) def of
     -- NOTE This parse error only happens when document structure on block
     -- level cannot be parsed even with recovery, which should not normally
-    -- happen.
+    -- happen except for the cases when we deal with YAML parsing errors.
     Left err -> Left (nes err)
     Right (myaml, rawBlocks) ->
-      let parsed :: [Block (Either Errs (NonEmpty Inline))]
-          parsed = doInline <$> rawBlocks
-          doInline :: Block Isp -> Block (Either Errs (NonEmpty Inline))
+      let parsed = doInline <$> rawBlocks
           doInline = fmap
             $ first (nes . replaceEof "end of inline block")
             . runIsp (pInlines def <* eof)
-          g block =
+          f block =
             case foldMap e2p block of
               PairL errs -> PairL errs
               PairR _    -> PairR (fmap fromRight block :)
-      in case foldMap g parsed of
+      in case foldMap f parsed of
            PairL errs   -> Left errs
            PairR blocks -> Right MMark
              { mmarkYaml      = myaml
              , mmarkBlocks    = blocks []
              , mmarkExtension = mempty }
-  where
-    p = (,) <$> optional pYamlBlock
-            <*> between (setTabWidth (mkPos 4)) eof pBlocks
 
-pYamlBlock :: BParser Yaml.Value
+-- | Parse an MMark document on block level.
+
+pMMark :: BParser (Maybe Yaml.Value, [Block Isp])
+pMMark = do
+  meyaml <- optional pYamlBlock
+  setTabWidth (mkPos 4)
+  blocks <- pBlocks
+  eof
+  return $ case meyaml of
+    Nothing ->
+      (Nothing, blocks)
+    Just (Left (pos, err)) ->
+      (Nothing, prependErr pos err blocks)
+    Just (Right yaml) ->
+      (Just yaml, blocks)
+
+-- | Parse a YAML block.
+
+pYamlBlock :: BParser (Either (SourcePos, MMarkErr) Yaml.Value)
 pYamlBlock = do
   dpos <- getPosition
   string "---" *> sc' *> eol
@@ -268,10 +257,9 @@ pYamlBlock = do
   case (Yaml.decodeEither . TE.encodeUtf8 . T.intercalate "\n") ls of
     Left err' -> do
       let (apos, err) = splitYamlError (sourceName dpos) err'
-      setPosition (fromMaybe dpos apos)
-      (fancyFailure . E.singleton . ErrorCustom . YamlParseError) err
+      return $ Left (fromMaybe dpos apos, YamlParseError err)
     Right v ->
-      return v
+      return (Right v)
 
 pBlocks :: BParser [Block Isp]
 pBlocks = many pBlock
@@ -481,15 +469,27 @@ pParagraph = do
   rlevel     <- asks benvRefLevel
   let go ls = do
         l <- lookAhead (option "" nonEmptyLine)
-        case (isBlank l, isParagraphBroken rlevel l) of
-          (True, _) -> return (reverse ls, Paragraph)
-          (_, True) -> return (reverse ls, Naked)
-          (_, False) -> do
-            void nonEmptyLine
-            continue <- eol'
-            if continue
-              then go (l:ls)
-              else return (reverse (l:ls), Naked)
+        broken <- succeeds . lookAhead . try $ do
+          sc
+          alevel <- L.indentLevel
+          guard (alevel < ilevel rlevel)
+          unless (alevel < rlevel) . choice $
+            [ void (char '>')
+            , void pThematicBreak
+            , try $ choice (char <$> ("-+*#" :: String)) *> (eof <|> sc1)
+            , try $ (L.decimal :: BParser Integer) *>
+                (char '.' <|> char ')') *> (eof <|> sc1)
+            ]
+        if isBlank l
+          then return (reverse ls, Paragraph)
+          else if broken
+                 then return (reverse ls, Naked)
+                 else do
+                   void nonEmptyLine
+                   continue <- eol'
+                   if continue
+                     then go (l:ls)
+                     else return (reverse (l:ls), Naked)
   l        <- nonEmptyLine
   continue <- eol'
   (ls, toBlock) <-
@@ -826,22 +826,6 @@ nes a = a :| []
 assembleCodeBlock :: Pos -> [Text] -> Text
 assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)
 
-isParagraphBroken :: Pos -> Text -> Bool
-isParagraphBroken rlevel = isJust . parseMaybe (p <* takeRest)
-  where
-    p :: Parsec Void Text ()
-    p = do
-      setTabWidth (mkPos 4)
-      sc
-      alevel <- L.indentLevel
-      guard (alevel < ilevel rlevel)
-      unless (alevel < rlevel) . choice $
-        [ void (char '>')
-        , try $ choice (char <$> ("-+*#" :: String)) *> (eof <|> sc1')
-        , try $ (L.decimal :: Parsec Void Text Integer) *>
-            (char '.' <|> char ')') *> (eof <|> sc1')
-        ]
-
 assembleParagraph :: [Text] -> Text
 assembleParagraph = go
   where
@@ -985,3 +969,18 @@ normalizeListItems xs' =
     toParagraph other         = other
     toNaked (Paragraph inner) = Naked inner
     toNaked other             = other
+
+-- | Convert @'Either' a b@ to @'Pair' a b@.
+
+e2p :: Either a b -> Pair a b
+e2p = \case
+  Left  a -> PairL a
+  Right b -> PairR (b:)
+
+succeeds :: Alternative m => m () -> m Bool
+succeeds m = True <$ m <|> pure False
+
+prependErr :: SourcePos -> MMarkErr -> [Block Isp] -> [Block Isp]
+prependErr pos custom blocks = Naked (IspError err) : blocks
+  where
+    err = FancyError (nes pos) (E.singleton $ ErrorCustom custom)
