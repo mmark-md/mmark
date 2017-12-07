@@ -313,81 +313,80 @@ spec = parallel $ do
       it "CM188" $
         "  \n\naaa\n  \n\n# aaa\n\n  " ==->
           "<p>aaa</p>\n<h1 id=\"aaa\">aaa</h1>\n"
-    context "5.1 Block quotes" $ do -- TODO tests here are pending my
-      -- decision of block quote syntax
-      xit "CM189" $
-        "> # Foo\n> bar\n> baz" ==->
+    context "5.1 Block quotes" $ do
+      it "CM189" $
+        "> # Foo\n  bar\n  baz" ==->
           "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
-      xit "CM190" $
-        "># Foo\n>bar\n> baz" ==->
+      it "CM190" $
+        "># Foo\n bar\n  baz" ==->
           "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
-      xit "CM191" $
-        "   > # Foo\n   > bar\n > baz" ==->
-          "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
-      xit "CM192" $
+      it "CM191" $
+        "   > # Foo\n     bar\n     baz" ==->
+          "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
+      it "CM192" $
         "    > # Foo\n    > bar\n    > baz" ==->
           "<pre><code>&gt; # Foo\n&gt; bar\n&gt; baz\n</code></pre>\n"
-      xit "CM193" $
+      it "CM193" $
         "> # Foo\n> bar\nbaz" ==->
           "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n</blockquote>\n<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
-      xit "CM194" $
+      it "CM194" $
         "> bar\nbaz\n> foo" ==->
           "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n<blockquote>\n<p>foo</p>\n</blockquote>\n"
-      xit "CM195" $
+      it "CM195" $
         "> foo\n---" ==->
           "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr>\n"
-      xit "CM196" $
+      it "CM196" $
         "> - foo\n- bar" ==->
-          "<blockquote>\n<ul>\n<li>\nfoo\n</li>\n</ul>\n</blockquote>\n<ul>\n<li>bar</li>\n</ul>\n"
-      xit "CM197" $
+          "<blockquote>\n<ul>\n<li>\nfoo\n</li>\n</ul>\n</blockquote>\n<ul>\n<li>\nbar\n</li>\n</ul>\n"
+      it "CM197" $
         ">     foo\n    bar" ==->
-          "<blockquote>\n<pre><code>foo\n</code></pre>\n</blockquote>\n<pre><code>bar\n</code></pre>\n"
-      xit "CM198" $
+          "<blockquote>\n<pre><code>foo\n</code></pre>\n<p>bar</p>\n</blockquote>\n"
+      it "CM198" $
         "> ```\nfoo\n```" ==->
-          "<blockquote>\n<pre><code></code></pre>\n</blockquote>\n<p>foo</p>\n<pre><code></code></pre>\n"
-      xit "CM199" $
+          "<blockquote>\n<pre><code>foo\n</code></pre>\n</blockquote>\n"
+      it "CM199" $
         "> foo\n    - bar" ==->
-          "<blockquote>\n<p>foo\n- bar</p>\n</blockquote>\n"
-      xit "CM200" $
+          "<blockquote>\n<p>foo</p>\n<ul>\n<li>\nbar\n</li>\n</ul>\n</blockquote>\n"
+      it "CM200" $
         ">" ==->
           "<blockquote>\n</blockquote>\n"
-      xit "CM201" $
+      it "CM201" $
         ">\n>  \n> " ==->
-          "<blockquote>\n</blockquote>\n"
-      xit "CM202" $
-        ">\n> foo\n>  " ==->
+          "<blockquote>\n</blockquote>\n<blockquote>\n</blockquote>\n<blockquote>\n</blockquote>\n"
+      it "CM202" $
+        ">\n  foo\n   " ==->
           "<blockquote>\n<p>foo</p>\n</blockquote>\n"
-      xit "CM203" $
+      it "CM203" $
         "> foo\n\n> bar" ==->
           "<blockquote>\n<p>foo</p>\n</blockquote>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
-      xit "CM204" $
-        "> foo\n> bar" ==->
+      it "CM204" $
+        "> foo\n  bar" ==->
           "<blockquote>\n<p>foo\nbar</p>\n</blockquote>\n"
-      xit "CM205" $
-        "> foo\n>\n> bar" ==->
+      it "CM205" $
+        "> foo\n\n  bar" ==->
           "<blockquote>\n<p>foo</p>\n<p>bar</p>\n</blockquote>\n"
-      xit "CM206" $
+      it "CM206" $
         "foo\n> bar" ==->
           "<p>foo</p>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
-      xit "CM207" $
+      it "CM207" $
         "> aaa\n***\n> bbb" ==->
-          "<blockquote>\n<p>aaa</p>\n</blockquote>\n<hr />\n<blockquote>\n<p>bbb</p>\n</blockquote>\n"
-      xit "CM208" $
-        "> bar\nbaz" ==->
+          "<blockquote>\n<p>aaa</p>\n</blockquote>\n<hr>\n<blockquote>\n<p>bbb</p>\n</blockquote>\n"
+      it "CM208" $
+        "> bar\n  baz" ==->
           "<blockquote>\n<p>bar\nbaz</p>\n</blockquote>\n"
-      xit "CM209" $
+      it "CM209" $
         "> bar\n\nbaz" ==->
           "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
-      xit "CM210" $
-        "> bar\n>\nbaz" ==->
+      it "CM210" $
+        "> bar\n\nbaz" ==->
           "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
-      xit "CM211" $
+      it "CM211" $
         "> > > foo\nbar" ==->
-          "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar</p>\n</blockquote>\n</blockquote>\n</blockquote>\n"
-      xit "CM212" $
-        ">>> foo\n> bar\n>>baz" ==->
+          "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo</p>\n</blockquote>\n</blockquote>\n</blockquote>\n<p>bar</p>\n"
+      it "CM212" $
+        ">>> foo\n    bar\n    baz" ==->
           "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar\nbaz</p>\n</blockquote>\n</blockquote>\n</blockquote>\n"
-      xit "CM213" $
+      it "CM213" $
         ">     code\n\n>    not code" ==->
           "<blockquote>\n<pre><code>code\n</code></pre>\n</blockquote>\n<blockquote>\n<p>not code</p>\n</blockquote>\n"
     context "5.2 List items" $ do
@@ -409,12 +408,12 @@ spec = parallel $ do
       it "CM219" $
         " -    one\n\n      two" ==->
           "<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n"
-      xit "CM220" $ -- TODO pending block quotes
-        "   > > 1.  one\n>>\n>>     two" ==->
-          "<blockquote>\n<blockquote>\n<ol>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ol>\n</blockquote>\n</blockquote>\n"
-      xit "CM221" $ -- TODO pending block quotes
-        ">>- one\n>>\n  >  > two" ==->
-          "<blockquote>\n<blockquote>\n<ul>\n<li>one</li>\n</ul>\n<p>two</p>\n</blockquote>\n</blockquote>\n"
+      it "CM220" $
+        "   > > 1.  one\n\n       two" ==->
+          "<blockquote>\n<blockquote>\n<ol>\n<li>\none\n</li>\n</ol>\n<p>two</p>\n</blockquote>\n</blockquote>\n"
+      it "CM221" $
+        ">>- one\n\n     two" ==->
+          "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
       it "CM222" $
         "-one\n\n2.two" ==->
           "<p>-one</p>\n<p>2.two</p>\n"
@@ -514,9 +513,9 @@ spec = parallel $ do
       it "CM253" $
         "> 1. > Blockquote\ncontinued here." ==->
           "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n<p>continued here.</p>\n"
-      xit "CM254" $ -- TODO pending block quotes
-        "> 1. > Blockquote\n> continued here." ==->
-          "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote\ncontinued here.</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n"
+      it "CM254" $
+        "> 1. > Blockquote\n  continued here." ==->
+          "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote</p>\n</blockquote>\n</li>\n</ol>\n<p>continued here.</p>\n</blockquote>\n"
       it "CM255" $
         "- foo\n  - bar\n    - baz\n      - boo" ==->
           "<ul>\n<li>\nfoo\n<ul>\n<li>\nbar\n<ul>\n<li>\nbaz\n<ul>\n<li>\nboo\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n"
@@ -590,12 +589,12 @@ spec = parallel $ do
       it "CM278" $
         "- a\n  - b\n\n    c\n- d" ==->
           "<ul>\n<li>\na\n<ul>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n</ul>\n</li>\n<li>\nd\n</li>\n</ul>\n"
-      xit "CM279" $ -- TODO pending block quotes
+      it "CM279" $
         "* a\n  > b\n  >\n* c" ==->
-          "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n</li>\n<li>c</li>\n</ul>\n"
-      xit "CM280" $ -- TODO pending block quotes
+          "<ul>\n<li>\n<p>a</p>\n<blockquote>\n<p>b</p>\n</blockquote>\n<blockquote>\n</blockquote>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n"
+      it "CM280" $
         "- a\n  > b\n  ```\n  c\n  ```\n- d" ==->
-          "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n<pre><code>c\n</code></pre>\n</li>\n<li>d</li>\n</ul>\n"
+          "<ul>\n<li>\n<p>a</p>\n<blockquote>\n<p>b</p>\n</blockquote>\n<pre><code>c\n</code></pre>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n"
       it "CM281" $
         "- a" ==->
           "<ul>\n<li>\na\n</li>\n</ul>\n"
@@ -1203,8 +1202,8 @@ spec = parallel $ do
       it "CM544" $
         "![foo [bar](/url)](/url2)" ==->
           "<p><img src=\"/url2\" alt=\"foo bar\"></p>\n"
-      it "CM545" pending
-      it "CM546" pending
+      it "CM545" pending -- FIXME pending reference images
+      it "CM546" pending -- FIXME pending reference images
       it "CM547" $
         "![foo](train.jpg)" ==->
           "<p><img src=\"train.jpg\" alt=\"foo\"></p>\n"
@@ -1216,7 +1215,7 @@ spec = parallel $ do
           "<p><img src=\"url\" alt=\"foo\"></p>\n"
       it "CM550" $
         "![](/url)" ==-> "<p><img src=\"/url\" alt></p>\n"
-      it "CM551-CM562" pending -- pending reference-style stuff
+      it "CM551-CM562" pending -- FIXME pending reference-style stuff
     context "6.7 Autolinks" $ do
       it "CM563" $
         "<http://foo.bar.baz>" ==->

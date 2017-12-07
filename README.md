@@ -185,7 +185,8 @@ Block-level parsing:
 * Lists and block quotes are defined by column at which their content
   starts. Content belonging to a particular list or block quote should start
   at the same column (or greater column, up to the column where indented
-  code blocks start).
+  code blocks start). As a consequence of this, block quotes do not feature
+  “laziness”
 * Block quotes are started by a single `>` character, it's not necessary to
   put a `>` character at beginning of every line belonging to a quote (in
   fact, this would make every line a separate block quote).

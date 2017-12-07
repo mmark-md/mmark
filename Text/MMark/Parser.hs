@@ -496,25 +496,26 @@ pListIndex mstart = try $ do
   l'  <- L.indentLevel
   return (i, del, pos, l, l')
 
--- TODO Still not sure about the block quote syntax. Apparently (see e.g.
--- CM197), it makes some cases ambiguous and not user-friendly. We probably
--- should bite the bullet and implement the original markdown block quote
--- syntax. Also restore some tests to their original form, because I have
--- altered some of them already.
-
 -- | Parse a block quote.
 
 pBlockquote :: BParser (Block Isp)
 pBlockquote = do
-  alevel <- (<> mkPos 2) <$> L.indentLevel
-  try $ do
+  minLevel <- try $ do
+    minLevel <- (<> pos1) <$> L.indentLevel
     void (char '>')
-    sc
+    eof <|> sc
     l <- L.indentLevel
-    guard (l >= alevel)
-  level' <- L.indentLevel
-  xs <- subEnv False (slevel alevel level') pBlocks
-  return (Blockquote xs)
+    return $
+      if l > minLevel
+        then minLevel <> pos1
+        else minLevel
+  indLevel <- L.indentLevel
+  if indLevel >= minLevel
+    then do
+      let rlevel = slevel minLevel indLevel
+      xs <- subEnv False rlevel pBlocks
+      return (Blockquote xs)
+    else return (Blockquote [])
 
 -- | Parse a paragraph or naked text (is some cases).
 
