@@ -11,6 +11,7 @@ main = defaultMain
   , bparser "data/bench-heading.md"
   , bparser "data/bench-fenced-code-block.md"
   , bparser "data/bench-indented-code-block.md"
+  , bparser "data/bench-blockquote.md"
   , bparser "data/bench-paragraph.md"
   , bparser "data/comprehensive.md"
   ]
