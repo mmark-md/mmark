@@ -192,6 +192,9 @@ Block-level parsing:
   fact, this would make every line a separate block quote).
 * Paragraphs can be interrupted by unordered list and ordered lists with any
   valid starting index.
+* HTML blocks are not supported because the syntax conflicts with autolinks
+  and the feature is a hack to compensate for the lack of extensibility and
+  customization in the original markdown.
 
 Inline-level parsing:
 
@@ -207,13 +210,13 @@ Inline-level parsing:
   is possible.
 * Putting images in description of other images is not allowed (similarly to
   the situation with links).
+* HTML inlines are not supported for the same reason why HTML blocks are not
+  supported.
 
 Not-yet-implemented things:
 
 * Separate declaration of image's source and title is not (yet?) supported.
 * Reference links are not implemented yet.
-* HTML blocks are not implemented yet.
-* HTML inlines are not implemented yet.
 * Entity and numeric character references are not implemented yet.
 
 ### Additional information about MMark-specific extensions
