@@ -213,7 +213,7 @@ parse file input =
       let parsed = doInline <$> rawBlocks
           doInline = fmap
             $ first (nes . replaceEof "end of inline block")
-            . runIsp (pInlines def <* eof)
+            . runIsp pInlinesTop
           f block =
             case foldMap e2p block of
               PairL errs -> PairL errs
@@ -573,23 +573,50 @@ runIsp p (IspSpan startPos input) =
       , stateTokensProcessed = 0
       , stateTabWidth        = mkPos 4 }
 
+-- | The top level inline parser.
+
+pInlinesTop :: IParser (NonEmpty Inline)
+pInlinesTop = do
+  inlines <- pInlines def
+  eof <|> void pLfdr
+  return inlines
+
 -- | Parse inlines using settings from given 'InlineConfig'.
 
 pInlines :: InlineConfig -> IParser (NonEmpty Inline)
-pInlines InlineConfig {..} =
-  if iconfigAllowEmpty
-    then nes (Plain "") <$ eof <|> stuff
-    else stuff
+pInlines InlineConfig {..} = do
+  done <- atEnd
+  if done
+    then
+      if iconfigAllowEmpty
+        then (return . nes . Plain) ""
+        else unexp EndOfInput
+    else NE.some $ do
+      mch <- lookAhead (anyChar <?> "inline content")
+      case mch of
+        '`' -> pCodeSpan
+        '[' ->
+          if iconfigAllowLinks
+            then pInlineLink
+            else unexp (Tokens $ nes '[')
+        '!' ->
+          if iconfigAllowImages
+            then try pImage <|> pPlain
+            else pPlain
+        '<' ->
+          if iconfigAllowLinks
+            then try pAutolink <|> pPlain
+            else pPlain
+        '\\' ->
+          try pHardLineBreak <|> pPlain
+        ch ->
+          if isMarkupChar ch
+            then pEnclosedInline
+            else pPlain
   where
-    stuff = NE.some . label "inline content" . choice $
-      [ pCodeSpan                                  ] <>
-      [ pInlineLink           | iconfigAllowLinks  ] <>
-      [ pImage                | iconfigAllowImages ] <>
-      [ try (angel pAutolink) | iconfigAllowLinks  ] <>
-      [ pEnclosedInline
-      , try pHardLineBreak
-      , pPlain ]
-    angel = between (char '<') (char '>')
+    unexp x = failure
+      (Just x)
+      (E.singleton . Label . NE.fromList $ "inline content")
 
 -- | Parse a code span.
 
@@ -604,8 +631,7 @@ pCodeSpan = do
                takeWhile1P Nothing (== '`') <|>
                takeWhile1P Nothing (/= '`'))
       finalizer
-  put OtherChar
-  return r
+  r <$ put OtherChar
 
 -- | Parse a link.
 
@@ -617,8 +643,7 @@ pInlineLink = do
   dest   <- pUri
   mtitle <- optional (sc1 *> pTitle)
   sc <* char ')'
-  put OtherChar
-  return (Link xs dest mtitle)
+  Link xs dest mtitle <$ put OtherChar
 
 -- | Parse an image.
 
@@ -631,16 +656,97 @@ pImage = do
   src    <- pUri
   mtitle <- optional (sc1 *> pTitle)
   sc <* char ')'
-  put OtherChar
-  return (Image alt src mtitle)
+  Image alt src mtitle <$ put OtherChar
+
+-- | Parse an autolink.
+
+pAutolink :: IParser Inline
+pAutolink = between (char '<') (char '>') $ do
+  notFollowedBy (char '>') -- empty links don't make sense
+  uri' <- URI.parser
+  let (txt, uri) =
+        case isEmailUri uri' of
+          Nothing ->
+            ( (nes . Plain . URI.render) uri'
+            , uri' )
+          Just email ->
+            ( nes (Plain email)
+            , URI.makeAbsolute mailtoScheme uri' )
+  Link txt uri Nothing <$ put OtherChar
+
+-- | Parse inline content inside an enclosing construction such as emphasis,
+-- strikeout, superscript, and\/or subscript markup.
+
+pEnclosedInline :: IParser Inline
+pEnclosedInline = pLfdr >>= \case
+  SingleFrame x ->
+    liftFrame x <$> pInlines' <* pRfdr x
+  DoubleFrame x y -> do
+    inlines0  <- pInlines'
+    thisFrame <- pRfdr x <|> pRfdr y
+    let thatFrame = if thisFrame == x then y else x
+    minlines1 <- optional pInlines'
+    void (pRfdr thatFrame)
+    return . liftFrame thatFrame $
+      case minlines1 of
+        Nothing ->
+          nes (liftFrame thisFrame inlines0)
+        Just inlines1 ->
+          liftFrame thisFrame inlines0 <| inlines1
+  where
+    pInlines' = pInlines def { iconfigAllowEmpty = False }
+
+-- | Parse a hard line break.
+
+pHardLineBreak :: IParser Inline
+pHardLineBreak = do
+  void (char '\\')
+  eol
+  notFollowedBy eof
+  sc'
+  put SpaceChar
+  return LineBreak
+
+-- | Parse plain text.
+
+pPlain :: IParser Inline
+pPlain = fmap (Plain . T.pack) . some $ do
+  ch <- lookAhead (anyChar <?> "inline content")
+  case ch of
+    '\\' ->
+      (escapedChar <* put OtherChar) <|>
+      try (char '\\' <* notFollowedBy eol <* put OtherChar)
+    '\n' ->
+      '\n' <$ eol <* sc' <* put SpaceChar
+    '\r' ->
+      '\n' <$ eol <* sc' <* put SpaceChar
+    '!' -> do
+      notFollowedBy (string "![")
+      char '!'
+    '<' -> do
+      notFollowedBy pAutolink
+      char '<'
+    _ ->
+      pOther ch
+  where
+    pNewline = hidden $
+      '\n' <$ sc' <* eol <* sc' <* put SpaceChar
+    pOther ch
+      | isSpace ch = (try pNewline <|> char ch) <* put SpaceChar
+      | isTrans ch = char ch                    <* put SpaceChar
+      | isOther ch = char ch                    <* put OtherChar
+      | otherwise  = empty
+    isTrans x = isTransparentPunctuation x && x /= '!'
+    isOther x = not (isMarkupChar x) && x /= '\\' && x /= '!' && x /= '<'
+
+----------------------------------------------------------------------------
+-- Auxiliary inline-level parsers
 
 -- | Parse a URI.
 
-pUri :: IParser URI
-pUri = do
-  uri <- between (char '<') (char '>') URI.parser <|> naked
-  put OtherChar
-  return uri
+pUri :: (Ord e, MonadParsec e Text m) => m URI
+pUri =
+  between (char '<') (char '>') URI.parser <|> naked
   where
     naked = do
       startPos <- getPosition
@@ -664,7 +770,7 @@ pUri = do
 
 -- | Parse a title of a link or an image.
 
-pTitle :: IParser Text
+pTitle :: MonadParsec e Text m => m Text
 pTitle = choice
   [ p '\"' '\"'
   , p '\'' '\''
@@ -673,132 +779,57 @@ pTitle = choice
     p start end = between (char start) (char end) $
       manyEscapedWith (/= end) "unescaped character"
 
--- | Parse an autolink.
+-- | Parse an opening markup sequence corresponding to given 'InlineState'.
 
-pAutolink :: IParser Inline
-pAutolink = do
-  notFollowedBy (char '>') -- empty links don't make sense
-  uri <- URI.parser
-  put OtherChar
-  return $ case isEmailUri uri of
-    Nothing ->
-      let txt = (nes . Plain . URI.render) uri
-      in Link txt uri Nothing
-    Just email ->
-      let txt  = nes (Plain email)
-          uri' = URI.makeAbsolute mailtoScheme uri
-      in Link txt uri' Nothing
-
--- | Parse inline content inside some sort of emphasis, strikeout,
--- superscript, and\/or subscript markup.
-
-pEnclosedInline :: IParser Inline
-pEnclosedInline = do
-  let noEmpty = def { iconfigAllowEmpty = False }
-  st <- choice
-    [ pLfdr (DoubleFrame StrongFrame StrongFrame)
-    , pLfdr (DoubleFrame StrongFrame EmphasisFrame)
-    , pLfdr (SingleFrame StrongFrame)
-    , pLfdr (SingleFrame EmphasisFrame)
-    , pLfdr (DoubleFrame StrongFrame_ StrongFrame_)
-    , pLfdr (DoubleFrame StrongFrame_ EmphasisFrame_)
-    , pLfdr (SingleFrame StrongFrame_)
-    , pLfdr (SingleFrame EmphasisFrame_)
-    , pLfdr (DoubleFrame StrikeoutFrame StrikeoutFrame)
-    , pLfdr (DoubleFrame StrikeoutFrame SubscriptFrame)
-    , pLfdr (SingleFrame StrikeoutFrame)
-    , pLfdr (SingleFrame SubscriptFrame)
-    , pLfdr (SingleFrame SuperscriptFrame) ]
-  case st of
-    SingleFrame x ->
-      liftFrame x <$> pInlines noEmpty <* pRfdr x
-    DoubleFrame x y -> do
-      inlines0  <- pInlines noEmpty
-      thisFrame <- pRfdr x <|> pRfdr y
-      let thatFrame = if x == thisFrame then y else x
-      immediate <- True <$ pRfdr thatFrame <|> pure False
-      if immediate
-        then (return . liftFrame thatFrame . nes . liftFrame thisFrame) inlines0
-        else do
-          inlines1 <- pInlines noEmpty
-          void (pRfdr thatFrame)
-          return . liftFrame thatFrame $
-            liftFrame thisFrame inlines0 <| inlines1
-
--- | Parse an opening markup sequence corresponding to given 'InlineState'
-
-pLfdr :: InlineState -> IParser InlineState
-pLfdr st = try $ do
-  let dels = inlineStateDel st
+pLfdr :: IParser InlineState
+pLfdr = try $ do
   pos <- getPosition
-  void (string dels)
-  leftChar   <- get
-  mrightChar <- lookAhead (optional anyChar)
-  let failNow = do
+  let r st = st <$ string (inlineStateDel st)
+  st <- hidden $ choice
+    [ r (DoubleFrame StrongFrame StrongFrame)
+    , r (DoubleFrame StrongFrame EmphasisFrame)
+    , r (SingleFrame StrongFrame)
+    , r (SingleFrame EmphasisFrame)
+    , r (DoubleFrame StrongFrame_ StrongFrame_)
+    , r (DoubleFrame StrongFrame_ EmphasisFrame_)
+    , r (SingleFrame StrongFrame_)
+    , r (SingleFrame EmphasisFrame_)
+    , r (DoubleFrame StrikeoutFrame StrikeoutFrame)
+    , r (DoubleFrame StrikeoutFrame SubscriptFrame)
+    , r (SingleFrame StrikeoutFrame)
+    , r (SingleFrame SubscriptFrame)
+    , r (SingleFrame SuperscriptFrame) ]
+  let dels = inlineStateDel st
+      failNow = do
         setPosition pos
         (mmarkErr . NonFlankingDelimiterRun . toNesTokens) dels
-  case (leftChar, isTransparent <$> mrightChar) of
-    (_, Nothing)          -> failNow
-    (_, Just True)        -> failNow
-    (RightFlankingDel, _) -> failNow
-    (OtherChar, _)        -> failNow
-    (SpaceChar, _)        -> return ()
-    (LeftFlankingDel, _)  -> return ()
-  put LeftFlankingDel
+  lch <- get
+  when (lch == OtherChar) failNow
+  rch <- lookAhead (optional anyChar)
+  when (maybe True isTransparent rch) failNow
   return st
 
--- | Parse a closing markdup sequence corresponding to given 'InlineFrame'.
+-- | Parse a closing markup sequence corresponding to given 'InlineFrame'.
 
 pRfdr :: InlineFrame -> IParser InlineFrame
 pRfdr frame = try $ do
   let dels = inlineFrameDel frame
+      expectingInlineContent = region $ \case
+        TrivialError pos us es ->
+          TrivialError pos us (E.insert (Label $ NE.fromList "inline content") es)
+        other -> other
   pos <- getPosition
-  void (string dels)
-  leftChar   <- get
-  mrightChar <- lookAhead (optional anyChar)
+  (void . expectingInlineContent . string) dels
   let failNow = do
         setPosition pos
         (mmarkErr . NonFlankingDelimiterRun . toNesTokens) dels
-  case (leftChar, mrightChar) of
-    (SpaceChar, _) -> failNow
-    (LeftFlankingDel, _) -> failNow
-    (_, Nothing) -> return ()
-    (_, Just rightChar) ->
-      if | isTransparent rightChar -> return ()
-         | isMarkupChar  rightChar -> return ()
-         | otherwise               -> failNow
-  put RightFlankingDel
+      goodAfter x =
+        isTransparent x || isMarkupChar x
+  lch <- get
+  unless (lch == OtherChar) failNow
+  rch <- lookAhead (optional anyChar)
+  unless (maybe True goodAfter rch) failNow
   return frame
-
--- | Parse a hard line break.
-
-pHardLineBreak :: IParser Inline
-pHardLineBreak = do
-  void (char '\\')
-  eol
-  notFollowedBy eof
-  sc'
-  put SpaceChar
-  return LineBreak
-
--- | Parse plain text.
-
-pPlain :: IParser Inline
-pPlain = Plain . T.pack <$> some
-  (pEscapedChar <|> pNewline <|> pNonEscapedChar)
-  where
-    pEscapedChar = escapedChar <* put OtherChar
-    pNewline = hidden . try $
-      '\n' <$ sc' <* eol <* sc' <* put SpaceChar
-    pNonEscapedChar = label "unescaped non-markup character" . choice $
-      [ try (char '\\' <* notFollowedBy eol)        <* put OtherChar
-      , try (char '!'  <* notFollowedBy (char '[')) <* put SpaceChar
-      , try (char '<'  <* notFollowedBy (pAutolink <* char '>')) <* put OtherChar
-      , spaceChar                                   <* put SpaceChar
-      , satisfy isTrans                             <* put SpaceChar
-      , satisfy isOther                             <* put OtherChar ]
-    isTrans x = isTransparentPunctuation x && x /= '!'
-    isOther x = not (isMarkupChar x) && x /= '\\' && x /= '!' && x /= '<'
 
 ----------------------------------------------------------------------------
 -- Parsing helpers
@@ -813,8 +844,8 @@ someEscapedWith :: MonadParsec e Text m => (Char -> Bool) -> m Text
 someEscapedWith f = T.pack <$> some (escapedChar <|> satisfy f)
 
 escapedChar :: MonadParsec e Text m => m Char
-escapedChar = try (char '\\' *> satisfy isAsciiPunctuation)
-  <?> "escaped character"
+escapedChar = label "escaped character" $
+  try (char '\\' *> satisfy isAsciiPunctuation)
 
 sc :: MonadParsec e Text m => m ()
 sc = void $ takeWhileP (Just "white space") isSpaceN
@@ -861,16 +892,22 @@ notNewline x = x /= '\n' && x /= '\r'
 isBlank :: Text -> Bool
 isBlank = T.all isSpace
 
-isMarkupChar :: Char -> Bool
-isMarkupChar = \case
+isFrameConstituent :: Char -> Bool
+isFrameConstituent = \case
   '*' -> True
-  '~' -> True
-  '_' -> True
-  '`' -> True
   '^' -> True
-  '[' -> True
-  ']' -> True
+  '_' -> True
+  '~' -> True
   _   -> False
+
+isMarkupChar :: Char -> Bool
+isMarkupChar x = isFrameConstituent x || f x
+  where
+    f = \case
+      '[' -> True
+      ']' -> True
+      '`' -> True
+      _   -> False
 
 isAsciiPunctuation :: Char -> Bool
 isAsciiPunctuation x =
@@ -937,16 +974,6 @@ collapseWhiteSpace =
     g '\n' = True
     g _    = False
 
-inlineFrameDel :: InlineFrame -> Text
-inlineFrameDel = \case
-  EmphasisFrame    -> "*"
-  EmphasisFrame_   -> "_"
-  StrongFrame      -> "**"
-  StrongFrame_     -> "__"
-  StrikeoutFrame   -> "~~"
-  SubscriptFrame   -> "~"
-  SuperscriptFrame -> "^"
-
 inlineStateDel :: InlineState -> Text
 inlineStateDel = \case
   SingleFrame x   -> inlineFrameDel x
@@ -961,6 +988,16 @@ liftFrame = \case
   StrikeoutFrame   -> Strikeout
   SubscriptFrame   -> Subscript
   SuperscriptFrame -> Superscript
+
+inlineFrameDel :: InlineFrame -> Text
+inlineFrameDel = \case
+  EmphasisFrame    -> "*"
+  EmphasisFrame_   -> "_"
+  StrongFrame      -> "**"
+  StrongFrame_     -> "__"
+  StrikeoutFrame   -> "~~"
+  SubscriptFrame   -> "~"
+  SuperscriptFrame -> "^"
 
 replaceEof :: String -> ParseError Char e -> ParseError Char e
 replaceEof altLabel = \case

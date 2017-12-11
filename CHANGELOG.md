@@ -1,3 +1,12 @@
+## MMark 0.0.2.1
+
+* Improved performance of the parser. Mainly the inline-level parser to be
+  precise. The result is that now there are 3× less allocations and the code
+  runs about 3× faster on paragraphs and block quotes (it's about 2.5×
+  faster for a big realistic document).
+
+* Improved quality of parse errors.
+
 ## MMark 0.0.2.0
 
 * Now punctuation is stripped from header ids in
