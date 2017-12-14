@@ -377,17 +377,16 @@ pIndentedCodeBlock = do
   alevel <- L.indentLevel
   clevel <- ilevel <$> asks benvRefLevel
   let go ls = do
-        immediate <- lookAhead $
-          (>= clevel) <$> (sc' *> L.indentLevel)
-        eventual  <- lookAhead $
+        indented <- lookAhead $
           (>= clevel) <$> (sc *> L.indentLevel)
-        if immediate || eventual
+        if indented
           then do
             l        <- option "" nonEmptyLine
             continue <- eol'
+            let ls' = ls . (l:)
             if continue
-              then go (l:ls)
-              else return (l:ls)
+              then go ls'
+              else return ls'
           else return ls
       -- NOTE This is a bit unfortunate, but it's difficult to guarantee
       -- that preceding space is not yet consumed when we get to
@@ -396,7 +395,7 @@ pIndentedCodeBlock = do
       f x      = T.replicate (unPos alevel - 1) " " <> x
       g []     = []
       g (x:xs) = f x : xs
-  ls <- g . reverse . dropWhile isBlank <$> go []
+  ls <- g . ($ []) <$> go id
   CodeBlock Nothing (assembleCodeBlock clevel ls) <$ sc
 
 -- | Parse an unorederd list.
