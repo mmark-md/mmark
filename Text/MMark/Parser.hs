@@ -334,32 +334,41 @@ pAtxHeading = do
 
 pFencedCodeBlock :: BParser (Block Isp)
 pFencedCodeBlock = do
-  let p ch = try $ do
-        void $ count 3 (char ch)
-        n  <- (+ 3) . length <$> many (char ch)
-        ml <- optional
-          (T.strip <$> someEscapedWith notNewline <?> "info string")
-        guard (maybe True (not . T.any (== '`')) ml)
-        return
-          (ch, n,
-             case ml of
-               Nothing -> Nothing
-               Just l  ->
-                 if T.null l
-                   then Nothing
-                   else Just l)
   alevel <- L.indentLevel
-  (ch, n, infoString) <- (p '`' <|> p '~') <* eol
+  (ch, n, infoString) <- pOpeningFence
   let content = label "code block content" (option "" nonEmptyLine <* eol)
-      closingFence = try . label "closing code fence" $ do
-        clevel <- ilevel <$> asks benvRefLevel
-        void $ L.indentGuard sc' LT clevel
-        void $ count n (char ch)
-        (void . many . char) ch
-        sc'
-        eof <|> eol
-  ls <- manyTill content closingFence
+  ls <- manyTill content (pClosingFence ch n)
   CodeBlock infoString (assembleCodeBlock alevel ls) <$ sc
+
+-- | Parse the opening fence of a fenced code block.
+
+pOpeningFence :: BParser (Char, Int, Maybe Text)
+pOpeningFence = p '`' <|> p '~'
+  where
+    p ch = try $ do
+      void $ count 3 (char ch)
+      n  <- (+ 3) . length <$> many (char ch)
+      ml <- optional
+        (T.strip <$> someEscapedWith notNewline <?> "info string")
+      guard (maybe True (not . T.any (== '`')) ml)
+      (ch, n,
+         case ml of
+           Nothing -> Nothing
+           Just l  ->
+             if T.null l
+               then Nothing
+               else Just l) <$ eol
+
+-- | Parse the closing fence of a fenced code block.
+
+pClosingFence :: Char -> Int -> BParser ()
+pClosingFence ch n =  try . label "closing code fence" $ do
+  clevel <- ilevel <$> asks benvRefLevel
+  void $ L.indentGuard sc' LT clevel
+  void $ count n (char ch)
+  (void . many . char) ch
+  sc'
+  eof <|> eol
 
 -- | Parse an indented code block.
 
@@ -532,6 +541,7 @@ pParagraph = do
             [ void (char '>')
             , void pThematicBreak
             , void pAtxHeading
+            , void pOpeningFence
             , void (pListBullet Nothing)
             , void (pListIndex  Nothing) ]
         if isBlank l

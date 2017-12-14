@@ -1,3 +1,7 @@
+## MMark 0.0.3.0
+
+* Code can interrupt paragraphs now, as per Common Mark spec.
+
 ## MMark 0.0.2.1
 
 * Improved performance of the parser. Mainly the inline-level parser to be

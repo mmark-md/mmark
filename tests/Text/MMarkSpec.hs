@@ -221,7 +221,7 @@ spec = parallel $ do
       it "CM94" $
         let s = "```"
         in s ~-> err (posN 3 s)
-           (ueof <> etok '`' <> elabel "info string" <> elabel "newline")
+           (ueib <> etok '`' <> elabel "code span content")
       it "CM95" $
         let s = "`````\n\n```\naaa\n"
         in s ~-> err (posN 15 s)
@@ -266,7 +266,7 @@ spec = parallel $ do
            (ueof <> elabel "closing code fence" <> elabel "code block content")
       it "CM108" $
         "foo\n```\nbar\n```\nbaz" ==->
-          "<p>foo\n<code>bar</code>\nbaz</p>\n"
+          "<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n"
       xit "CM109" $ -- FIXME pending setext headings
         "foo\n---\n~~~\nbar\n~~~\n# baz" ==->
           "<h2>foo</h2>\n<pre><code>bar\n</code></pre>\n<h1>baz</h1>\n"
