@@ -1,5 +1,5 @@
-resolver: nightly-2017-10-11
+resolver: nightly-2017-12-15
 packages:
 - '.'
 extra-deps:
-- modern-uri-0.1.1.0
+- megaparsec-6.3.0
