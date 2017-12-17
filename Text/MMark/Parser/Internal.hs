@@ -11,8 +11,6 @@
 -- "Text.MMark.Parser" module is built.
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE RankNTypes                 #-}
 
 module Text.MMark.Parser.Internal
