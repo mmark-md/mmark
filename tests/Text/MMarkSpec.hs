@@ -580,7 +580,7 @@ spec = parallel $ do
       it "CM275" $
         "- a\n- b\n\n  c\n- d" ==->
           "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n"
-      xit "CM276" $ -- FIXME pending reference links
+      it "CM276" $
         "- a\n- b\n\n  [ref]: /url\n- d" ==->
           "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n"
       it "CM277" $
@@ -649,9 +649,10 @@ spec = parallel $ do
         let s = "[foo](/bar\\* \"ti\\*tle\")"
         in s ~-> err (posN 10 s)
           (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
-      xit "CM298" $ -- FIXME pending reference links
-        "[foo]\n\n[foo]: /bar\\* \"ti\\*tle\"" ==->
-          "<p><a href=\"/bar*\" title=\"ti*tle\">foo</a></p>\n"
+      it "CM298" $
+        let s = "[foo]\n\n[foo]: /bar\\* \"ti\\*tle\""
+        in s ~-> err (posN 18 s)
+          (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
       it "CM299" $
         "``` foo\\+bar\nfoo\n```" ==->
           "<pre><code class=\"language-foo+bar\">foo\n</code></pre>\n"
@@ -1041,10 +1042,10 @@ spec = parallel $ do
         in s ~-> err (posN 14 s) (ueib <> etok '*' <> eic)
       it "CM448" $
         let s = "*[bar*](/url)\n"
-        in s ~-> err (posN 5 s) (utok '*' <> etok ']')
+        in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eic)
       it "CM449" $
         let s = "_foo [bar_](/url)\n"
-        in s ~-> err (posN 9 s) (utok '_' <> etok ']')
+        in s ~-> err (posN 9 s) (utok '_' <> etok ']' <> eic)
       xit "CM450" $ -- FIXME pending HTML inlines
         "*<img src=\"foo\" title=\"*\"/>" ==->
           "<p>*<img src=\"foo\" title=\"*\"/></p>\n"
@@ -1095,7 +1096,7 @@ spec = parallel $ do
         let s = "[link](\\(foo\\))"
         in s ~-> err (posN 7 s) (utok '\\' <> etoks "//" <> etok '#' <>
              etok '/' <> etok '<' <> etok '?' <> elabel "ASCII alpha character" <>
-             euri <> elabel "path piece")
+             euri <> elabel "path piece" <> elabel "white space")
       it "CM466" $
         "[link](foo(and(bar)))\n" ==->
           "<p><a href=\"foo(and(bar\">link</a>))</p>\n"
@@ -1121,7 +1122,8 @@ spec = parallel $ do
         let s = "[link](\"title\")"
         in s ~-> err (posN 7 s)
              (utok '"' <> etoks "//" <> etok '#' <> etok '/' <> etok '<' <>
-              etok '?' <> elabel "ASCII alpha character" <> euri <> elabel "path piece")
+              etok '?' <> elabel "ASCII alpha character" <> euri <>
+              elabel "path piece" <> elabel "white space")
       it "CM474" $
         "[link](/url \"title\")\n[link](/url 'title')\n[link](/url (title))" ==->
           "<p><a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a></p>\n"
@@ -1143,13 +1145,13 @@ spec = parallel $ do
           "<p><a href=\"/uri\" title=\"title\">link</a></p>\n"
       it "CM480" $
         let s = "[link] (/uri)\n"
-        in s ~-> err (posN 6 s) (utok ' ' <> etok '(')
+        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "link" [])
       it "CM481" $
         let s = "[link [foo [bar]]](/uri)\n"
         in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic)
       it "CM482" $
         let s = "[link] bar](/uri)\n"
-        in s ~-> err (posN 6 s) (utok ' ' <> etok '(')
+        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "link" [])
       it "CM483" $
         let s = "[link [bar](/uri)\n"
         in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic)
@@ -1167,19 +1169,19 @@ spec = parallel $ do
         in s ~-> err (posN 5 s) (utok '[' <> etok ']' <> eic)
       it "CM488" $
         let s = "[foo *[bar [baz](/uri)](/uri)*](/uri)\n"
-        in s ~-> err (posN 11 s) (utok '[' <> etok ']' <> eic)
+        in s ~-> err (posN 6 s) (utok '[' <> eic)
       it "CM489" $
         let s = "![[[foo](uri1)](uri2)](uri3)"
-        in s ~-> err (posN 3 s) (utok '[' <> eeib <> eic)
+        in s ~-> err (posN 3 s) (utok '[' <> eic)
       it "CM490" $
         let s = "*[foo*](/uri)\n"
-        in s ~-> err (posN 5 s) (utok '*' <> etok ']')
+        in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eic)
       it "CM491" $
         let s = "[foo *bar](baz*)\n"
         in s ~-> err (posN 9 s) (utok ']' <> etok '*' <> eic)
       it "CM492" $
         let s = "*foo [bar* baz]\n"
-        in s ~-> err (posN 9 s) (utok '*' <> etok ']')
+        in s ~-> err (posN 9 s) (utok '*' <> etok ']' <> eic)
       xit "CM493" $ -- FIXME pending inline HTML
         let s = "[foo <bar attr=\"](baz)\">"
         in s ~-> err (posN 5 s) (utok '<' <> etok ']')
@@ -1189,6 +1191,152 @@ spec = parallel $ do
       it "CM495" $
         "[foo<http://example.com/?search=](uri)>" ==->
           "<p><a href=\"uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
+      it "CM496" $
+        "[foo][bar]\n\n[bar]: /url \"title\"" ==->
+          "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
+      it "CM497" $
+        let s = "[link [foo [bar]]][ref]\n\n[ref]: /uri"
+        in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic)
+      it "CM498" $
+        "[link \\[bar][ref]\n\n[ref]: /uri" ==->
+          "<p><a href=\"/uri\">link [bar</a></p>\n"
+      it "CM499" $
+        "[link *foo **bar** `#`*][ref]\n\n[ref]: /uri" ==->
+          "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n"
+      it "CM500" $
+        "[![moon](moon.jpg)][ref]\n\n[ref]: /uri" ==->
+          "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\"></a></p>\n"
+      it "CM501" $
+        let s = "[foo [bar](/uri)][ref]\n\n[ref]: /uri"
+        in s ~-> err (posN 5 s) (utok '[' <> etok ']' <> eic)
+      it "CM502" $
+        let s = "[foo *bar [baz][ref]*][ref]\n\n[ref]: /uri"
+        in s ~-> err (posN 10 s) (utok '[' <> etok '*' <> eic)
+      it "CM503" $
+        let s = "*[foo*][ref]\n\n[ref]: /uri"
+        in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eic)
+      it "CM504" $
+        let s = "[foo *bar][ref]\n\n[ref]: /uri"
+        in s ~-> err (posN 9 s) (utok ']' <> etok '*' <> eic)
+      it "CM505" $
+        "[foo <bar attr=\"][ref]\">\n\n[ref]: /uri" ==->
+          "<p><a href=\"/uri\">foo &lt;bar attr=&quot;</a>&quot;&gt;</p>\n"
+      it "CM506" $
+        let s = "[foo`][ref]`\n\n[ref]: /uri"
+        in s ~-> err (posN 12 s) (ueib <> etok ']' <> eic)
+      it "CM507" $
+        "[foo<http://example.com/?search=][ref]>\n\n[ref]: /uri" ==->
+          "<p><a href=\"/uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
+      it "CM508" $
+        "[foo][BaR]\n\n[bar]: /url \"title\"" ==->
+          "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
+      it "CM509" $
+        "[Толпой][Толпой] is a Russian word.\n\n[ТОЛПОЙ]: /url" ==->
+          "<p><a href=\"/url\">Толпой</a> is a Russian word.</p>\n"
+      it "CM510" $
+        "[Foo\n  bar]: /url\n\n[Baz][Foo bar]" ==->
+          "<p><a href=\"/url\">Baz</a></p>\n"
+      it "CM511" $
+        let s = "[foo] [bar]\n\n[bar]: /url \"title\""
+        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo" [])
+      it "CM512" $
+        let s = "[foo]\n[bar]\n\n[bar]: /url \"title\""
+        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo" [])
+      it "CM513" $
+        let s = "[foo]: /url1\n\n[foo]: /url2\n\n[bar][foo]"
+        in s ~-> errFancy (posN 15 s) (duplicateRef "foo")
+      it "CM514" $
+        "[bar][foo\\!]\n\n[foo!]: /url" ==->
+          "<p><a href=\"/url\">bar</a></p>\n"
+      it "CM515" $
+        let s = "[foo][ref[]\n\n[ref[]: /uri"
+        in s ~~->
+           [ err (posN 9 s) (utok '[' <> etok ']' <> elabel "the rest of reference label")
+           , err (posN 17 s) (utok '[' <> etok ']' <> eic) ]
+      it "CM516" $
+        let s = "[foo][ref[bar]]\n\n[ref[bar]]: /uri"
+        in s ~~->
+           [ err (posN 9 s) (utok '[' <> etok ']' <> elabel "the rest of reference label")
+           , err (posN 21 s) (utok '[' <> etok ']' <> eic) ]
+      it "CM517" $
+        let s = "[[[foo]]]\n\n[[[foo]]]: /url"
+        in s ~~->
+           [ err (posN 1 s) (utok '[' <> eic)
+           , err (posN 12 s) (utok '[' <> eic) ]
+      it "CM518" $
+        "[foo][ref\\[]\n\n[ref\\[]: /uri" ==->
+          "<p><a href=\"/uri\">foo</a></p>\n"
+      it "CM519" $
+        "[bar\\\\]: /uri\n\n[bar\\\\]" ==->
+          "<p><a href=\"/uri\">bar\\</a></p>\n"
+      it "CM520" $
+        let s = "[]\n\n[]: /uri"
+        in s ~~->
+           [ err (posN 1 s) (utok ']' <> eic)
+           , err (posN 5 s) (utok ']' <> eic) ]
+      it "CM521" $
+        let s = "[\n ]\n\n[\n ]: /uri"
+        in s ~~->
+          [ errFancy (posN 1 s) (couldNotMatchRef "" [])
+          , errFancy (posN 7 s) (couldNotMatchRef "" []) ]
+      it "CM522" $
+        "[foo][]\n\n[foo]: /url \"title\"" ==->
+          "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
+      it "CM523" $
+        let s = "[*foo* bar][]\n\n[*foo* bar]: /url \"title\""
+        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo bar" ["*foo* bar"])
+      it "CM524" $
+        "[Foo][]\n\n[foo]: /url \"title\"" ==->
+          "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n"
+      it "CM525" $
+        let s = "[foo] \n[]\n\n[foo]: /url \"title\""
+        in s ~-> err (posN 8 s) (utok ']' <> eic)
+      it "CM526" $
+        "[foo]\n\n[foo]: /url \"title\"" ==->
+          "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
+      it "CM527" $
+        let s = "[*foo* bar]\n\n[*foo* bar]: /url \"title\""
+        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo bar" ["*foo* bar"])
+      it "CM528" $
+        let s = "[[*foo* bar]]\n\n[*foo* bar]: /url \"title\""
+        in s ~-> err (posN 1 s) (utok '[' <> eic)
+      it "CM529" $
+        let s = "[[bar [foo]\n\n[foo]: /url"
+        in s ~-> err (posN 1 s) (utok '[' <> eic)
+      it "CM530" $
+        "[Foo]\n\n[foo]: /url \"title\"" ==->
+          "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n"
+      it "CM531" $
+        "[foo] bar\n\n[foo]: /url" ==->
+          "<p><a href=\"/url\">foo</a> bar</p>\n"
+      it "CM532" $
+        let s = "\\[foo]\n\n[foo]: /url \"title\""
+        in s ~-> err (posN 5 s) (utok ']' <> eeib <> eic)
+      it "CM533" $
+        let s = "[foo*]: /url\n\n*[foo*]"
+        in s ~-> err (posN 19 s) (utok '*' <> etok ']' <> eic)
+      it "CM534" $
+        "[foo][bar]\n\n[foo]: /url1\n[bar]: /url2" ==->
+          "<p><a href=\"/url2\">foo</a></p>\n"
+      it "CM535" $
+        "[foo][]\n\n[foo]: /url1" ==->
+          "<p><a href=\"/url1\">foo</a></p>\n"
+      it "CM536" $
+        "[foo]()\n\n[foo]: /url1" ==->
+          "<p><a href>foo</a></p>\n"
+      it "CM537" $
+        let s = "[foo](not a link)\n\n[foo]: /url1"
+        in s ~-> err (posN 10 s)
+           (utok 'a' <> etok '"' <> etok '\'' <> etok '(' <> elabel "white space")
+      it "CM538" $
+        let s = "[foo][bar][baz]\n\n[baz]: /url"
+        in s ~-> errFancy (posN 6 s) (couldNotMatchRef "bar" ["baz"])
+      it "CM539" $
+        "[foo][bar][baz]\n\n[baz]: /url1\n[bar]: /url2" ==->
+          "<p><a href=\"/url2\">foo</a><a href=\"/url1\">baz</a></p>\n"
+      it "CM540" $
+        let s = "[foo][bar][baz]\n\n[baz]: /url1\n[foo]: /url2"
+        in s ~-> errFancy (posN 6 s) (couldNotMatchRef "bar" ["baz"])
     context "6.6 Images" $ do
       it "CM541" $
         "![foo](/url \"title\")" ==->
@@ -1198,12 +1346,16 @@ spec = parallel $ do
           "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo bar\"></p>\n"
       it "CM543" $
         let s = "![foo ![bar](/url)](/url2)\n"
-        in s ~-> err (posN 6 s) (utok '!' <> etok ']' <> eeib)
+        in s ~-> err (posN 6 s) (utok '!' <> etok ']' <> eic)
       it "CM544" $
         "![foo [bar](/url)](/url2)" ==->
           "<p><img src=\"/url2\" alt=\"foo bar\"></p>\n"
-      it "CM545" pending -- FIXME pending reference images
-      it "CM546" pending -- FIXME pending reference images
+      it "CM545" $
+        let s = "![foo *bar*][]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n"
+        in s ~-> errFancy (posN 2 s) (couldNotMatchRef "foo bar" ["foo *bar*"])
+      it "CM546" $
+        "![foo *bar*][foobar]\n\n[FOOBAR]: train.jpg \"train & tracks\"" ==->
+          "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo bar\"></p>\n"
       it "CM547" $
         "![foo](train.jpg)" ==->
           "<p><img src=\"train.jpg\" alt=\"foo\"></p>\n"
@@ -1215,7 +1367,44 @@ spec = parallel $ do
           "<p><img src=\"url\" alt=\"foo\"></p>\n"
       it "CM550" $
         "![](/url)" ==-> "<p><img src=\"/url\" alt></p>\n"
-      it "CM551-CM562" pending -- FIXME pending reference-style stuff
+      it "CM551" $
+        "![foo][bar]\n\n[bar]: /url" ==->
+          "<p><img src=\"/url\" alt=\"foo\"></p>\n"
+      it "CM552" $
+        "![foo][bar]\n\n[BAR]: /url" ==->
+          "<p><img src=\"/url\" alt=\"foo\"></p>\n"
+      it "CM553" $
+        "![foo][]\n\n[foo]: /url \"title\"" ==->
+          "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
+      it "CM554" $
+        "![foo bar][]\n\n[foo bar]: /url \"title\"" ==->
+          "<p><img src=\"/url\" title=\"title\" alt=\"foo bar\"></p>\n"
+      it "CM555" $
+        "![Foo][]\n\n[foo]: /url \"title\"" ==->
+          "<p><img src=\"/url\" title=\"title\" alt=\"Foo\"></p>\n"
+      it "CM556" $
+        let s = "![foo] \n[]\n\n[foo]: /url \"title\""
+        in s ~-> err (posN 9 s) (utok ']' <> eic)
+      it "CM557" $
+        "![foo]\n\n[foo]: /url \"title\"" ==->
+          "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
+      it "CM558" $
+        "![*foo* bar]\n\n[foo bar]: /url \"title\"\n" ==->
+          "<p><img src=\"/url\" title=\"title\" alt=\"foo bar\"></p>\n"
+      it "CM559" $
+        let s = "![[foo]]\n\n[[foo]]: /url \"title\""
+        in s ~~->
+           [ errFancy (posN 3 s) (couldNotMatchRef "foo" [])
+           , err (posN 11 s) (utok '[' <> eic) ]
+      it "CM560" $
+        "![Foo]\n\n[foo]: /url \"title\"" ==->
+          "<p><img src=\"/url\" title=\"title\" alt=\"Foo\"></p>\n"
+      it "CM561" $
+        "!\\[foo\\]\n\n[foo]: /url \"title\"" ==->
+          "<p>![foo]</p>\n"
+      it "CM562" $
+        "\\![foo]\n\n[foo]: /url \"title\"" ==->
+          "<p>!<a href=\"/url\" title=\"title\">foo</a></p>\n"
     context "6.7 Autolinks" $ do
       it "CM563" $
         "<http://foo.bar.baz>" ==->
@@ -1388,7 +1577,7 @@ spec = parallel $ do
         s ~~->
           [ errFancy posI (indexTooBig 1234567890)
           , err (posN 22 s) (ueib <> etok '*' <> eic)
-          , err (posN 36 s) (ueib <> etok ']') ]
+          , err (posN 36 s) (ueib <> eic) ]
       it "non-consecutive indices in ordered list do not prevent further validation" $ do
         let s = "1. *foo\n3. *bar\n4. *baz\n"
             e = ueib <> etok '*' <> eic
@@ -1529,21 +1718,34 @@ eppi = elabel "the rest of path piece"
 eic :: Ord t => ET t
 eic = elabel "inline content"
 
--- | Create a error component complaining that the given 'Text' is not in
+-- | Create an error component complaining that the given 'Text' is not in
 -- left- or right- flanking position.
 
 nonFlanking :: Text -> EF MMarkErr
 nonFlanking = fancy . ErrorCustom . NonFlankingDelimiterRun . NE.fromList . T.unpack
 
--- | Create a error component complaining that the given starting index of
+-- | Create an error component complaining that the given starting index of
 -- an ordered list is too big.
 
 indexTooBig :: Word -> EF MMarkErr
 indexTooBig = fancy . ErrorCustom . ListStartIndexTooBig
 
--- | Create a error component complaining about non-consecutive indices in
+-- | Create an error component complaining about non-consecutive indices in
 -- an ordered list.
 
 indexNonCons :: Word -> Word -> EF MMarkErr
 indexNonCons actual expected = fancy . ErrorCustom $
   ListIndexOutOfOrder actual expected
+
+-- | Create an error component complaining about a missing link\/image
+-- reference.
+
+couldNotMatchRef :: Text -> [Text] -> EF MMarkErr
+couldNotMatchRef name names = fancy . ErrorCustom $
+  CouldNotFindReferenceDefinition name names
+
+-- | Create an error component complaining about a duplicate reference
+-- definition.
+
+duplicateRef :: Text -> EF MMarkErr
+duplicateRef = fancy . ErrorCustom . DuplicateReferenceDefinition

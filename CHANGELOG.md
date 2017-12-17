@@ -2,6 +2,14 @@
 
 * Code can interrupt paragraphs now, as per Common Mark spec.
 
+* Implemented reference-links (including collapsed and shortcut-style
+  links).
+
+* Implemented reference-style images (including collapsed and shortcut-style
+  images).
+
+* Improved quality of parse errors.
+
 ## MMark 0.0.2.1
 
 * Improved performance of the parser. Mainly the inline-level parser to be

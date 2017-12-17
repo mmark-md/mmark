@@ -8,11 +8,11 @@
 [![Coverage Status](https://coveralls.io/repos/mrkkrp/mmark/badge.svg?branch=master&service=github)](https://coveralls.io/github/mrkkrp/mmark?branch=master)
 
 MMark (read “em-mark”) is a strict markdown processor for writers. “Strict”
-means that not every input is considered a valid markdown document and parse
+means that not every input is considered valid markdown document and parse
 errors are possible and even desirable, because they allow to spot markup
 issues without searching for them in rendered document. If a markdown
-document passes MMark parser, then it'll most certainly produce HTML without
-quirks. This feature makes it a good choice for writers and bloggers.
+document passes MMark parser, then it'll likely produce HTML without quirks.
+This feature makes it a good choice for writers and bloggers.
 
 MMark in its current state features:
 
@@ -35,10 +35,10 @@ MMark mostly tries to follow the Common Mark specification as given here:
 https://github.com/jgm/CommonMark
 
 However, due to the fact that we do not allow inputs that do not make sense,
-and also try to guard against common silly mistakes (like writing `##My
-header` and having it rendered as a paragraph starting with hashes) MMark
-obviously can't follow the specification precisely. In particular, parsing
-of inlines differs considerably from Common Mark (see below).
+and also try to guard against common mistakes (like writing `##My header`
+and having it rendered as a paragraph starting with hashes) MMark obviously
+can't follow the specification precisely. In particular, parsing of inlines
+differs considerably from Common Mark (see below).
 
 Another difference between Common Mark and MMark is that the latter supports
 more (pun alert) common markdown extensions out-of-the-box. In particular,
@@ -59,17 +59,17 @@ built-in features.
 
 Emphasis and strong emphasis is an especially hairy topic in the Common Mark
 specification. There are 17 ad-hoc rules defining interaction between `*`
-and `_` -based emphasis and more than half of all Common Mark examples
+and `_` -based emphasis and more than an half of all Common Mark examples
 (that's about 300) test just this tricky logic.
 
-Not only it is hard to implement (for tools built around markdown too), it's
-hard to understand for humans too. For example, this input:
+Not only it is hard to implement, it's hard to understand for humans too.
+For example, this input:
 
 ```
 *(*foo*)*
 ```
 
-produces this HTML:
+results in the following HTML:
 
 ```
 <p><em>(<em>foo</em>)</em></p>
@@ -101,8 +101,7 @@ Let's start by dividing all characters into three groups:
   document, they must form valid markup constructions. To be used as
   ordinary punctuation characters they must be backslash escaped.
 
-* **Space characters**, including space, tab, newline, carriage return, and
-  some Unicode space characters.
+* **Space characters**, including space, tab, newline and carriage return.
 
 * **Other characters**, which include all characters not falling into the
   two groups described above.
@@ -188,7 +187,7 @@ Block-level parsing:
 * Block quotes are started by a single `>` character, it's not necessary to
   put a `>` character at beginning of every line belonging to a quote (in
   fact, this would make every line a separate block quote).
-* Paragraphs can be interrupted by unordered list and ordered lists with any
+* Paragraphs can be interrupted by unordered and ordered lists with any
   valid starting index.
 * HTML blocks are not supported because the syntax conflicts with autolinks
   and the feature is a hack to compensate for the lack of extensibility and
@@ -213,9 +212,7 @@ Inline-level parsing:
 
 Not-yet-implemented things:
 
-* Separate declaration of image's source and title is not (yet?) supported.
-* Reference links are not implemented yet.
-* Entity and numeric character references are not implemented yet.
+* Entity and numeric character references.
 
 ### Additional information about MMark-specific extensions
 

@@ -31,7 +31,7 @@ script:
  - cabal build
  - cabal test --show-details=always
  - cabal sdist
- - cabal haddock | grep "100%" | wc -l | grep "4"
+ - cabal haddock | grep "100%" | wc -l | grep "5"
 
 after_script:
  - export PATH=~/.cabal/bin:$PATH
