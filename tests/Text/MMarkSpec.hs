@@ -656,10 +656,60 @@ spec = parallel $ do
       it "CM299" $
         "``` foo\\+bar\nfoo\n```" ==->
           "<pre><code class=\"language-foo+bar\">foo\n</code></pre>\n"
-    context "6.2 Entity and numeric character references" $
-      xit "CM300" $ -- FIXME pending entity references
-        "&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;"
-          ==-> "<p>  &amp; © Æ Ď\n¾ ℋ ⅆ\n∲ ≧̸</p>\n"
+    context "6.2 Entity and numeric character references" $ do
+      it "CM300" $
+        "&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;" ==->
+          "<p>  &amp; © Æ Ď\n¾ ℋ ⅆ\n∲ ≧̸</p>\n"
+      it "CM301a" $
+        "&#35; &#1234; &#992;" ==->
+          "<p># Ӓ Ϡ</p>\n"
+      it "CM301b" $
+        "&#98765432;" ~-> errFancy posI (invalidNumChar 98765432)
+      it "CM301c" $
+        "&#0;" ~-> errFancy posI (invalidNumChar 0)
+      it "CM302" $
+        "&#X22; &#XD06; &#xcab;" ==->
+          "<p>&quot; ആ ಫ</p>\n"
+      it "CM303a" $
+        "&nbsp" ==-> "<p>&amp;nbsp</p>\n"
+      it "CM303b" $
+        let s = "&x;"
+        in s ~-> errFancy posI (unknownEntity "x")
+      it "CM303c" $
+        let s = "&#;"
+        in s ~-> err (posN 2 s) (utok ';' <> etok 'x' <> etok 'X' <> elabel "integer")
+      it "CM303d" $
+        let s = "&#x;"
+        in s ~-> err (posN 3 s) (utok ';' <> elabel "hexadecimal integer")
+      it "CM303e" $
+        let s = "&ThisIsNotDefined;"
+        in s ~-> errFancy posI (unknownEntity "ThisIsNotDefined")
+      it "CM303f" $
+        "&hi?;" ==-> "<p>&amp;hi?;</p>\n"
+      it "CM304" $
+        "&copy" ==->
+          "<p>&amp;copy</p>\n"
+      it "CM305" $
+        let s = "&MadeUpEntity;"
+        in s ~-> errFancy posI (unknownEntity "MadeUpEntity")
+      it "CM306" $
+        "<a href=\"&ouml;&ouml;.html\">" ==->
+          "<p>&lt;a href=&quot;\246\246.html&quot;&gt;</p>\n"
+      it "CM307" $
+        "[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")" ==->
+          "<p><a href=\"/f&amp;ouml;&amp;ouml;\" title=\"f\246\246\">foo</a></p>\n"
+      it "CM308" $
+        "[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\"" ==->
+          "<p><a href=\"/f&amp;ouml;&amp;ouml;\" title=\"f\246\246\">foo</a></p>\n"
+      it "CM309" $
+        "``` f&ouml;&ouml;\nfoo\n```" ==->
+          "<pre><code class=\"language-f\246\246\">foo\n</code></pre>\n"
+      it "CM310" $
+        "`f&ouml;&ouml;`" ==->
+          "<p><code>f&ouml;&ouml;</code></p>\n"
+      it "CM311" $
+        "    f&ouml;f&ouml;" ==->
+          "<pre><code>f&amp;ouml;f&amp;ouml;\n</code></pre>\n"
     context "6.3 Code spans" $ do
       it "CM312" $
         "`foo`" ==-> "<p><code>foo</code></p>\n"
@@ -1718,34 +1768,42 @@ eppi = elabel "the rest of path piece"
 eic :: Ord t => ET t
 eic = elabel "inline content"
 
--- | Create an error component complaining that the given 'Text' is not in
--- left- or right- flanking position.
+-- | Error component complaining that the given 'Text' is not in left- or
+-- right- flanking position.
 
 nonFlanking :: Text -> EF MMarkErr
 nonFlanking = fancy . ErrorCustom . NonFlankingDelimiterRun . NE.fromList . T.unpack
 
--- | Create an error component complaining that the given starting index of
--- an ordered list is too big.
+-- | Error component complaining that the given starting index of an ordered
+-- list is too big.
 
 indexTooBig :: Word -> EF MMarkErr
 indexTooBig = fancy . ErrorCustom . ListStartIndexTooBig
 
--- | Create an error component complaining about non-consecutive indices in
--- an ordered list.
+-- | Error component complaining about non-consecutive indices in an ordered
+-- list.
 
 indexNonCons :: Word -> Word -> EF MMarkErr
 indexNonCons actual expected = fancy . ErrorCustom $
   ListIndexOutOfOrder actual expected
 
--- | Create an error component complaining about a missing link\/image
--- reference.
+-- | Error component complaining about a missing link\/image reference.
 
 couldNotMatchRef :: Text -> [Text] -> EF MMarkErr
 couldNotMatchRef name names = fancy . ErrorCustom $
   CouldNotFindReferenceDefinition name names
 
--- | Create an error component complaining about a duplicate reference
--- definition.
+-- | Error component complaining about a duplicate reference definition.
 
 duplicateRef :: Text -> EF MMarkErr
 duplicateRef = fancy . ErrorCustom . DuplicateReferenceDefinition
+
+-- | Error component complaining about an invalid numeric character.
+
+invalidNumChar :: Int -> EF MMarkErr
+invalidNumChar = fancy . ErrorCustom . InvalidNumericCharacter
+
+-- | Error component complaining about an unknown HTML5 entity name.
+
+unknownEntity :: Text -> EF MMarkErr
+unknownEntity = fancy . ErrorCustom . UnknownHtmlEntityName

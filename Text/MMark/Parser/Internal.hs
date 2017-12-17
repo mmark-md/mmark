@@ -48,10 +48,9 @@ import Control.Applicative
 import Control.Monad.State.Strict
 import Data.Default.Class
 import Data.Function ((&))
+import Data.HashMap.Strict (HashMap)
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Map.Strict (Map)
 import Data.Ratio ((%))
-import Data.Set (Set)
 import Data.Text (Text)
 import Data.Text.Metrics (damerauLevenshteinNorm)
 import Lens.Micro (Lens', (^.), (.~), set, over, to)
@@ -60,9 +59,8 @@ import Text.MMark.Internal
 import Text.MMark.Parser.Internal.Type
 import Text.Megaparsec hiding (State)
 import Text.URI (URI)
-import qualified Data.Map.Strict as M
-import qualified Data.Set        as E
-import qualified Text.Megaparsec as M
+import qualified Data.HashMap.Strict as HM
+import qualified Text.Megaparsec     as M
 
 ----------------------------------------------------------------------------
 -- Block-level parser monad
@@ -136,17 +134,17 @@ registerFootnote = registerGeneric footnoteDefs
 -- | A generic function for registering definitions in 'BParser'.
 
 registerGeneric
-  :: Lens' Defs (Map DefLabel a) -- ^ How to access the definition map
+  :: Lens' Defs (HashMap DefLabel a) -- ^ How to access the definition map
   -> Text              -- ^ Definition name
   -> a                 -- ^ Data
   -> BParser Bool      -- ^ 'True' if there is a conflicting definition
 registerGeneric l name a = BParser $ do
   let dlabel = mkDefLabel name
   defs <- gets (^. bstDefs . l)
-  if M.member dlabel defs
+  if HM.member dlabel defs
     then return True
     else do
-      modify' $ over (bstDefs . l) (M.insert dlabel a)
+      modify' $ over (bstDefs . l) (HM.insert dlabel a)
       return False
 
 ----------------------------------------------------------------------------
@@ -262,7 +260,7 @@ lookupFootnote = lookupGeneric footnoteDefs
 -- | A generic function for looking up definition in 'IParser'.
 
 lookupGeneric
-  :: Lens' Defs (Map DefLabel a)
+  :: Lens' Defs (HashMap DefLabel a)
      -- ^ How to access the definition map
   -> Text
      -- ^ Definition name
@@ -272,18 +270,17 @@ lookupGeneric
 lookupGeneric l name = IParser $ do
   let dlabel = mkDefLabel name
   defs <- gets (view (istDefs . l))
-  case M.lookup dlabel defs of
-    Nothing -> return . Left $ closeNames dlabel (M.keysSet defs)
+  case HM.lookup dlabel defs of
+    Nothing -> return . Left $ closeNames dlabel (HM.keys defs)
     Just  x -> return (Right x)
 
--- | Select close enough (as per the Damerau-Levenshtein metric) definition
--- labels.
+-- | Select close enough (using the normalized Damerau-Levenshtein metric)
+-- definition labels.
 
-closeNames :: DefLabel -> Set DefLabel -> [Text]
+closeNames :: DefLabel -> [DefLabel] -> [Text]
 closeNames r'
-  = E.toList
-  . E.filter (\x -> damerauLevenshteinNorm r x >= (2 % 3))
-  . E.map unDefLabel
+  = filter (\x -> damerauLevenshteinNorm r x >= (2 % 3))
+  . map unDefLabel
   where
     r = unDefLabel r'
 

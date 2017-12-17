@@ -8,6 +8,9 @@
 * Implemented parsing of reference-style images (including collapsed and
   shortcut-style images).
 
+* Added support for entity and numeric references (section 6.2 of the Common
+  Mark spec).
+
 * Improved quality of parse errors.
 
 ## MMark 0.0.2.1

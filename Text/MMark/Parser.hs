@@ -25,6 +25,7 @@ where
 import Control.Applicative
 import Control.Monad
 import Data.Bifunctor (Bifunctor (..))
+import Data.HTML.Entities (htmlEntityMap)
 import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.Maybe (isNothing, fromJust, fromMaybe, catMaybes)
 import Data.Monoid (Any (..))
@@ -38,6 +39,7 @@ import Text.Megaparsec.Char hiding (eol)
 import Text.URI (URI)
 import qualified Control.Applicative.Combinators.NonEmpty as NE
 import qualified Data.Char                  as Char
+import qualified Data.HashMap.Strict        as HM
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as E
 import qualified Data.Text                  as T
@@ -623,31 +625,35 @@ pHardLineBreak = do
 -- | Parse plain text.
 
 pPlain :: IParser Inline
-pPlain = fmap (Plain . T.pack) . some $ do
+pPlain = fmap (Plain . bakeText) . foldSome $ do
   ch <- lookAhead (anyChar <?> "inline content")
+  let newline' =
+        (('\n':) . dropWhile isSpace) <$ eol <* sc' <* lastSpace
   case ch of
-    '\\' ->
-      (escapedChar <* lastOther) <|>
-      try (char '\\' <* notFollowedBy eol <* lastOther)
+    '\\' -> (:) <$>
+      ((escapedChar <* lastOther) <|>
+        try (char '\\' <* notFollowedBy eol <* lastOther))
     '\n' ->
-      '\n' <$ eol <* sc' <* lastSpace
+      newline'
     '\r' ->
-      '\n' <$ eol <* sc' <* lastSpace
+      newline'
     '!' -> do
       notFollowedBy (string "![")
-      char '!'
+      (:) <$> char '!'
     '<' -> do
       notFollowedBy pAutolink
-      char '<'
+      (:) <$> char '<'
+    '&' -> choice
+      [ (:) <$> numRef
+      , (++) . reverse <$> entityRef
+      , (:) <$> char '&' ]
     _ ->
-      pOther ch
+      (:) <$> pOther ch
   where
-    pNewline = hidden $
-      '\n' <$ sc' <* eol <* sc' <* lastSpace
     pOther ch
-      | isSpace ch = (try pNewline <|> char ch) <* lastSpace
-      | isTrans ch = char ch                    <* lastSpace
-      | isOther ch = char ch                    <* lastOther
+      | isSpace ch = char ch <* lastSpace
+      | isTrans ch = char ch <* lastSpace
+      | isOther ch = char ch <* lastOther
       | otherwise  = failure
           (Just . Tokens . nes $ ch)
           (E.singleton . Label . NE.fromList $ "inline content")
@@ -715,7 +721,7 @@ pUri =
 
 -- | Parse a title of a link or an image.
 
-pTitle :: MonadParsec e Text m => m Text
+pTitle :: MonadParsec MMarkErr Text m => m Text
 pTitle = choice
   [ p '\"' '\"'
   , p '\'' '\''
@@ -727,7 +733,7 @@ pTitle = choice
 
 -- | Parse label of a reference link.
 
-pRefLabel :: MonadParsec e Text m => m (SourcePos, Text)
+pRefLabel :: MonadParsec MMarkErr Text m => m (SourcePos, Text)
 pRefLabel = do
   try $ do
     void (char '[')
@@ -795,15 +801,56 @@ pRfdr frame = try $ do
 nonEmptyLine :: BParser Text
 nonEmptyLine = takeWhile1P Nothing notNewline
 
-manyEscapedWith :: MonadParsec e Text m => (Char -> Bool) -> String -> m Text
-manyEscapedWith f l = T.pack <$> many (escapedChar <|> (satisfy f <?> l))
+manyEscapedWith :: MonadParsec MMarkErr Text m
+  => (Char -> Bool)
+  -> String
+  -> m Text
+manyEscapedWith f l = fmap bakeText . foldMany . choice $
+  [ (:) <$> escapedChar
+  , (:) <$> numRef
+  , (++) . reverse <$> entityRef
+  , (:) <$> satisfy f <?> l ]
 
-someEscapedWith :: MonadParsec e Text m => (Char -> Bool) -> m Text
-someEscapedWith f = T.pack <$> some (escapedChar <|> satisfy f)
+someEscapedWith :: MonadParsec MMarkErr Text m
+  => (Char -> Bool)
+  -> m Text
+someEscapedWith f = fmap bakeText . foldSome . choice $
+  [ (:) <$> escapedChar
+  , (:) <$> numRef
+  , (++) . reverse <$> entityRef
+  , (:) <$> satisfy f ]
 
 escapedChar :: MonadParsec e Text m => m Char
 escapedChar = label "escaped character" $
   try (char '\\' *> satisfy isAsciiPunctuation)
+
+-- | Parse an HTML5 entity reference.
+
+entityRef :: MonadParsec MMarkErr Text m => m String
+entityRef = do
+  pos  <- getPosition
+  let f (TrivialError _ us es) = TrivialError (nes pos) us es
+      f (FancyError   _ xs)    = FancyError   (nes pos) xs
+  name <- try . region f $ between (char '&') (char ';')
+    (takeWhile1P Nothing Char.isAlphaNum <?> "HTML5 entity name")
+  case HM.lookup name htmlEntityMap of
+    Nothing -> do
+      setPosition pos
+      customFailure (UnknownHtmlEntityName name)
+    Just txt -> return (T.unpack txt)
+
+-- | Parse a numeric character using the given numeric parser.
+
+numRef :: MonadParsec MMarkErr Text m => m Char
+numRef = do
+  pos <- getPosition
+  let f = between (string "&#") (char ';')
+  n   <- try (f (char' 'x' *> L.hexadecimal)) <|> f L.decimal
+  if n == 0 || n > fromEnum (maxBound :: Char)
+    then do
+      setPosition pos
+      customFailure (InvalidNumericCharacter n)
+    else return (Char.chr n)
 
 sc :: MonadParsec e Text m => m ()
 sc = void $ takeWhileP (Just "white space") isSpaceN
@@ -997,6 +1044,14 @@ manyIndexed n' m = go n'
   where
     go !n = liftA2 (:) (m n) (go (n + 1)) <|> pure []
 
+foldMany :: Alternative f => f (a -> a) -> f (a -> a)
+foldMany f = go
+  where
+    go = (flip (.) <$> f <*> go) <|> pure id
+
+foldSome :: Alternative f => f (a -> a) -> f (a -> a)
+foldSome f = flip (.) <$> f <*> foldMany f
+
 normalizeListItems :: NonEmpty [Block Isp] -> NonEmpty [Block Isp]
 normalizeListItems xs' =
   if getAny $ foldMap (foldMap (Any . isParagraph)) (drop 1 x :| xs)
@@ -1048,3 +1103,6 @@ fromRight :: Either a b -> b
 fromRight (Right x) = x
 fromRight _         =
   error "Text.MMark.Parser.fromRight: the impossible happened"
+
+bakeText :: (String -> String) -> Text
+bakeText = T.pack . reverse . ($ [])

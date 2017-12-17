@@ -199,20 +199,17 @@ Inline-level parsing:
   newline. Nevertheless, hard line breaks in the form of backslash before
   newline are supported (these are more explicit too).
 * All URI references (in links, images, autolinks, etc.) are parsed as per
-  RFC 3986, no special escaping is supported. In addition to that, when a
-  URI reference in not enclosed with `<` and `>`, then closing parenthesis
+  RFC 3986, no support for escaping or support for entity and numeric
+  character references is provided. In addition to that, when a URI
+  reference in not enclosed with `<` and `>`, then closing parenthesis
   character `)` is not considered part of URI (use `<uri>` syntax if you
-  want closing parenthesis as part of a URI).
+  want a closing parenthesis as part of a URI).
 * Putting links in text of another link is not allowed, i.e. no nested links
   is possible.
 * Putting images in description of other images is not allowed (similarly to
   the situation with links).
 * HTML inlines are not supported for the same reason why HTML blocks are not
   supported.
-
-Not-yet-implemented things:
-
-* Entity and numeric character references.
 
 ### Additional information about MMark-specific extensions
 

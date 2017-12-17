@@ -9,10 +9,11 @@
 --
 -- Types for the internal helper definitions for the parser.
 
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 module Text.MMark.Parser.Internal.Type
   ( -- * Block-level parser state
@@ -44,9 +45,10 @@ import Control.DeepSeq
 import Data.CaseInsensitive (CI)
 import Data.Data (Data)
 import Data.Default.Class
+import Data.HashMap.Strict (HashMap)
+import Data.Hashable (Hashable)
 import Data.List (intercalate)
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Map.Strict (Map)
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -56,8 +58,8 @@ import Text.MMark.Internal
 import Text.Megaparsec
 import Text.URI (URI)
 import qualified Data.CaseInsensitive as CI
+import qualified Data.HashMap.Strict  as HM
 import qualified Data.List.NonEmpty   as NE
-import qualified Data.Map.Strict      as M
 import qualified Data.Text            as T
 
 ----------------------------------------------------------------------------
@@ -133,22 +135,22 @@ data CharType
 -- | An opaque container for reference and footnote definitions.
 
 data Defs = Defs
-  { _referenceDefs :: Map DefLabel (URI, Maybe Text)
+  { _referenceDefs :: HashMap DefLabel (URI, Maybe Text)
     -- ^ Reference definitions containing a 'URI' and optionally title
-  , _footnoteDefs :: Map DefLabel (NonEmpty Inline)
+  , _footnoteDefs :: HashMap DefLabel (NonEmpty Inline)
     -- ^ FIXME Footnote definitions
   }
 
 instance Default Defs where
   def = Defs
-    { _referenceDefs = M.empty
-    , _footnoteDefs  = M.empty
+    { _referenceDefs = HM.empty
+    , _footnoteDefs  = HM.empty
     }
 
 -- | An opaque type for definition label.
 
 newtype DefLabel = DefLabel (CI Text)
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Hashable)
 
 -- | Smart constructor for the 'DefLabel' type.
 
@@ -180,6 +182,10 @@ data MMarkErr
   | CouldNotFindReferenceDefinition Text [Text]
     -- ^ Could not find this reference definition, the second argument is
     -- the collection of close names (typo corrections)
+  | InvalidNumericCharacter Int
+    -- ^ This numeric character is invalid
+  | UnknownHtmlEntityName Text
+    -- ^ Unknown HTML5 entity name
   deriving (Eq, Ord, Show, Read, Generic, Typeable, Data)
 
 instance ShowErrorComponent MMarkErr where
@@ -206,6 +212,10 @@ instance ShowErrorComponent MMarkErr where
                ++ orList (quote . T.unpack <$> xs) ++ "?"
       where
         quote x = "\"" ++ x ++ "\""
+    InvalidNumericCharacter n ->
+      "invalid numeric character: " ++ show n
+    UnknownHtmlEntityName name ->
+      "unknown HTML5 entity name: \"" ++ T.unpack name ++ "\""
 
 instance NFData MMarkErr
 
