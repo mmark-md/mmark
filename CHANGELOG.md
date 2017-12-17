@@ -2,11 +2,11 @@
 
 * Code can interrupt paragraphs now, as per Common Mark spec.
 
-* Implemented reference-links (including collapsed and shortcut-style
-  links).
+* Implemented parsing of reference-links (including collapsed and
+  shortcut-style links).
 
-* Implemented reference-style images (including collapsed and shortcut-style
-  images).
+* Implemented parsing of reference-style images (including collapsed and
+  shortcut-style images).
 
 * Improved quality of parse errors.
 
