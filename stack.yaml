@@ -2,4 +2,5 @@ resolver: nightly-2017-12-15
 packages:
 - '.'
 extra-deps:
+- html-entity-map-0.1.0.0
 - megaparsec-6.3.0
