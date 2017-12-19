@@ -19,7 +19,7 @@
 --
 -- MMark mostly tries to follow the Common Mark specification as given here:
 --
--- <https://github.com/jgm/CommonMark>
+-- <http://spec.commonmark.org/0.28/>
 --
 -- However, due to the fact that we do not allow inputs that do not make
 -- sense, and also try to guard against common mistakes (like writing @##My

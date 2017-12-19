@@ -21,6 +21,12 @@ import qualified Data.Text.IO         as TIO
 import qualified Text.MMark           as MMark
 import qualified Text.MMark.Extension as Ext
 
+-- NOTE This test suite is mostly based on (sometimes altered) examples from
+-- the Common Mark specification. We use the version 0.28 (2017-08-01),
+-- which can be found online here:
+--
+-- <http://spec.commonmark.org/0.28/>
+
 spec :: Spec
 spec = parallel $ do
   describe "parse and render" $ do
@@ -101,9 +107,9 @@ spec = parallel $ do
       it "CM28" $
         "Foo\n***\nbar" ==->
           "<p>Foo</p>\n<hr>\n<p>bar</p>\n"
-      xit "CM29" $ -- FIXME pending setext headings
+      it "CM29" $
         "Foo\n---\nbar" ==->
-          "<h2>Foo</h2>\n<p>bar</p>\n"
+          "<p>Foo</p>\n<hr>\n<p>bar</p>\n"
       it "CM30" $
         "* Foo\n* * *\n* Bar" ==->
           "<ul>\n<li>\nFoo\n</li>\n<li>\n<ul>\n<li>\n<ul>\n<li>\n\n</li>\n</ul>\n</li>\n</ul>\n</li>\n<li>\nBar\n</li>\n</ul>\n"
@@ -162,6 +168,89 @@ spec = parallel $ do
         in s ~~->
              [ err (posN 3 s) (utok '\n' <> elabel "heading character" <> elabel "white space")
              , err (posN 5 s) (utok '\n' <> etok '#' <> elabel "white space") ]
+    context "4.3 Setext headings" $ do
+      -- NOTE we do not support them, the tests have been adjusted
+      -- accordingly.
+      it "CM50" $
+        "Foo *bar*\n=========\n\nFoo *bar*\n---------" ==->
+          "<p>Foo <em>bar</em>\n=========</p>\n<p>Foo <em>bar</em></p>\n<hr>\n"
+      it "CM51" $
+        "Foo *bar\nbaz*\n====" ==->
+          "<p>Foo <em>bar\nbaz</em>\n====</p>\n"
+      it "CM52" $
+        "Foo\n-------------------------\n\nFoo\n=" ==->
+          "<p>Foo</p>\n<hr>\n<p>Foo\n=</p>\n"
+      it "CM53" $
+        "   Foo\n---\n\n  Foo\n-----\n\n  Foo\n  ===" ==->
+          "<p>Foo</p>\n<hr>\n<p>Foo</p>\n<hr>\n<p>Foo\n===</p>\n"
+      it "CM54" $
+        "    Foo\n    ---\n\n    Foo\n---" ==->
+          "<pre><code>Foo\n---\n\nFoo\n</code></pre>\n<hr>\n"
+      it "CM55" $
+        "Foo\n   ----      " ==->
+          "<p>Foo</p>\n<hr>\n"
+      it "CM56" $
+        "Foo\n    ---" ==->
+          "<p>Foo\n---</p>\n"
+      it "CM57" $
+        "Foo\n= =\n\nFoo\n--- -" ==->
+          "<p>Foo\n= =</p>\n<p>Foo</p>\n<hr>\n"
+      it "CM58" $
+        "Foo  \n-----" ==->
+          "<p>Foo</p>\n<hr>\n"
+      it "CM59" $
+        "Foo\\\n----" ==->
+          "<p>Foo\\</p>\n<hr>\n"
+      it "CM60" $
+        let s = "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n"
+        in s ~~->
+           [ err (posN 4 s) (ueib <> etok '`' <> elabel "code span content")
+           , err (posN 11 s) (ueib <> etok '`' <> elabel "code span content") ]
+      it "CM61" $
+        "> Foo\n---" ==->
+          "<blockquote>\n<p>Foo</p>\n</blockquote>\n<hr>\n"
+      it "CM62" $
+        "> foo\nbar\n===" ==->
+          "<blockquote>\n<p>foo</p>\n</blockquote>\n<p>bar\n===</p>\n"
+      it "CM63" $
+        "- Foo\n---" ==->
+          "<ul>\n<li>\nFoo\n</li>\n</ul>\n<hr>\n"
+      it "CM64" $
+        "Foo\nBar\n---" ==->
+          "<p>Foo\nBar</p>\n<hr>\n"
+      it "CM65" $
+        "---\nFoo\n---\nBar\n---\nBaz" ==->
+          "<p>Bar</p>\n<hr>\n<p>Baz</p>\n"
+      it "CM66" $
+        "\n====" ==->
+          "<p>====</p>\n"
+      it "CM67" $
+        "---\n---" ==->
+          "" -- thinks that it's got a YAML block
+      it "CM68" $
+        "- foo\n-----" ==->
+          "<ul>\n<li>\nfoo\n</li>\n</ul>\n<hr>\n"
+      it "CM69" $
+        "    foo\n---" ==->
+          "<pre><code>foo\n</code></pre>\n<hr>\n"
+      it "CM70" $
+        "> foo\n-----" ==->
+          "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr>\n"
+      it "CM71" $
+        "\\> foo\n------" ==->
+          "<p>&gt; foo</p>\n<hr>\n"
+      it "CM72" $
+        "Foo\n\nbar\n---\nbaz" ==->
+          "<p>Foo</p>\n<p>bar</p>\n<hr>\n<p>baz</p>\n"
+      it "CM73" $
+        "Foo\nbar\n\n---\n\nbaz" ==->
+          "<p>Foo\nbar</p>\n<hr>\n<p>baz</p>\n"
+      it "CM74" $
+        "Foo\nbar\n* * *\nbaz" ==->
+          "<p>Foo\nbar</p>\n<hr>\n<p>baz</p>\n"
+      it "CM75" $
+        "Foo\nbar\n\\---\nbaz" ==->
+          "<p>Foo\nbar\n---\nbaz</p>\n"
     context "4.4 Indented code blocks" $ do
       it "CM76" $
         "    a simple\n      indented code block" ==->
@@ -187,9 +276,9 @@ spec = parallel $ do
       it "CM83" $
         "    foo\nbar" ==->
           "<pre><code>foo\n</code></pre>\n<p>bar</p>\n"
-      xit "CM84" $ -- FIXME pending setext headings
+      it "CM84" $
         "# Heading\n    foo\nHeading\n------\n    foo\n----\n" ==->
-          "<h1>Heading</h1>\n<pre><code>foo\n</code></pre>\n<h2>Heading</h2>\n<pre><code>foo\n</code></pre>\n<hr />\n"
+          "<h1 id=\"heading\">Heading</h1>\n<pre><code>foo\n</code></pre>\n<p>Heading</p>\n<hr>\n<pre><code>foo\n</code></pre>\n<hr>\n"
       it "CM85" $
         "        foo\n    bar" ==->
           "<pre><code>    foo\nbar\n</code></pre>\n"
@@ -207,1357 +296,1466 @@ spec = parallel $ do
         "~~~\n<\n >\n~~~" ==->
           "<pre><code>&lt;\n &gt;\n</code></pre>\n"
       it "CM90" $
+        "``\nfoo\n``\n" ==->
+          "<p><code>foo</code></p>\n"
+      it "CM91" $
         "```\naaa\n~~~\n```" ==->
           "<pre><code>aaa\n~~~\n</code></pre>\n"
-      it "CM91" $
+      it "CM92" $
         "~~~\naaa\n```\n~~~" ==->
           "<pre><code>aaa\n```\n</code></pre>\n"
-      it "CM92" $
+      it "CM93" $
         "````\naaa\n```\n``````" ==->
           "<pre><code>aaa\n```\n</code></pre>\n"
-      it "CM93" $
+      it "CM94" $
         "~~~~\naaa\n~~~\n~~~~" ==->
           "<pre><code>aaa\n~~~\n</code></pre>\n"
-      it "CM94" $
+      it "CM95" $
         let s = "```"
         in s ~-> err (posN 3 s)
            (ueib <> etok '`' <> elabel "code span content")
-      it "CM95" $
+      it "CM96" $
         let s = "`````\n\n```\naaa\n"
         in s ~-> err (posN 15 s)
            (ueof <> elabel "closing code fence" <> elabel "code block content")
-      it "CM96" $
+      it "CM97" $
         let s = "> ```\n> aaa\n\nbbb\n"
         in s ~-> err (posN 17 s) (ueof <> elabel "closing code fence" <> elabel "code block content")
-      it "CM97" $
+      it "CM98" $
         "```\n\n  \n```" ==->
           "<pre><code>\n  \n</code></pre>\n"
-      it "CM98" $
+      it "CM99" $
         "```\n```" ==->
           "<pre><code></code></pre>\n"
-      it "CM99" $
+      it "CM100" $
         " ```\n aaa\naaa\n```" ==->
           "<pre><code>aaa\naaa\n</code></pre>\n"
-      it "CM100" $
+      it "CM101" $
         "  ```\naaa\n  aaa\naaa\n  ```" ==->
           "<pre><code>aaa\naaa\naaa\n</code></pre>\n"
-      it "CM101" $
+      it "CM102" $
         "   ```\n   aaa\n    aaa\n  aaa\n   ```" ==->
           "<pre><code>aaa\n aaa\naaa\n</code></pre>\n"
-      it "CM102" $
+      it "CM103" $
         "    ```\n    aaa\n    ```" ==->
           "<pre><code>```\naaa\n```\n</code></pre>\n"
-      it "CM103" $
+      it "CM104" $
         "```\naaa\n  ```" ==->
           "<pre><code>aaa\n</code></pre>\n"
-      it "CM104" $
+      it "CM105" $
         "   ```\naaa\n  ```" ==->
           "<pre><code>aaa\n</code></pre>\n"
-      it "CM105" $
+      it "CM106" $
         let s  = "```\naaa\n    ```\n"
         in s ~-> err (posN 16 s)
            (ueof <> elabel "closing code fence" <> elabel "code block content")
-      it "CM106" $
+      it "CM107" $
         "``` ```\naaa" ==->
           "<p><code></code>\naaa</p>\n"
-      it "CM107" $
+      it "CM108" $
         let s = "~~~~~~\naaa\n~~~ ~~\n"
         in s ~-> err (posN 18 s)
            (ueof <> elabel "closing code fence" <> elabel "code block content")
-      it "CM108" $
+      it "CM109" $
         "foo\n```\nbar\n```\nbaz" ==->
           "<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n"
-      xit "CM109" $ -- FIXME pending setext headings
-        "foo\n---\n~~~\nbar\n~~~\n# baz" ==->
-          "<h2>foo</h2>\n<pre><code>bar\n</code></pre>\n<h1>baz</h1>\n"
       it "CM110" $
+        "foo\n---\n~~~\nbar\n~~~\n# baz" ==->
+          "<p>foo</p>\n<hr>\n<pre><code>bar\n</code></pre>\n<h1 id=\"baz\">baz</h1>\n"
+      it "CM111" $
         "```ruby\ndef foo(x)\n  return 3\nend\n```" ==->
           "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n"
-      it "CM111" $
+      it "CM112" $
         "~~~~    ruby startline=3 $%@#$\ndef foo(x)\n  return 3\nend\n~~~~~~~" ==->
           "<pre><code class=\"language-ruby\">def foo(x)\n  return 3\nend\n</code></pre>\n"
-      it "CM112" $
+      it "CM113" $
         "````;\n````" ==->
           "<pre><code class=\"language-;\"></code></pre>\n"
-      it "CM113" $
+      it "CM114" $
         "``` aa ```\nfoo" ==->
           "<p><code>aa</code>\nfoo</p>\n"
-      it "CM114" $
+      it "CM115" $
         "```\n``` aaa\n```" ==->
           "<pre><code>``` aaa\n</code></pre>\n"
-    context "4.8 Paragraphs" $ do
+    context "4.6 HTML blocks" $
+      -- NOTE We do not support HTML blocks, see the readme.
+      return ()
+    context "4.7 Link reference definitions" $ do
+      it "CM159" $
+        "[foo]: /url \"title\"\n\n[foo]" ==->
+          "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
+      it "CM160" $
+        "   [foo]: \n      /url  \n           'the title'  \n\n[foo]" ==->
+          "<p><a href=\"/url\" title=\"the title\">foo</a></p>\n"
+      it "CM161" $
+        let s = "[Foo bar\\]]:my_(url) 'title (with parens)'\n\n[Foo bar\\]]"
+        in s ~-> err (posN 19 s) (utoks ") " <> etok '#' <> etok '/' <> etok '?'
+             <> eeof <> elabel "newline" <> elabel "the rest of path piece"
+             <> elabel "white space" )
+      it "CM162" $
+        "[Foo bar]:\n<my%20url>\n'title'\n\n[Foo bar]" ==->
+          "<p><a href=\"my%20url\" title=\"title\">Foo bar</a></p>\n"
+      it "CM163" $
+        "[foo]: /url '\ntitle\nline1\nline2\n'\n\n[foo]" ==->
+          "<p><a href=\"/url\" title=\"\ntitle\nline1\nline2\n\">foo</a></p>\n"
+      it "CM164" $
+        "[foo]: /url 'title\n\nwith blank line'\n\n[foo]" ==->
+          "<p><a href=\"/url\" title=\"title\n\nwith blank line\">foo</a></p>\n"
+      it "CM165" $
+        "[foo]:\n/url\n\n[foo]" ==->
+          "<p><a href=\"/url\">foo</a></p>\n"
+      it "CM166" $
+        "[foo]:\n\n[foo]" ==->
+          "<p><a href>foo</a></p>\n" -- URI may be actually empty!
+      it "CM167" $
+        let s = "[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n\n[foo]\n"
+        in s ~-> err (posN 11 s) (utok '\\' <> etok '#' <> etok '/'
+             <> etok '?' <> elabel "end of URI literal" <> elabel "the rest of path piece")
+      it "CM168" $
+        "[foo]\n\n[foo]: url" ==->
+          "<p><a href=\"url\">foo</a></p>\n"
+      it "CM169" $
+        let s = "[foo]\n\n[foo]: first\n[foo]: second\n"
+        in s ~-> errFancy (posN 21 s) (duplicateRef "foo")
+      it "CM170" $
+        "[FOO]: /url\n\n[Foo]" ==->
+          "<p><a href=\"/url\">Foo</a></p>\n"
+      it "CM171" $
+        "[ΑΓΩ]: /%CF%86%CE%BF%CF%85\n\n[αγω]" ==->
+          "<p><a href=\"/%cf%86%ce%bf%cf%85\">αγω</a></p>\n"
+      it "CM172" $
+        "[foo]: /url" ==->
+          ""
+      it "CM173" $
+        "[\nfoo\n]: /url\nbar" ==->
+          "<p>bar</p>\n"
+      it "CM174" $
+        let s = "[foo]: /url \"title\" ok"
+        in s ~-> err (posN 20 s) (utoks "ok" <> eeof <> elabel "newline"
+             <> elabel "white space")
+      it "CM175" $
+        let s = "[foo]: /url\n\"title\" ok\n"
+        in s ~-> err (posN 20 s) (utoks "ok" <> eeof <> elabel "newline"
+             <> elabel "white space")
+      it "CM176" $
+        "    [foo]: /url \"title\"" ==->
+          "<pre><code>[foo]: /url &quot;title&quot;\n</code></pre>\n"
+      it "CM177" $
+        "```\n[foo]: /url\n```" ==->
+          "<pre><code>[foo]: /url\n</code></pre>\n"
+      it "CM178" $
+        let s = "Foo\n[bar]: /baz\n\n[bar]\n"
+        in s ~~->
+           [ errFancy (posN 5 s) (couldNotMatchRef "bar" [])
+           , errFancy (posN 18 s) (couldNotMatchRef "bar" []) ]
+      it "CM179" $
+        "# [Foo]\n[foo]: /url\n> bar" ==->
+          "<h1 id=\"foo\"><a href=\"/url\">Foo</a></h1>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
       it "CM180" $
+        "[foo]: /foo-url \"foo\"\n[bar]: /bar-url\n  \"bar\"\n[baz]: /baz-url\n\n[foo],\n[bar],\n[baz]" ==->
+          "<p><a href=\"/foo-url\" title=\"foo\">foo</a>,\n<a href=\"/bar-url\" title=\"bar\">bar</a>,\n<a href=\"/baz-url\">baz</a></p>\n"
+      it "CM181" $
+        "[foo]\n\n> [foo]: /url" ==->
+          "<p><a href=\"/url\">foo</a></p>\n<blockquote>\n</blockquote>\n"
+    context "4.8 Paragraphs" $ do
+      it "CM182" $
         "aaa\n\nbbb" ==->
           "<p>aaa</p>\n<p>bbb</p>\n"
-      it "CM181" $
+      it "CM183" $
         "aaa\nbbb\n\nccc\nddd" ==->
           "<p>aaa\nbbb</p>\n<p>ccc\nddd</p>\n"
-      it "CM182" $
+      it "CM184" $
         "aaa\n\n\nbbb" ==->
           "<p>aaa</p>\n<p>bbb</p>\n"
-      it "CM183" $
+      it "CM185" $
         "  aaa\n bbb" ==->
           "<p>aaa\nbbb</p>\n"
-      it "CM184" $
+      it "CM186" $
         "aaa\n             bbb\n                                       ccc" ==->
           "<p>aaa\nbbb\nccc</p>\n"
-      it "CM185" $
+      it "CM187" $
         "   aaa\nbbb" ==-> "<p>aaa\nbbb</p>\n"
-      it "CM186" $
+      it "CM188" $
         "    aaa\nbbb" ==->
           "<pre><code>aaa\n</code></pre>\n<p>bbb</p>\n"
-      it "CM187" $
+      it "CM189" $
         "aaa     \nbbb     " ==->
           "<p>aaa\nbbb</p>\n"
     context "4.9 Blank lines" $
-      it "CM188" $
+      it "CM190" $
         "  \n\naaa\n  \n\n# aaa\n\n  " ==->
           "<p>aaa</p>\n<h1 id=\"aaa\">aaa</h1>\n"
     context "5.1 Block quotes" $ do
-      it "CM189" $
+      it "CM191" $
         "> # Foo\n  bar\n  baz" ==->
           "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
-      it "CM190" $
+      it "CM192" $
         "># Foo\n bar\n  baz" ==->
           "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
-      it "CM191" $
+      it "CM193" $
         "   > # Foo\n     bar\n     baz" ==->
           "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
-      it "CM192" $
+      it "CM194" $
         "    > # Foo\n    > bar\n    > baz" ==->
           "<pre><code>&gt; # Foo\n&gt; bar\n&gt; baz\n</code></pre>\n"
-      it "CM193" $
+      it "CM195" $
         "> # Foo\n> bar\nbaz" ==->
           "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n</blockquote>\n<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
-      it "CM194" $
+      it "CM196" $
         "> bar\nbaz\n> foo" ==->
           "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n<blockquote>\n<p>foo</p>\n</blockquote>\n"
-      it "CM195" $
+      it "CM197" $
         "> foo\n---" ==->
           "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr>\n"
-      it "CM196" $
+      it "CM198" $
         "> - foo\n- bar" ==->
           "<blockquote>\n<ul>\n<li>\nfoo\n</li>\n</ul>\n</blockquote>\n<ul>\n<li>\nbar\n</li>\n</ul>\n"
-      it "CM197" $
+      it "CM199" $
         ">     foo\n    bar" ==->
           "<blockquote>\n<pre><code>foo\n</code></pre>\n<p>bar</p>\n</blockquote>\n"
-      it "CM198" $
+      it "CM200" $
         "> ```\nfoo\n```" ==->
           "<blockquote>\n<pre><code>foo\n</code></pre>\n</blockquote>\n"
-      it "CM199" $
+      it "CM201" $
         "> foo\n    - bar" ==->
           "<blockquote>\n<p>foo</p>\n<ul>\n<li>\nbar\n</li>\n</ul>\n</blockquote>\n"
-      it "CM200" $
+      it "CM202" $
         ">" ==->
           "<blockquote>\n</blockquote>\n"
-      it "CM201" $
+      it "CM203" $
         ">\n>  \n> " ==->
           "<blockquote>\n</blockquote>\n<blockquote>\n</blockquote>\n<blockquote>\n</blockquote>\n"
-      it "CM202" $
+      it "CM204" $
         ">\n  foo\n   " ==->
           "<blockquote>\n<p>foo</p>\n</blockquote>\n"
-      it "CM203" $
+      it "CM205" $
         "> foo\n\n> bar" ==->
           "<blockquote>\n<p>foo</p>\n</blockquote>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
-      it "CM204" $
+      it "CM206" $
         "> foo\n  bar" ==->
           "<blockquote>\n<p>foo\nbar</p>\n</blockquote>\n"
-      it "CM205" $
+      it "CM207" $
         "> foo\n\n  bar" ==->
           "<blockquote>\n<p>foo</p>\n<p>bar</p>\n</blockquote>\n"
-      it "CM206" $
+      it "CM208" $
         "foo\n> bar" ==->
           "<p>foo</p>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
-      it "CM207" $
+      it "CM209" $
         "> aaa\n***\n> bbb" ==->
           "<blockquote>\n<p>aaa</p>\n</blockquote>\n<hr>\n<blockquote>\n<p>bbb</p>\n</blockquote>\n"
-      it "CM208" $
+      it "CM210" $
         "> bar\n  baz" ==->
           "<blockquote>\n<p>bar\nbaz</p>\n</blockquote>\n"
-      it "CM209" $
-        "> bar\n\nbaz" ==->
-          "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
-      it "CM210" $
-        "> bar\n\nbaz" ==->
-          "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
       it "CM211" $
+        "> bar\n\nbaz" ==->
+          "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
+      it "CM212" $
+        "> bar\n\nbaz" ==->
+          "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
+      it "CM213" $
         "> > > foo\nbar" ==->
           "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo</p>\n</blockquote>\n</blockquote>\n</blockquote>\n<p>bar</p>\n"
-      it "CM212" $
+      it "CM214" $
         ">>> foo\n    bar\n    baz" ==->
           "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar\nbaz</p>\n</blockquote>\n</blockquote>\n</blockquote>\n"
-      it "CM213" $
+      it "CM215" $
         ">     code\n\n>    not code" ==->
           "<blockquote>\n<pre><code>code\n</code></pre>\n</blockquote>\n<blockquote>\n<p>not code</p>\n</blockquote>\n"
     context "5.2 List items" $ do
-      it "CM214" $
+      it "CM216" $
         "A paragraph\nwith two lines.\n\n    indented code\n\n> A block quote." ==->
           "<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n"
-      it "CM215" $
+      it "CM217" $
         "1.  A paragraph\n    with two lines.\n\n        indented code\n\n    > A block quote." ==->
           "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n"
-      it "CM216" $
+      it "CM218" $
         "- one\n\n two" ==->
           "<ul>\n<li>\none\n</li>\n</ul>\n<p>two</p>\n"
-      it "CM217" $
+      it "CM219" $
         "- one\n\n  two" ==->
           "<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n"
-      it "CM218" $
+      it "CM220" $
         " -    one\n\n     two" ==->
           "<ul>\n<li>\none\n</li>\n</ul>\n<pre><code> two\n</code></pre>\n"
-      it "CM219" $
+      it "CM221" $
         " -    one\n\n      two" ==->
           "<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n"
-      it "CM220" $
+      it "CM222" $
         "   > > 1.  one\n\n       two" ==->
           "<blockquote>\n<blockquote>\n<ol>\n<li>\none\n</li>\n</ol>\n<p>two</p>\n</blockquote>\n</blockquote>\n"
-      it "CM221" $
+      it "CM223" $
         ">>- one\n\n     two" ==->
           "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
-      it "CM222" $
+      it "CM224" $
         "-one\n\n2.two" ==->
           "<p>-one</p>\n<p>2.two</p>\n"
-      it "CM223" $
+      it "CM225" $
         "- foo\n\n\n  bar" ==->
           "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n"
-      it "CM224" $
+      it "CM226" $
         "1.  foo\n\n    ```\n    bar\n    ```\n\n    baz\n\n    > bam" ==->
           "<ol>\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n<p>baz</p>\n<blockquote>\n<p>bam</p>\n</blockquote>\n</li>\n</ol>\n"
-      it "CM225" $
+      it "CM227" $
         "- Foo\n\n      bar\n\n\n      baz" ==->
           "<ul>\n<li>\n<p>Foo</p>\n<pre><code>bar\n\n\nbaz\n</code></pre>\n</li>\n</ul>\n"
-      it "CM226" $
+      it "CM228" $
         "123456789. ok" ==->
           "<ol start=\"123456789\">\n<li>\nok\n</li>\n</ol>\n"
-      it "CM227" $
+      it "CM229" $
         let s = "1234567890. not ok\n"
         in s ~-> errFancy posI (indexTooBig 1234567890)
-      it "CM228" $
+      it "CM230" $
         "0. ok" ==->
           "<ol start=\"0\">\n<li>\nok\n</li>\n</ol>\n"
-      it "CM229" $
+      it "CM231" $
         "003. ok" ==->
           "<ol start=\"3\">\n<li>\nok\n</li>\n</ol>\n"
-      it "CM230" $
+      it "CM232" $
         "-1. not ok" ==->
           "<p>-1. not ok</p>\n"
-      it "CM231" $
+      it "CM233" $
         "- foo\n\n      bar" ==->
           "<ul>\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n</li>\n</ul>\n"
-      it "CM232" $
+      it "CM234" $
         "  10.  foo\n\n           bar" ==->
           "<ol start=\"10\">\n<li>\n<p>foo</p>\n<pre><code>bar\n</code></pre>\n</li>\n</ol>\n"
-      it "CM233" $
+      it "CM235" $
         "    indented code\n\nparagraph\n\n    more code" ==->
           "<pre><code>indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n"
-      it "CM234" $
+      it "CM236" $
         "1.     indented code\n\n   paragraph\n\n       more code" ==->
           "<ol>\n<li>\n<pre><code>indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n</li>\n</ol>\n"
-      it "CM235" $
+      it "CM237" $
         "1.      indented code\n\n   paragraph\n\n       more code" ==->
           "<ol>\n<li>\n<pre><code> indented code\n</code></pre>\n<p>paragraph</p>\n<pre><code>more code\n</code></pre>\n</li>\n</ol>\n"
-      it "CM236" $
+      it "CM238" $
         "   foo\n\nbar" ==->
           "<p>foo</p>\n<p>bar</p>\n"
-      it "CM237" $
+      it "CM239" $
         "-    foo\n\n  bar" ==->
           "<ul>\n<li>\nfoo\n</li>\n</ul>\n<p>bar</p>\n"
-      it "CM238" $
+      it "CM240" $
         "-  foo\n\n   bar" ==->
           "<ul>\n<li>\n<p>foo</p>\n<p>bar</p>\n</li>\n</ul>\n"
-      it "CM239" $
+      it "CM241" $
         "-\n  foo\n-\n  ```\n  bar\n  ```\n-\n      baz" ==->
           "<ul>\n<li>\n<p>foo</p>\n</li>\n<li>\n<pre><code>bar\n</code></pre>\n</li>\n<li>\n<pre><code>baz\n</code></pre>\n</li>\n</ul>\n"
-      it "CM240" $
+      it "CM242" $
         "-   \n  foo" ==->
           "<ul>\n<li>\nfoo\n</li>\n</ul>\n"
-      it "CM241" $
+      it "CM243a" $
         "-\n\n  foo" ==->
           "<ul>\n<li>\n\n</li>\n</ul>\n<p>foo</p>\n"
-      it "CM241b" $
+      it "CM243b" $
         "1.\n\n   foo" ==->
           "<ol>\n<li>\n\n</li>\n</ol>\n<p>foo</p>\n"
-      it "CM242" $
+      it "CM244" $
         "- foo\n-\n- bar" ==->
           "<ul>\n<li>\nfoo\n</li>\n<li>\n\n</li>\n<li>\nbar\n</li>\n</ul>\n"
-      it "CM243" $
+      it "CM245" $
         "- foo\n-   \n- bar" ==->
           "<ul>\n<li>\nfoo\n</li>\n<li>\n\n</li>\n<li>\nbar\n</li>\n</ul>\n"
-      it "CM244" $
+      it "CM246" $
         "1. foo\n2.\n3. bar" ==->
           "<ol>\n<li>\nfoo\n</li>\n<li>\n\n</li>\n<li>\nbar\n</li>\n</ol>\n"
-      it "CM245" $
+      it "CM247" $
         "*" ==->
           "<ul>\n<li>\n\n</li>\n</ul>\n"
-      it "CM246" $
+      it "CM248" $
         "foo\n*\n\nfoo\n1." ==->
           "<p>foo</p>\n<ul>\n<li>\n\n</li>\n</ul>\n<p>foo</p>\n<ol>\n<li>\n\n</li>\n</ol>\n"
-      it "CM247" $
+      it "CM249" $
         " 1.  A paragraph\n     with two lines.\n\n         indented code\n\n     > A block quote." ==->
           "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n"
-      it "CM248" $
+      it "CM250" $
         "  1.  A paragraph\n      with two lines.\n\n          indented code\n\n      > A block quote." ==->
           "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n"
-      it "CM249" $
+      it "CM251" $
         "   1.  A paragraph\n       with two lines.\n\n           indented code\n\n       > A block quote." ==->
           "<ol>\n<li>\n<p>A paragraph\nwith two lines.</p>\n<pre><code>indented code\n</code></pre>\n<blockquote>\n<p>A block quote.</p>\n</blockquote>\n</li>\n</ol>\n"
-      it "CM250" $
+      it "CM252" $
         "    1.  A paragraph\n        with two lines.\n\n            indented code\n\n        > A block quote." ==->
           "<pre><code>1.  A paragraph\n    with two lines.\n\n        indented code\n\n    &gt; A block quote.\n</code></pre>\n"
-      it "CM251" $
+      it "CM253" $
         "  1.  A paragraph\nwith two lines.\n\n          indented code\n\n      > A block quote." ==->
           "<ol>\n<li>\nA paragraph\n</li>\n</ol>\n<p>with two lines.</p>\n<pre><code>      indented code\n\n  &gt; A block quote.\n</code></pre>\n"
-      it "CM252" $
+      it "CM254" $
         "  1.  A paragraph\n    with two lines." ==->
           "<ol>\n<li>\nA paragraph\n</li>\n</ol>\n<pre><code>with two lines.\n</code></pre>\n"
-      it "CM253" $
+      it "CM255" $
         "> 1. > Blockquote\ncontinued here." ==->
           "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n<p>continued here.</p>\n"
-      it "CM254" $
+      it "CM256" $
         "> 1. > Blockquote\n  continued here." ==->
           "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote</p>\n</blockquote>\n</li>\n</ol>\n<p>continued here.</p>\n</blockquote>\n"
-      it "CM255" $
+      it "CM257" $
         "- foo\n  - bar\n    - baz\n      - boo" ==->
           "<ul>\n<li>\nfoo\n<ul>\n<li>\nbar\n<ul>\n<li>\nbaz\n<ul>\n<li>\nboo\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n"
-      it "CM256" $
+      it "CM258" $
         "- foo\n - bar\n  - baz\n   - boo" ==->
           "<ul>\n<li>\nfoo\n</li>\n<li>\nbar\n</li>\n<li>\nbaz\n</li>\n<li>\nboo\n</li>\n</ul>\n"
-      it "CM257" $
+      it "CM259" $
         "10) foo\n    - bar" ==->
           "<ol start=\"10\">\n<li>\nfoo\n<ul>\n<li>\nbar\n</li>\n</ul>\n</li>\n</ol>\n"
-      it "CM258" $
+      it "CM260" $
         "10) foo\n   - bar" ==->
           "<ol start=\"10\">\n<li>\nfoo\n</li>\n</ol>\n<ul>\n<li>\nbar\n</li>\n</ul>\n"
-      it "CM259" $
+      it "CM261" $
         "- - foo" ==->
           "<ul>\n<li>\n<ul>\n<li>\nfoo\n</li>\n</ul>\n</li>\n</ul>\n"
-      it "CM260" $
+      it "CM262" $
         "1. - 2. foo" ==->
           "<ol>\n<li>\n<ul>\n<li>\n<ol start=\"2\">\n<li>\nfoo\n</li>\n</ol>\n</li>\n</ul>\n</li>\n</ol>\n"
-      it "CM261" $
+      it "CM263" $
         "- # Foo\n- Bar\n  ---\n  baz" ==->
           "<ul>\n<li>\n<h1 id=\"foo\">Foo</h1>\n</li>\n<li>\n<p>Bar</p>\n<hr>\n<p>baz</p>\n</li>\n</ul>\n"
     context "5.3 Lists" $ do
-      it "CM262" $
+      it "CM264" $
         "- foo\n- bar\n+ baz" ==->
           "<ul>\n<li>\nfoo\n</li>\n<li>\nbar\n</li>\n</ul>\n<ul>\n<li>\nbaz\n</li>\n</ul>\n"
-      it "CM263" $
+      it "CM265" $
         "1. foo\n2. bar\n3) baz" ==->
           "<ol>\n<li>\nfoo\n</li>\n<li>\nbar\n</li>\n</ol>\n<ol start=\"3\">\n<li>\nbaz\n</li>\n</ol>\n"
-      it "CM264" $
+      it "CM266" $
         "Foo\n- bar\n- baz" ==->
           "<p>Foo</p>\n<ul>\n<li>\nbar\n</li>\n<li>\nbaz\n</li>\n</ul>\n"
-      it "CM265" $
+      it "CM267" $
         "The number of windows in my house is\n14.  The number of doors is 6." ==->
           "<p>The number of windows in my house is</p>\n<ol start=\"14\">\n<li>\nThe number of doors is 6.\n</li>\n</ol>\n"
-      it "CM266" $
+      it "CM268" $
         "The number of windows in my house is\n1.  The number of doors is 6." ==->
           "<p>The number of windows in my house is</p>\n<ol>\n<li>\nThe number of doors is 6.\n</li>\n</ol>\n"
-      it "CM267" $
+      it "CM269" $
         "- foo\n\n- bar\n\n\n- baz" ==->
           "<ul>\n<li>\n<p>foo</p>\n</li>\n<li>\n<p>bar</p>\n</li>\n<li>\n<p>baz</p>\n</li>\n</ul>\n"
-      it "CM268" $
+      it "CM270" $
         "- foo\n  - bar\n    - baz\n\n\n      bim" ==->
           "<ul>\n<li>\nfoo\n<ul>\n<li>\nbar\n<ul>\n<li>\n<p>baz</p>\n<p>bim</p>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n"
-      xit "CM269" $ -- FIXME pending HTML blocks
-        "- foo\n- bar\n\n<!-- -->\n\n- baz\n- bim" ==->
-          "<ul>\n<li>foo</li>\n<li>bar</li>\n</ul>\n<!-- -->\n<ul>\n<li>baz</li>\n<li>bim</li>\n</ul>\n"
-      xit "CM270" $ -- FIXME pending HTML blocks
-        "-   foo\n\n    notcode\n\n-   foo\n\n<!-- -->\n\n    code" ==->
-          "<ul>\n<li>\n<p>foo</p>\n<p>notcode</p>\n</li>\n<li>\n<p>foo</p>\n</li>\n</ul>\n<!-- -->\n<pre><code>code\n</code></pre>\n"
       it "CM271" $
+        "- foo\n- bar\n\n<!-- -->\n\n- baz\n- bim" ==->
+          "<ul>\n<li>\nfoo\n</li>\n<li>\nbar\n</li>\n</ul>\n<p>&lt;!-- --&gt;</p>\n<ul>\n<li>\nbaz\n</li>\n<li>\nbim\n</li>\n</ul>\n"
+      it "CM272" $
+        "-   foo\n\n    notcode\n\n-   foo\n\n<!-- -->\n\n    code" ==->
+          "<ul>\n<li>\n<p>foo</p>\n<p>notcode</p>\n</li>\n<li>\n<p>foo</p>\n</li>\n</ul>\n<p>&lt;!-- --&gt;</p>\n<pre><code>code\n</code></pre>\n"
+      it "CM273" $
         "- a\n - b\n  - c\n   - d\n    - e\n   - f\n  - g\n - h\n- i" ==->
           "<ul>\n<li>\na\n</li>\n<li>\nb\n</li>\n<li>\nc\n</li>\n<li>\nd\n</li>\n<li>\ne\n</li>\n<li>\nf\n</li>\n<li>\ng\n</li>\n<li>\nh\n</li>\n<li>\ni\n</li>\n</ul>\n"
-      it "CM272" $
+      it "CM274" $
         "1. a\n\n  2. b\n\n    3. c" ==->
           "<ol>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ol>\n"
-      it "CM273" $
+      it "CM275" $
         "- a\n- b\n\n- c" ==->
           "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n"
-      it "CM274" $
+      it "CM276" $
         "* a\n*\n\n* c" ==->
           "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p></p>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n"
-      it "CM275" $
+      it "CM277" $
         "- a\n- b\n\n  c\n- d" ==->
           "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n"
-      it "CM276" $
+      it "CM278" $
         "- a\n- b\n\n  [ref]: /url\n- d" ==->
           "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n"
-      it "CM277" $
+      it "CM279" $
         "- a\n- ```\n  b\n\n\n  ```\n- c" ==->
           "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<pre><code>b\n\n\n</code></pre>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n"
-      it "CM278" $
+      it "CM280" $
         "- a\n  - b\n\n    c\n- d" ==->
           "<ul>\n<li>\na\n<ul>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n</ul>\n</li>\n<li>\nd\n</li>\n</ul>\n"
-      it "CM279" $
+      it "CM281" $
         "* a\n  > b\n  >\n* c" ==->
           "<ul>\n<li>\n<p>a</p>\n<blockquote>\n<p>b</p>\n</blockquote>\n<blockquote>\n</blockquote>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n"
-      it "CM280" $
+      it "CM282" $
         "- a\n  > b\n  ```\n  c\n  ```\n- d" ==->
           "<ul>\n<li>\n<p>a</p>\n<blockquote>\n<p>b</p>\n</blockquote>\n<pre><code>c\n</code></pre>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n"
-      it "CM281" $
+      it "CM283" $
         "- a" ==->
           "<ul>\n<li>\na\n</li>\n</ul>\n"
-      it "CM282" $
+      it "CM284" $
         "- a\n  - b" ==->
           "<ul>\n<li>\na\n<ul>\n<li>\nb\n</li>\n</ul>\n</li>\n</ul>\n"
-      it "CM283" $
+      it "CM285" $
         "1. ```\n   foo\n   ```\n\n   bar" ==->
           "<ol>\n<li>\n<pre><code>foo\n</code></pre>\n<p>bar</p>\n</li>\n</ol>\n"
-      it "CM284" $
+      it "CM286" $
         "* foo\n  * bar\n\n  baz" ==->
           "<ul>\n<li>\nfoo\n<ul>\n<li>\nbar\n</li>\n</ul>\nbaz\n</li>\n</ul>\n"
-      it "CM285" $
+      it "CM287" $
         "- a\n  - b\n  - c\n\n- d\n  - e\n  - f" ==->
           "<ul>\n<li>\na\n<ul>\n<li>\nb\n</li>\n<li>\nc\n</li>\n</ul>\n</li>\n<li>\nd\n<ul>\n<li>\ne\n</li>\n<li>\nf\n</li>\n</ul>\n</li>\n</ul>\n"
     context "6 Inlines" $
-      it "CM286" $
+      it "CM288" $
         let s  = "`hi`lo`\n"
         in s ~-> err (posN 7 s) (ueib <> etok '`' <> elabel "code span content")
     context "6.1 Blackslash escapes" $ do
-      it "CM287" $
+      it "CM289" $
         "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~\n"
           ==-> "<p>!&quot;#$%&amp;&#39;()*+,-./:;&lt;=&gt;?@[\\]^_`{|}~</p>\n"
-      it "CM288" $
+      it "CM290" $
         "\\\t\\A\\a\\ \\3\\φ\\«" ==->
           "<p>\\\t\\A\\a\\ \\3\\φ\\«</p>\n"
-      it "CM289" $
+      it "CM291" $
         "\\*not emphasized\\*\n\\<br/> not a tag\n\\[not a link\\](/foo)\n\\`not code\\`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo\\]: /url \"not a reference\"\n" ==->
         "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url &quot;not a reference&quot;</p>\n"
-      it "CM290" $
+      it "CM292" $
         let s = "\\\\*emphasis*"
         in s ~-> errFancy (posN 2 s) (nonFlanking "*")
-      xit "CM291" $
+      it "CM293" $
         "foo\\\nbar" ==->
           "<p>foo<br>\nbar</p>\n"
-      it "CM292" $
+      it "CM294" $
         "`` \\[\\` ``" ==->
           "<p><code>\\[\\`</code></p>\n"
-      it "CM293" $
+      it "CM295" $
         "    \\[\\]" ==->
           "<pre><code>\\[\\]\n</code></pre>\n"
-      it "CM294" $
+      it "CM296" $
         "~~~\n\\[\\]\n~~~" ==->
           "<pre><code>\\[\\]\n</code></pre>\n"
-      it "CM295" $
+      it "CM297" $
         "<http://example.com?find=*>" ==->
           "<p><a href=\"http://example.com/?find=*\">http://example.com/?find=*</a></p>\n"
-      xit "CM296" $ -- FIXME pending HTML inlines
+      it "CM298" $
         "<a href=\"/bar\\/)\">" ==->
           "<p>&lt;a href=&quot;/bar/)&quot;&gt;</p>\n"
-      it "CM297" $
+      it "CM299" $
         let s = "[foo](/bar\\* \"ti\\*tle\")"
         in s ~-> err (posN 10 s)
           (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
-      it "CM298" $
+      it "CM300" $
         let s = "[foo]\n\n[foo]: /bar\\* \"ti\\*tle\""
         in s ~-> err (posN 18 s)
           (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
-      it "CM299" $
+      it "CM301" $
         "``` foo\\+bar\nfoo\n```" ==->
           "<pre><code class=\"language-foo+bar\">foo\n</code></pre>\n"
     context "6.2 Entity and numeric character references" $ do
-      it "CM300" $
+      it "CM302" $
         "&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;" ==->
           "<p>  &amp; © Æ Ď\n¾ ℋ ⅆ\n∲ ≧̸</p>\n"
-      it "CM301a" $
+      it "CM303a" $
         "&#35; &#1234; &#992;" ==->
           "<p># Ӓ Ϡ</p>\n"
-      it "CM301b" $
+      it "CM303b" $
         "&#98765432;" ~-> errFancy posI (invalidNumChar 98765432)
-      it "CM301c" $
+      it "CM303c" $
         "&#0;" ~-> errFancy posI (invalidNumChar 0)
-      it "CM302" $
+      it "CM304" $
         "&#X22; &#XD06; &#xcab;" ==->
           "<p>&quot; ആ ಫ</p>\n"
-      it "CM303a" $
+      it "CM305a" $
         "&nbsp" ==-> "<p>&amp;nbsp</p>\n"
-      it "CM303b" $
+      it "CM305b" $
         let s = "&x;"
         in s ~-> errFancy posI (unknownEntity "x")
-      it "CM303c" $
+      it "CM305c" $
         let s = "&#;"
         in s ~-> err (posN 2 s) (utok ';' <> etok 'x' <> etok 'X' <> elabel "integer")
-      it "CM303d" $
+      it "CM305d" $
         let s = "&#x;"
         in s ~-> err (posN 3 s) (utok ';' <> elabel "hexadecimal integer")
-      it "CM303e" $
+      it "CM305e" $
         let s = "&ThisIsNotDefined;"
         in s ~-> errFancy posI (unknownEntity "ThisIsNotDefined")
-      it "CM303f" $
+      it "CM305f" $
         "&hi?;" ==-> "<p>&amp;hi?;</p>\n"
-      it "CM304" $
+      it "CM306" $
         "&copy" ==->
           "<p>&amp;copy</p>\n"
-      it "CM305" $
+      it "CM307" $
         let s = "&MadeUpEntity;"
         in s ~-> errFancy posI (unknownEntity "MadeUpEntity")
-      it "CM306" $
+      it "CM308" $
         "<a href=\"&ouml;&ouml;.html\">" ==->
           "<p>&lt;a href=&quot;\246\246.html&quot;&gt;</p>\n"
-      it "CM307" $
+      it "CM309" $
         "[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")" ==->
           "<p><a href=\"/f&amp;ouml;&amp;ouml;\" title=\"f\246\246\">foo</a></p>\n"
-      it "CM308" $
+      it "CM310" $
         "[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\"" ==->
           "<p><a href=\"/f&amp;ouml;&amp;ouml;\" title=\"f\246\246\">foo</a></p>\n"
-      it "CM309" $
+      it "CM311" $
         "``` f&ouml;&ouml;\nfoo\n```" ==->
           "<pre><code class=\"language-f\246\246\">foo\n</code></pre>\n"
-      it "CM310" $
+      it "CM312" $
         "`f&ouml;&ouml;`" ==->
           "<p><code>f&ouml;&ouml;</code></p>\n"
-      it "CM311" $
+      it "CM313" $
         "    f&ouml;f&ouml;" ==->
           "<pre><code>f&amp;ouml;f&amp;ouml;\n</code></pre>\n"
     context "6.3 Code spans" $ do
-      it "CM312" $
+      it "CM314" $
         "`foo`" ==-> "<p><code>foo</code></p>\n"
-      it "CM313" $
+      it "CM315" $
         "`` foo ` bar  ``" ==->
           "<p><code>foo ` bar</code></p>\n"
-      it "CM314" $
-        "` `` `" ==-> "<p><code>``</code></p>\n"
-      it "CM315" $
-        "``\nfoo\n``" ==-> "<p><code>foo</code></p>\n"
       it "CM316" $
-        "`foo   bar\n  baz`" ==-> "<p><code>foo bar baz</code></p>\n"
+        "` `` `" ==-> "<p><code>``</code></p>\n"
       it "CM317" $
-        "`a  b`" ==-> "<p><code>a  b</code></p>\n"
+        "``\nfoo\n``" ==-> "<p><code>foo</code></p>\n"
       it "CM318" $
-        "`foo `` bar`" ==-> "<p><code>foo `` bar</code></p>\n"
+        "`foo   bar\n  baz`" ==-> "<p><code>foo bar baz</code></p>\n"
       it "CM319" $
+        "`a  b`" ==-> "<p><code>a  b</code></p>\n"
+      it "CM320" $
+        "`foo `` bar`" ==-> "<p><code>foo `` bar</code></p>\n"
+      it "CM321" $
         let s  = "`foo\\`bar`\n"
         in s ~-> err (posN 10 s) (ueib <> etok '`' <> elabel "code span content")
-      it "CM320" $
+      it "CM322" $
         let s  = "*foo`*`\n"
         in s ~-> err (posN 7 s) (ueib <> etok '*' <> eic)
-      it "CM321" $
+      it "CM323" $
         let s = "[not a `link](/foo`)\n"
         in s ~-> err (posN 20 s) (ueib <> etok ']' <> eic)
-      it "CM322" $
+      it "CM324" $
         let s = "`<a href=\"`\">`\n"
         in s ~-> err (posN 14 s) (ueib <> etok '`' <> elabel "code span content")
-      xit "CM323" $ -- FIXME pending HTML inlines
-        "<a href=\"`\">`" ==-> "<p><a href=\"`\">`</p>\n"
-      it "CM324" $
+      it "CM325" $
+        "<a href=\"`\">`" ==->
+          "<p>&lt;a href=&quot;<code>\"></code></p>\n"
+      it "CM326" $
         let s = "`<http://foo.bar.`baz>`\n"
         in s ~-> err (posN 23 s) (ueib <> etok '`' <> elabel "code span content")
-      it "CM325" $
+      it "CM327" $
         "<http://foo.bar.`baz>`" ==->
           "<p>&lt;http://foo.bar.<code>baz></code></p>\n"
-      it "CM326" $
+      it "CM328" $
         let s  = "```foo``\n"
         in s ~-> err (posN 8 s) (ueib <> etok '`' <> elabel "code span content")
-      it "CM327" $
+      it "CM329" $
         let s = "`foo\n"
         in s ~-> err (posN 4 s) (ueib <> etok '`' <> elabel "code span content")
-      it "CM328" $
-        let s  = "`foo``bar``\n"
+      it "CM330" $
+        let s = "`foo``bar``\n"
         in s ~-> err (posN 11 s) (ueib <> etok '`' <> elabel "code span content")
     context "6.4 Emphasis and strong emphasis" $ do
-      it "CM329" $
+      it "CM331" $
         "*foo bar*" ==-> "<p><em>foo bar</em></p>\n"
-      it "CM330" $
+      it "CM332" $
         let s = "a * foo bar*\n"
         in s ~-> errFancy (posN 2 s) (nonFlanking "*")
-      it "CM331" $
+      it "CM333" $
         let s = "a*\"foo\"*\n"
         in s ~-> errFancy (posN 1 s) (nonFlanking "*")
-      it "CM332" $
+      it "CM334" $
         let s = "* a *\n"
         in s  ~-> errFancy posI (nonFlanking "*")
-      it "CM333" $
+      it "CM335" $
         let s = "foo*bar*\n"
         in s ~-> errFancy (posN 3 s) (nonFlanking "*")
-      it "CM334" $
+      it "CM336" $
         let s = "5*6*78\n"
         in s ~-> errFancy (posN 1 s) (nonFlanking "*")
-      it "CM335" $
+      it "CM337" $
         "_foo bar_" ==-> "<p><em>foo bar</em></p>\n"
-      it "CM336" $
+      it "CM338" $
         let s = "_ foo bar_\n"
         in s ~-> errFancy posI (nonFlanking "_")
-      it "CM337" $
+      it "CM339" $
         let s = "a_\"foo\"_\n"
         in s ~-> errFancy (posN 1 s) (nonFlanking "_")
-      it "CM338" $
+      it "CM340" $
         let s = "foo_bar_\n"
         in s  ~-> errFancy (posN 3 s) (nonFlanking "_")
-      it "CM339" $
+      it "CM341" $
         let s = "5_6_78\n"
         in s ~-> errFancy (posN 1 s) (nonFlanking "_")
-      it "CM340" $
+      it "CM342" $
         let s = "пристаням_стремятся_\n"
         in s ~-> errFancy (posN 9 s) (nonFlanking "_")
-      it "CM341" $
+      it "CM343" $
         let s  = "aa_\"bb\"_cc\n"
         in s ~-> errFancy (posN 2 s) (nonFlanking "_")
-      it "CM342" $
+      it "CM344" $
         let s  = "foo-_(bar)_\n"
         in s ~-> errFancy (posN 4 s) (nonFlanking "_")
-      it "CM343" $
+      it "CM345" $
         let s = "_foo*\n"
         in s ~-> err (posN 4 s) (utok '*' <> etok '_' <> eic)
-      it "CM344" $
+      it "CM346" $
         let s = "*foo bar *\n"
         in s ~-> errFancy (posN 9 s) (nonFlanking "*")
-      it "CM345" $
+      it "CM347" $
         let s = "*foo bar\n*\n"
         in s ~-> err (posN 8 s) (ueib <> etok '*' <> eic)
-      it "CM346" $
+      it "CM348" $
         let s = "*(*foo)\n"
         in s ~-> errFancy posI (nonFlanking "*")
-      it "CM347" $
+      it "CM349" $
         let s = "*(*foo*)*\n"
         in s ~-> errFancy posI (nonFlanking "*")
-      it "CM348" $
+      it "CM350" $
         let s = "*foo*bar\n"
         in s ~-> errFancy (posN 4 s) (nonFlanking "*")
-      it "CM349" $
+      it "CM351" $
         let s = "_foo bar _\n"
         in s ~-> errFancy (posN 9 s) (nonFlanking "_")
-      it "CM350" $
+      it "CM352" $
         let s = "_(_foo)\n"
         in s ~-> errFancy posI (nonFlanking "_")
-      it "CM351" $
+      it "CM353" $
         let s = "_(_foo_)_\n"
         in s ~-> errFancy posI (nonFlanking "_")
-      it "CM352" $
+      it "CM354" $
         let s = "_foo_bar\n"
         in s ~-> errFancy (posN 4 s) (nonFlanking "_")
-      it "CM353" $
+      it "CM355" $
         let s = "_пристаням_стремятся\n"
         in s ~-> errFancy (posN 10 s) (nonFlanking "_")
-      it "CM354" $
+      it "CM356" $
         let s = "_foo_bar_baz_\n"
         in s ~-> errFancy (posN 4 s) (nonFlanking "_")
-      it "CM355" $
-        "_\\(bar\\)_.\n" ==-> "<p><em>(bar)</em>.</p>\n"
-      it "CM356" $
-        "**foo bar**\n" ==-> "<p><strong>foo bar</strong></p>\n"
       it "CM357" $
+        "_\\(bar\\)_.\n" ==-> "<p><em>(bar)</em>.</p>\n"
+      it "CM358" $
+        "**foo bar**\n" ==-> "<p><strong>foo bar</strong></p>\n"
+      it "CM359" $
         let s = "** foo bar**\n"
         in s ~-> errFancy posI (nonFlanking "**")
-      it "CM358" $
+      it "CM360" $
         let s = "a**\"foo\"**\n"
         in s ~-> errFancy (posN 1 s) (nonFlanking "**")
-      it "CM359" $
+      it "CM361" $
         let s = "foo**bar**\n"
         in s ~-> errFancy (posN 3 s) (nonFlanking "**")
-      it "CM360" $
+      it "CM362" $
         "__foo bar__" ==-> "<p><strong>foo bar</strong></p>\n"
-      it "CM361" $
+      it "CM363" $
         let s = "__ foo bar__\n"
         in s ~-> errFancy posI (nonFlanking "__")
-      it "CM362" $
+      it "CM364" $
         let s = "__\nfoo bar__\n"
         in s ~-> errFancy posI (nonFlanking "__")
-      it "CM363" $
+      it "CM365" $
         let s = "a__\"foo\"__\n"
         in s ~-> errFancy (posN 1 s) (nonFlanking "__")
-      it "CM364" $
+      it "CM366" $
         let s = "foo__bar__\n"
         in s ~-> errFancy (posN 3 s) (nonFlanking "__")
-      it "CM365" $
+      it "CM367" $
         let s = "5__6__78\n"
         in s ~-> errFancy (posN 1 s) (nonFlanking "__")
-      it "CM366" $
+      it "CM368" $
         let s = "пристаням__стремятся__\n"
         in s ~-> errFancy (posN 9 s) (nonFlanking "__")
-      it "CM367" $
+      it "CM369" $
         "__foo, __bar__, baz__" ==->
           "<p><strong>foo, <strong>bar</strong>, baz</strong></p>\n"
-      it "CM368" $
+      it "CM370" $
         "foo-__\\(bar\\)__" ==-> "<p>foo-<strong>(bar)</strong></p>\n"
-      it "CM369" $
+      it "CM371" $
         let s = "**foo bar **\n"
         in s ~-> errFancy (posN 10 s) (nonFlanking "**")
-      it "CM370" $
+      it "CM372" $
         let s = "**(**foo)\n"
         in s ~-> errFancy posI (nonFlanking "**")
-      it "CM371" $
+      it "CM373" $
         let s = "*(**foo**)*\n"
         in s ~-> errFancy posI (nonFlanking "*")
-      xit "CM372" $ -- FIXME doesn't pass with current approach
+      xit "CM374" $ -- FIXME doesn't pass with current approach
         "**Gomphocarpus (*Gomphocarpus physocarpus*, syn.\n*Asclepias physocarpa*)**" ==->
         "<p><strong>Gomphocarpus (<em>Gomphocarpus physocarpus</em>, syn.\n<em>Asclepias physocarpa</em>)</strong></p>\n"
-      it "CM373" $
+      it "CM375" $
         "**foo \"*bar*\" foo**" ==->
           "<p><strong>foo &quot;<em>bar</em>&quot; foo</strong></p>\n"
-      it "CM374" $
+      it "CM376" $
         let s = "**foo**bar\n"
         in s ~-> errFancy (posN 5 s) (nonFlanking "**")
-      it "CM375" $
+      it "CM377" $
         let s = "__foo bar __\n"
         in s ~-> errFancy (posN 10 s) (nonFlanking "__")
-      it "CM376" $
+      it "CM378" $
         let s = "__(__foo)\n"
         in s ~-> errFancy posI (nonFlanking "__")
-      it "CM377" $
+      it "CM379" $
         let s = "_(__foo__)_\n"
         in s ~-> errFancy posI (nonFlanking "_")
-      it "CM378" $
+      it "CM380" $
         let s = "__foo__bar\n"
         in s ~-> errFancy (posN 5 s) (nonFlanking "__")
-      it "CM379" $
+      it "CM381" $
         let s = "__пристаням__стремятся\n"
         in s ~-> errFancy (posN 11 s) (nonFlanking "__")
-      it "CM380" $
+      it "CM382" $
         "__foo\\_\\_bar\\_\\_baz__" ==->
           "<p><strong>foo__bar__baz</strong></p>\n"
-      it "CM381" $
+      it "CM383" $
         "__\\(bar\\)__." ==->
           "<p><strong>(bar)</strong>.</p>\n"
-      it "CM382" $
+      it "CM384" $
         "*foo [bar](/url)*" ==->
           "<p><em>foo <a href=\"/url\">bar</a></em></p>\n"
-      it "CM383" $
+      it "CM385" $
         "*foo\nbar*" ==->
           "<p><em>foo\nbar</em></p>\n"
-      it "CM384" $
+      it "CM386" $
         "_foo __bar__ baz_" ==->
           "<p><em>foo <strong>bar</strong> baz</em></p>\n"
-      it "CM385" $
+      it "CM387" $
         "_foo _bar_ baz_" ==->
           "<p><em>foo <em>bar</em> baz</em></p>\n"
-      it "CM386" $
+      it "CM388" $
         let s = "__foo_ bar_"
         in s ~-> err (posN 5 s) (utoks "_ " <> etoks "__" <> eic)
-      it "CM387" $
+      it "CM389" $
         "*foo *bar**" ==->
           "<p><em>foo <em>bar</em></em></p>\n"
-      it "CM388" $
+      it "CM390" $
         "*foo **bar** baz*" ==->
           "<p><em>foo <strong>bar</strong> baz</em></p>\n"
-      it "CM389" $
+      it "CM391" $
         let s = "*foo**bar**baz*\n"
         in s ~-> errFancy (posN 5 s) (nonFlanking "*")
-      it "CM390" $
-        "***foo** bar*\n" ==-> "<p><em><strong>foo</strong> bar</em></p>\n"
-      it "CM391" $
-        "*foo **bar***\n" ==-> "<p><em>foo <strong>bar</strong></em></p>\n"
       it "CM392" $
+        "***foo** bar*\n" ==-> "<p><em><strong>foo</strong> bar</em></p>\n"
+      it "CM393" $
+        "*foo **bar***\n" ==-> "<p><em>foo <strong>bar</strong></em></p>\n"
+      it "CM394" $
         let s = "*foo**bar***\n"
         in s ~-> errFancy (posN 5 s) (nonFlanking "*")
-      it "CM393" $
+      it "CM395" $
         "*foo **bar *baz* bim** bop*\n" ==->
           "<p><em>foo <strong>bar <em>baz</em> bim</strong> bop</em></p>\n"
-      it "CM394" $
+      it "CM396" $
         "*foo [*bar*](/url)*\n" ==->
           "<p><em>foo <a href=\"/url\"><em>bar</em></a></em></p>\n"
-      it "CM395" $
+      it "CM397" $
         let s = "** is not an empty emphasis\n"
         in s ~-> errFancy posI (nonFlanking "**")
-      it "CM396" $
+      it "CM398" $
         let s = "**** is not an empty strong emphasis\n"
         in s ~-> errFancy posI (nonFlanking "****")
-      it "CM397" $
+      it "CM399" $
         "**foo [bar](/url)**" ==->
           "<p><strong>foo <a href=\"/url\">bar</a></strong></p>\n"
-      it "CM398" $
+      it "CM400" $
         "**foo\nbar**" ==->
           "<p><strong>foo\nbar</strong></p>\n"
-      it "CM399" $
+      it "CM401" $
         "__foo _bar_ baz__" ==->
           "<p><strong>foo <em>bar</em> baz</strong></p>\n"
-      it "CM400" $
+      it "CM402" $
         "__foo __bar__ baz__" ==->
           "<p><strong>foo <strong>bar</strong> baz</strong></p>\n"
-      it "CM401" $
+      it "CM403" $
         "____foo__ bar__" ==->
           "<p><strong><strong>foo</strong> bar</strong></p>\n"
-      it "CM402" $
+      it "CM404" $
         "**foo **bar****" ==->
           "<p><strong>foo <strong>bar</strong></strong></p>\n"
-      it "CM403" $
+      it "CM405" $
         "**foo *bar* baz**" ==->
           "<p><strong>foo <em>bar</em> baz</strong></p>\n"
-      it "CM404" $
+      it "CM406" $
         let s = "**foo*bar*baz**\n"
         in s ~-> err (posN 5 s) (utoks "*b" <> etoks "**" <> eic)
-      it "CM405" $
+      it "CM407" $
         "***foo* bar**" ==->
           "<p><strong><em>foo</em> bar</strong></p>\n"
-      it "CM406" $
+      it "CM408" $
         "**foo *bar***" ==->
           "<p><strong>foo <em>bar</em></strong></p>\n"
-      it "CM407" $
+      it "CM409" $
         "**foo *bar **baz**\nbim* bop**" ==->
           "<p><strong>foo <em>bar <strong>baz</strong>\nbim</em> bop</strong></p>\n"
-      it "CM408" $
+      it "CM410" $
         "**foo [*bar*](/url)**" ==->
           "<p><strong>foo <a href=\"/url\"><em>bar</em></a></strong></p>\n"
-      it "CM409" $
+      it "CM411" $
         let s = "__ is not an empty emphasis\n"
         in s ~-> errFancy posI (nonFlanking "__")
-      it "CM410" $
+      it "CM412" $
         let s = "____ is not an empty strong emphasis\n"
         in s ~-> errFancy posI (nonFlanking "____")
-      it "CM411" $
+      it "CM413" $
         let s = "foo ***\n"
         in s ~-> errFancy (posN 4 s) (nonFlanking "***")
-      it "CM412" $
-        "foo *\\**" ==-> "<p>foo <em>*</em></p>\n"
-      it "CM413" $
-        "foo *\\_*\n" ==-> "<p>foo <em>_</em></p>\n"
       it "CM414" $
+        "foo *\\**" ==-> "<p>foo <em>*</em></p>\n"
+      it "CM415" $
+        "foo *\\_*\n" ==-> "<p>foo <em>_</em></p>\n"
+      it "CM416" $
         let s = "foo *****\n"
         in s ~-> errFancy (posN 8 s) (nonFlanking "*")
-      it "CM415" $
-        "foo **\\***" ==-> "<p>foo <strong>*</strong></p>\n"
-      it "CM416" $
-        "foo **\\_**\n" ==-> "<p>foo <strong>_</strong></p>\n"
       it "CM417" $
+        "foo **\\***" ==-> "<p>foo <strong>*</strong></p>\n"
+      it "CM418" $
+        "foo **\\_**\n" ==-> "<p>foo <strong>_</strong></p>\n"
+      it "CM419" $
         let s = "**foo*\n"
         in s ~-> err (posN 5 s) (utok '*' <> etoks "**" <> eic)
-      it "CM418" $
+      it "CM420" $
         let s = "*foo**\n"
         in s ~-> errFancy (posN 5 s) (nonFlanking "*")
-      it "CM419" $
+      it "CM421" $
         let s = "***foo**\n"
         in s ~-> err (posN 8 s) (ueib <> etok '*' <> eic)
-      it "CM420" $
+      it "CM422" $
         let s = "****foo*\n"
         in s ~-> err (posN 7 s) (utok '*' <> etoks "**" <> eic)
-      it "CM421" $
+      it "CM423" $
         let s = "**foo***\n"
         in s ~-> errFancy (posN 7 s) (nonFlanking "*")
-      it "CM422" $
+      it "CM424" $
         let s = "*foo****\n"
         in s ~-> errFancy (posN 5 s) (nonFlanking "***")
-      it "CM423" $
+      it "CM425" $
         let s = "foo ___\n"
         in s ~-> errFancy (posN 4 s) (nonFlanking "___")
-      it "CM424" $
-        "foo _\\__" ==-> "<p>foo <em>_</em></p>\n"
-      it "CM425" $
-        "foo _\\*_" ==-> "<p>foo <em>*</em></p>\n"
       it "CM426" $
+        "foo _\\__" ==-> "<p>foo <em>_</em></p>\n"
+      it "CM427" $
+        "foo _\\*_" ==-> "<p>foo <em>*</em></p>\n"
+      it "CM428" $
         let s = "foo _____\n"
         in s ~-> errFancy (posN 8 s) (nonFlanking "_")
-      it "CM427" $
-        "foo __\\___" ==-> "<p>foo <strong>_</strong></p>\n"
-      it "CM428" $
-        "foo __\\*__" ==-> "<p>foo <strong>*</strong></p>\n"
       it "CM429" $
+        "foo __\\___" ==-> "<p>foo <strong>_</strong></p>\n"
+      it "CM430" $
+        "foo __\\*__" ==-> "<p>foo <strong>*</strong></p>\n"
+      it "CM431" $
         let s = "__foo_\n"
         in s ~-> err (posN 5 s) (utok '_' <> etoks "__" <> eic)
-      it "CM430" $
+      it "CM432" $
         let s = "_foo__\n"
         in s ~-> errFancy (posN 5 s) (nonFlanking "_")
-      it "CM431" $
+      it "CM433" $
         let s = "___foo__\n"
         in s ~-> err (posN 8 s) (ueib <> etok '_' <> eic)
-      it "CM432" $
+      it "CM434" $
         let s = "____foo_\n"
         in s ~-> err (posN 7 s) (utok '_' <> etoks "__" <> eic)
-      it "CM433" $
+      it "CM435" $
         let s = "__foo___\n"
         in s ~-> errFancy (posN 7 s) (nonFlanking "_")
-      it "CM434" $
+      it "CM436" $
         let s = "_foo____\n"
         in s ~-> errFancy (posN 5 s) (nonFlanking "___")
-      it "CM435" $
-        "**foo**" ==-> "<p><strong>foo</strong></p>\n"
-      it "CM436" $
-        "*_foo_*" ==-> "<p><em><em>foo</em></em></p>\n"
       it "CM437" $
-        "__foo__" ==-> "<p><strong>foo</strong></p>\n"
+        "**foo**" ==-> "<p><strong>foo</strong></p>\n"
       it "CM438" $
-        "_*foo*_" ==-> "<p><em><em>foo</em></em></p>\n"
+        "*_foo_*" ==-> "<p><em><em>foo</em></em></p>\n"
       it "CM439" $
-        "****foo****" ==-> "<p><strong><strong>foo</strong></strong></p>\n"
+        "__foo__" ==-> "<p><strong>foo</strong></p>\n"
       it "CM440" $
-        "____foo____" ==-> "<p><strong><strong>foo</strong></strong></p>\n"
+        "_*foo*_" ==-> "<p><em><em>foo</em></em></p>\n"
       it "CM441" $
+        "****foo****" ==-> "<p><strong><strong>foo</strong></strong></p>\n"
+      it "CM442" $
+        "____foo____" ==-> "<p><strong><strong>foo</strong></strong></p>\n"
+      it "CM443" $
         "******foo******" ==->
           "<p><strong><strong><strong>foo</strong></strong></strong></p>\n"
-      it "CM442" $
+      it "CM444" $
         "***foo***" ==-> "<p><em><strong>foo</strong></em></p>\n"
-      it "CM443" $
+      it "CM445" $
         "_____foo_____" ==->
           "<p><strong><strong><em>foo</em></strong></strong></p>\n"
-      it "CM444" $
+      it "CM446" $
         let s = "*foo _bar* baz_\n"
         in s ~-> err (posN 9 s) (utok '*' <> etok '_' <> eic)
-      it "CM445" $
+      it "CM447" $
         let s = "*foo __bar *baz bim__ bam*\n"
         in s ~-> err (posN 19 s) (utok '_' <> etok '*' <> eic)
-      it "CM446" $
+      it "CM448" $
         let s = "**foo **bar baz**\n"
         in s ~-> err (posN 17 s) (ueib <> etoks "**" <> eic)
-      it "CM447" $
+      it "CM449" $
         let s = "*foo *bar baz*\n"
         in s ~-> err (posN 14 s) (ueib <> etok '*' <> eic)
-      it "CM448" $
+      it "CM450" $
         let s = "*[bar*](/url)\n"
         in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eic)
-      it "CM449" $
+      it "CM451" $
         let s = "_foo [bar_](/url)\n"
         in s ~-> err (posN 9 s) (utok '_' <> etok ']' <> eic)
-      xit "CM450" $ -- FIXME pending HTML inlines
-        "*<img src=\"foo\" title=\"*\"/>" ==->
-          "<p>*<img src=\"foo\" title=\"*\"/></p>\n"
-      xit "CM451" $ -- FIXME pending HTML inlines
-        "**<a href=\"**\">" ==-> "<p>**<a href=\"**\"></p>\n"
-      xit "CM452" $
-        "__<a href=\"__\">\n" ==-> "<p>__<a href=\"__\"></p>\n"
+      it "CM452" $
+        let s = "*<img src=\"foo\" title=\"*\"/>\n"
+        in s ~-> errFancy (posN 23 s) (nonFlanking "*")
       it "CM453" $
-        "*a `*`*" ==-> "<p><em>a <code>*</code></em></p>\n"
+        let s = "**<a href=\"**\">"
+        in s ~-> errFancy (posN 11 s) (nonFlanking "**")
       it "CM454" $
-        "_a `_`_" ==-> "<p><em>a <code>_</code></em></p>\n"
+        let s = "__<a href=\"__\">\n"
+        in s ~-> errFancy (posN 11 s) (nonFlanking "__")
       it "CM455" $
+        "*a `*`*" ==-> "<p><em>a <code>*</code></em></p>\n"
+      it "CM456" $
+        "_a `_`_" ==-> "<p><em>a <code>_</code></em></p>\n"
+      it "CM457" $
         let s = "**a<http://foo.bar/?q=**>"
         in s ~-> err (posN 25 s) (ueib <> etoks "**" <> eic)
-      it "CM456" $
+      it "CM458" $
         let s = "__a<http://foo.bar/?q=__>"
         in s ~-> err (posN 26 s) (ueib <> etoks "__" <> eic)
     context "6.5 Links" $ do
-      it "CM457" $
+      it "CM459" $
         "[link](/uri \"title\")" ==->
           "<p><a href=\"/uri\" title=\"title\">link</a></p>\n"
-      it "CM458" $
+      it "CM460" $
         "[link](/uri)" ==->
           "<p><a href=\"/uri\">link</a></p>\n"
-      it "CM459" $
+      it "CM461" $
         "[link]()" ==->
           "<p><a href>link</a></p>\n"
-      it "CM460" $
+      it "CM462" $
         "[link](<>)" ==->
           "<p><a href>link</a></p>\n"
-      it "CM461" $
+      it "CM463" $
         let s = "[link](/my uri)\n"
         in s ~-> err (posN 11 s)
            (utok 'u' <> etok '"' <> etok '\'' <> etok '(' <> elabel "white space")
-      it "CM462" $
+      it "CM464" $
         let s = "[link](</my uri>)\n"
         in s ~-> err (posN 11 s)
            (utok ' ' <> etok '#' <> etok '/' <> etok '>' <> etok '?' <> eppi)
-      it "CM463" $
+      it "CM465" $
         let s = "[link](foo\nbar)\n"
         in s ~-> err (posN 11 s)
            (utok 'b' <> etok '"' <> etok '\'' <> etok '(' <> elabel "white space")
-      it "CM464" $
+      it "CM466" $
         let s = "[link](<foo\nbar>)\n"
         in s ~-> err (posN 11 s)
            (utok '\n' <> etok '#' <> etok '/' <> etok '>' <> etok '?' <> eppi)
-      it "CM465" $
+      it "CM467" $
         let s = "[link](\\(foo\\))"
         in s ~-> err (posN 7 s) (utok '\\' <> etoks "//" <> etok '#' <>
              etok '/' <> etok '<' <> etok '?' <> elabel "ASCII alpha character" <>
              euri <> elabel "path piece" <> elabel "white space")
-      it "CM466" $
+      it "CM468" $
         "[link](foo(and(bar)))\n" ==->
           "<p><a href=\"foo(and(bar\">link</a>))</p>\n"
-      it "CM467" $
+      it "CM469" $
         let s = "[link](foo\\(and\\(bar\\))"
         in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
-      it "CM468" $
+      it "CM470" $
         "[link](<foo(and(bar)>)" ==->
           "<p><a href=\"foo(and(bar)\">link</a></p>\n"
-      it "CM469" $
+      it "CM471" $
         let s = "[link](foo\\)\\:)"
         in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
-      it "CM470" $
+      it "CM472" $
         "[link](#fragment)\n\n[link](http://example.com#fragment)\n\n[link](http://example.com?foo=3#frag)\n"
           ==-> "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"http://example.com/#fragment\">link</a></p>\n<p><a href=\"http://example.com/?foo=3#frag\">link</a></p>\n"
-      it "CM471" $
+      it "CM473" $
         let s = "[link](foo\\bar)"
         in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
-      xit "CM472" $ -- FIXME pending entity references
+      it "CM474" $
         "[link](foo%20b&auml;)"
           ==-> "<p><a href=\"foo%20b&amp;auml;\">link</a></p>\n"
-      it "CM473" $
+      it "CM475" $
         let s = "[link](\"title\")"
         in s ~-> err (posN 7 s)
              (utok '"' <> etoks "//" <> etok '#' <> etok '/' <> etok '<' <>
               etok '?' <> elabel "ASCII alpha character" <> euri <>
               elabel "path piece" <> elabel "white space")
-      it "CM474" $
+      it "CM476" $
         "[link](/url \"title\")\n[link](/url 'title')\n[link](/url (title))" ==->
           "<p><a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a></p>\n"
-      xit "CM475" $ -- FIXME pending entity references
+      it "CM477" $
         "[link](/url \"title \\\"&quot;\")\n" ==->
           "<p><a href=\"/url\" title=\"title &quot;&quot;\">link</a></p>\n"
-      it "CM476" $
+      it "CM478" $
         let s = "[link](/url \"title\")"
         in s ~-> err (posN 11 s)
              (utok ' ' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
-      it "CM477" $
+      it "CM479" $
         let s = "[link](/url \"title \"and\" title\")\n"
         in s ~-> err (posN 20 s) (utok 'a' <> etok ')' <> elabel "white space")
-      it "CM478" $
+      it "CM480" $
         "[link](/url 'title \"and\" title')" ==->
           "<p><a href=\"/url\" title=\"title &quot;and&quot; title\">link</a></p>\n"
-      it "CM479" $
+      it "CM481" $
         "[link](   /uri\n  \"title\"  )" ==->
           "<p><a href=\"/uri\" title=\"title\">link</a></p>\n"
-      it "CM480" $
+      it "CM482" $
         let s = "[link] (/uri)\n"
         in s ~-> errFancy (posN 1 s) (couldNotMatchRef "link" [])
-      it "CM481" $
+      it "CM483" $
         let s = "[link [foo [bar]]](/uri)\n"
         in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic)
-      it "CM482" $
+      it "CM484" $
         let s = "[link] bar](/uri)\n"
         in s ~-> errFancy (posN 1 s) (couldNotMatchRef "link" [])
-      it "CM483" $
+      it "CM485" $
         let s = "[link [bar](/uri)\n"
         in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic)
-      it "CM484" $
+      it "CM486" $
         "[link \\[bar](/uri)\n" ==->
           "<p><a href=\"/uri\">link [bar</a></p>\n"
-      it "CM485" $
+      it "CM487" $
         "[link *foo **bar** `#`*](/uri)" ==->
           "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n"
-      it "CM486" $
+      it "CM488" $
         "[![moon](moon.jpg)](/uri)" ==->
           "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\"></a></p>\n"
-      it "CM487" $
+      it "CM489" $
         let s = "[foo [bar](/uri)](/uri)\n"
         in s ~-> err (posN 5 s) (utok '[' <> etok ']' <> eic)
-      it "CM488" $
+      it "CM490" $
         let s = "[foo *[bar [baz](/uri)](/uri)*](/uri)\n"
         in s ~-> err (posN 6 s) (utok '[' <> eic)
-      it "CM489" $
+      it "CM491" $
         let s = "![[[foo](uri1)](uri2)](uri3)"
         in s ~-> err (posN 3 s) (utok '[' <> eic)
-      it "CM490" $
+      it "CM492" $
         let s = "*[foo*](/uri)\n"
         in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eic)
-      it "CM491" $
+      it "CM493" $
         let s = "[foo *bar](baz*)\n"
         in s ~-> err (posN 9 s) (utok ']' <> etok '*' <> eic)
-      it "CM492" $
+      it "CM494" $
         let s = "*foo [bar* baz]\n"
         in s ~-> err (posN 9 s) (utok '*' <> etok ']' <> eic)
-      xit "CM493" $ -- FIXME pending inline HTML
-        let s = "[foo <bar attr=\"](baz)\">"
-        in s ~-> err (posN 5 s) (utok '<' <> etok ']')
-      it "CM494" $
+      it "CM495" $
+        "[foo <bar attr=\"](baz)\">" ==->
+          "<p><a href=\"baz\">foo &lt;bar attr=&quot;</a>&quot;&gt;</p>\n"
+      it "CM496" $
         let s = "[foo`](/uri)`\n"
         in s ~-> err (posN 13 s) (ueib <> etok ']' <> eic)
-      it "CM495" $
+      it "CM497" $
         "[foo<http://example.com/?search=](uri)>" ==->
           "<p><a href=\"uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
-      it "CM496" $
+      it "CM498" $
         "[foo][bar]\n\n[bar]: /url \"title\"" ==->
           "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
-      it "CM497" $
+      it "CM499" $
         let s = "[link [foo [bar]]][ref]\n\n[ref]: /uri"
         in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic)
-      it "CM498" $
+      it "CM500" $
         "[link \\[bar][ref]\n\n[ref]: /uri" ==->
           "<p><a href=\"/uri\">link [bar</a></p>\n"
-      it "CM499" $
+      it "CM501" $
         "[link *foo **bar** `#`*][ref]\n\n[ref]: /uri" ==->
           "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n"
-      it "CM500" $
+      it "CM502" $
         "[![moon](moon.jpg)][ref]\n\n[ref]: /uri" ==->
           "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\"></a></p>\n"
-      it "CM501" $
+      it "CM503" $
         let s = "[foo [bar](/uri)][ref]\n\n[ref]: /uri"
         in s ~-> err (posN 5 s) (utok '[' <> etok ']' <> eic)
-      it "CM502" $
+      it "CM504" $
         let s = "[foo *bar [baz][ref]*][ref]\n\n[ref]: /uri"
         in s ~-> err (posN 10 s) (utok '[' <> etok '*' <> eic)
-      it "CM503" $
+      it "CM505" $
         let s = "*[foo*][ref]\n\n[ref]: /uri"
         in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eic)
-      it "CM504" $
+      it "CM506" $
         let s = "[foo *bar][ref]\n\n[ref]: /uri"
         in s ~-> err (posN 9 s) (utok ']' <> etok '*' <> eic)
-      it "CM505" $
+      it "CM507" $
         "[foo <bar attr=\"][ref]\">\n\n[ref]: /uri" ==->
           "<p><a href=\"/uri\">foo &lt;bar attr=&quot;</a>&quot;&gt;</p>\n"
-      it "CM506" $
+      it "CM508" $
         let s = "[foo`][ref]`\n\n[ref]: /uri"
         in s ~-> err (posN 12 s) (ueib <> etok ']' <> eic)
-      it "CM507" $
+      it "CM509" $
         "[foo<http://example.com/?search=][ref]>\n\n[ref]: /uri" ==->
           "<p><a href=\"/uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
-      it "CM508" $
+      it "CM510" $
         "[foo][BaR]\n\n[bar]: /url \"title\"" ==->
           "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
-      it "CM509" $
+      it "CM511" $
         "[Толпой][Толпой] is a Russian word.\n\n[ТОЛПОЙ]: /url" ==->
           "<p><a href=\"/url\">Толпой</a> is a Russian word.</p>\n"
-      it "CM510" $
+      it "CM512" $
         "[Foo\n  bar]: /url\n\n[Baz][Foo bar]" ==->
           "<p><a href=\"/url\">Baz</a></p>\n"
-      it "CM511" $
+      it "CM513" $
         let s = "[foo] [bar]\n\n[bar]: /url \"title\""
         in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo" [])
-      it "CM512" $
+      it "CM514" $
         let s = "[foo]\n[bar]\n\n[bar]: /url \"title\""
         in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo" [])
-      it "CM513" $
+      it "CM515" $
         let s = "[foo]: /url1\n\n[foo]: /url2\n\n[bar][foo]"
         in s ~-> errFancy (posN 15 s) (duplicateRef "foo")
-      it "CM514" $
+      it "CM516" $
         "[bar][foo\\!]\n\n[foo!]: /url" ==->
           "<p><a href=\"/url\">bar</a></p>\n"
-      it "CM515" $
+      it "CM517" $
         let s = "[foo][ref[]\n\n[ref[]: /uri"
         in s ~~->
            [ err (posN 9 s) (utok '[' <> etok ']' <> elabel "the rest of reference label")
            , err (posN 17 s) (utok '[' <> etok ']' <> eic) ]
-      it "CM516" $
+      it "CM518" $
         let s = "[foo][ref[bar]]\n\n[ref[bar]]: /uri"
         in s ~~->
            [ err (posN 9 s) (utok '[' <> etok ']' <> elabel "the rest of reference label")
            , err (posN 21 s) (utok '[' <> etok ']' <> eic) ]
-      it "CM517" $
+      it "CM519" $
         let s = "[[[foo]]]\n\n[[[foo]]]: /url"
         in s ~~->
            [ err (posN 1 s) (utok '[' <> eic)
            , err (posN 12 s) (utok '[' <> eic) ]
-      it "CM518" $
+      it "CM520" $
         "[foo][ref\\[]\n\n[ref\\[]: /uri" ==->
           "<p><a href=\"/uri\">foo</a></p>\n"
-      it "CM519" $
+      it "CM521" $
         "[bar\\\\]: /uri\n\n[bar\\\\]" ==->
           "<p><a href=\"/uri\">bar\\</a></p>\n"
-      it "CM520" $
+      it "CM522" $
         let s = "[]\n\n[]: /uri"
         in s ~~->
            [ err (posN 1 s) (utok ']' <> eic)
            , err (posN 5 s) (utok ']' <> eic) ]
-      it "CM521" $
+      it "CM523" $
         let s = "[\n ]\n\n[\n ]: /uri"
         in s ~~->
           [ errFancy (posN 1 s) (couldNotMatchRef "" [])
           , errFancy (posN 7 s) (couldNotMatchRef "" []) ]
-      it "CM522" $
+      it "CM524" $
         "[foo][]\n\n[foo]: /url \"title\"" ==->
           "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
-      it "CM523" $
+      it "CM525" $
         let s = "[*foo* bar][]\n\n[*foo* bar]: /url \"title\""
         in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo bar" ["*foo* bar"])
-      it "CM524" $
+      it "CM526" $
         "[Foo][]\n\n[foo]: /url \"title\"" ==->
           "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n"
-      it "CM525" $
+      it "CM527" $
         let s = "[foo] \n[]\n\n[foo]: /url \"title\""
         in s ~-> err (posN 8 s) (utok ']' <> eic)
-      it "CM526" $
+      it "CM528" $
         "[foo]\n\n[foo]: /url \"title\"" ==->
           "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
-      it "CM527" $
+      it "CM529" $
         let s = "[*foo* bar]\n\n[*foo* bar]: /url \"title\""
         in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo bar" ["*foo* bar"])
-      it "CM528" $
+      it "CM530" $
         let s = "[[*foo* bar]]\n\n[*foo* bar]: /url \"title\""
         in s ~-> err (posN 1 s) (utok '[' <> eic)
-      it "CM529" $
+      it "CM531" $
         let s = "[[bar [foo]\n\n[foo]: /url"
         in s ~-> err (posN 1 s) (utok '[' <> eic)
-      it "CM530" $
+      it "CM532" $
         "[Foo]\n\n[foo]: /url \"title\"" ==->
           "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n"
-      it "CM531" $
+      it "CM533" $
         "[foo] bar\n\n[foo]: /url" ==->
           "<p><a href=\"/url\">foo</a> bar</p>\n"
-      it "CM532" $
+      it "CM534" $
         let s = "\\[foo]\n\n[foo]: /url \"title\""
         in s ~-> err (posN 5 s) (utok ']' <> eeib <> eic)
-      it "CM533" $
+      it "CM535" $
         let s = "[foo*]: /url\n\n*[foo*]"
         in s ~-> err (posN 19 s) (utok '*' <> etok ']' <> eic)
-      it "CM534" $
+      it "CM536" $
         "[foo][bar]\n\n[foo]: /url1\n[bar]: /url2" ==->
           "<p><a href=\"/url2\">foo</a></p>\n"
-      it "CM535" $
+      it "CM537" $
         "[foo][]\n\n[foo]: /url1" ==->
           "<p><a href=\"/url1\">foo</a></p>\n"
-      it "CM536" $
+      it "CM538" $
         "[foo]()\n\n[foo]: /url1" ==->
           "<p><a href>foo</a></p>\n"
-      it "CM537" $
+      it "CM539" $
         let s = "[foo](not a link)\n\n[foo]: /url1"
         in s ~-> err (posN 10 s)
            (utok 'a' <> etok '"' <> etok '\'' <> etok '(' <> elabel "white space")
-      it "CM538" $
+      it "CM540" $
         let s = "[foo][bar][baz]\n\n[baz]: /url"
         in s ~-> errFancy (posN 6 s) (couldNotMatchRef "bar" ["baz"])
-      it "CM539" $
+      it "CM541" $
         "[foo][bar][baz]\n\n[baz]: /url1\n[bar]: /url2" ==->
           "<p><a href=\"/url2\">foo</a><a href=\"/url1\">baz</a></p>\n"
-      it "CM540" $
+      it "CM542" $
         let s = "[foo][bar][baz]\n\n[baz]: /url1\n[foo]: /url2"
         in s ~-> errFancy (posN 6 s) (couldNotMatchRef "bar" ["baz"])
     context "6.6 Images" $ do
-      it "CM541" $
+      it "CM543" $
         "![foo](/url \"title\")" ==->
           "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
-      it "CM542" $
+      it "CM544" $
         "![foo *bar*](train.jpg \"train & tracks\")" ==->
           "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo bar\"></p>\n"
-      it "CM543" $
+      it "CM545" $
         let s = "![foo ![bar](/url)](/url2)\n"
         in s ~-> err (posN 6 s) (utok '!' <> etok ']' <> eic)
-      it "CM544" $
+      it "CM546" $
         "![foo [bar](/url)](/url2)" ==->
           "<p><img src=\"/url2\" alt=\"foo bar\"></p>\n"
-      it "CM545" $
+      it "CM547" $
         let s = "![foo *bar*][]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n"
         in s ~-> errFancy (posN 2 s) (couldNotMatchRef "foo bar" ["foo *bar*"])
-      it "CM546" $
+      it "CM548" $
         "![foo *bar*][foobar]\n\n[FOOBAR]: train.jpg \"train & tracks\"" ==->
           "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo bar\"></p>\n"
-      it "CM547" $
+      it "CM549" $
         "![foo](train.jpg)" ==->
           "<p><img src=\"train.jpg\" alt=\"foo\"></p>\n"
-      it "CM548" $
+      it "CM550" $
         "My ![foo bar](/path/to/train.jpg  \"title\"   )" ==->
           "<p>My <img src=\"/path/to/train.jpg\" title=\"title\" alt=\"foo bar\"></p>\n"
-      it "CM549" $
+      it "CM551" $
         "![foo](<url>)" ==->
           "<p><img src=\"url\" alt=\"foo\"></p>\n"
-      it "CM550" $
+      it "CM552" $
         "![](/url)" ==-> "<p><img src=\"/url\" alt></p>\n"
-      it "CM551" $
+      it "CM553" $
         "![foo][bar]\n\n[bar]: /url" ==->
           "<p><img src=\"/url\" alt=\"foo\"></p>\n"
-      it "CM552" $
+      it "CM554" $
         "![foo][bar]\n\n[BAR]: /url" ==->
           "<p><img src=\"/url\" alt=\"foo\"></p>\n"
-      it "CM553" $
+      it "CM555" $
         "![foo][]\n\n[foo]: /url \"title\"" ==->
           "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
-      it "CM554" $
+      it "CM556" $
         "![foo bar][]\n\n[foo bar]: /url \"title\"" ==->
           "<p><img src=\"/url\" title=\"title\" alt=\"foo bar\"></p>\n"
-      it "CM555" $
+      it "CM557" $
         "![Foo][]\n\n[foo]: /url \"title\"" ==->
           "<p><img src=\"/url\" title=\"title\" alt=\"Foo\"></p>\n"
-      it "CM556" $
+      it "CM558" $
         let s = "![foo] \n[]\n\n[foo]: /url \"title\""
         in s ~-> err (posN 9 s) (utok ']' <> eic)
-      it "CM557" $
+      it "CM559" $
         "![foo]\n\n[foo]: /url \"title\"" ==->
           "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
-      it "CM558" $
+      it "CM560" $
         "![*foo* bar]\n\n[foo bar]: /url \"title\"\n" ==->
           "<p><img src=\"/url\" title=\"title\" alt=\"foo bar\"></p>\n"
-      it "CM559" $
+      it "CM561" $
         let s = "![[foo]]\n\n[[foo]]: /url \"title\""
         in s ~~->
            [ errFancy (posN 3 s) (couldNotMatchRef "foo" [])
            , err (posN 11 s) (utok '[' <> eic) ]
-      it "CM560" $
+      it "CM562" $
         "![Foo]\n\n[foo]: /url \"title\"" ==->
           "<p><img src=\"/url\" title=\"title\" alt=\"Foo\"></p>\n"
-      it "CM561" $
+      it "CM563" $
         "!\\[foo\\]\n\n[foo]: /url \"title\"" ==->
           "<p>![foo]</p>\n"
-      it "CM562" $
+      it "CM564" $
         "\\![foo]\n\n[foo]: /url \"title\"" ==->
           "<p>!<a href=\"/url\" title=\"title\">foo</a></p>\n"
     context "6.7 Autolinks" $ do
-      it "CM563" $
+      it "CM565" $
         "<http://foo.bar.baz>" ==->
           "<p><a href=\"http://foo.bar.baz/\">http://foo.bar.baz/</a></p>\n"
-      it "CM564" $
+      it "CM566" $
         "<http://foo.bar.baz/test?q=hello&id=22&boolean>" ==->
           "<p><a href=\"http://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean\">http://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean</a></p>\n"
-      it "CM565" $
+      it "CM567" $
         "<irc://foo.bar:2233/baz>" ==->
           "<p><a href=\"irc://foo.bar:2233/baz\">irc://foo.bar:2233/baz</a></p>\n"
-      it "CM566" $
+      it "CM568" $
         "<MAILTO:FOO@BAR.BAZ>" ==->
           "<p><a href=\"mailto:FOO@BAR.BAZ\">FOO@BAR.BAZ</a></p>\n"
-      it "CM567" $
+      it "CM569" $
         "<a+b+c:d>" ==->
           "<p><a href=\"a+b+c:d\">a+b+c:d</a></p>\n"
-      it "CM568" $
+      it "CM570" $
         "<made-up-scheme://foo,bar>" ==->
           "<p><a href=\"made-up-scheme://foo/,bar\">made-up-scheme://foo/,bar</a></p>\n"
-      it "CM569" $
+      it "CM571" $
         "<http://../>" ==->
           "<p>&lt;http://../&gt;</p>\n"
-      it "CM570" $
+      it "CM572" $
         "<localhost:5001/foo>" ==->
           "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>\n"
-      it "CM571" $
+      it "CM573" $
         "<http://foo.bar/baz bim>\n" ==->
           "<p>&lt;http://foo.bar/baz bim&gt;</p>\n"
-      it "CM572" $
+      it "CM574" $
         "<http://example.com/\\[\\>" ==->
           "<p>&lt;http://example.com/[&gt;</p>\n"
-      it "CM573" $
+      it "CM575" $
         "<foo@bar.example.com>" ==->
           "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n"
-      it "CM574" $
+      it "CM576" $
         "<foo+special@Bar.baz-bar0.com>" ==->
           "<p><a href=\"mailto:foo+special@Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n"
-      it "CM575" $
+      it "CM577" $
         "<foo\\+@bar.example.com>" ==->
           "<p>&lt;foo+@bar.example.com&gt;</p>\n"
-      it "CM576" $
+      it "CM578" $
         "<>" ==->
           "<p>&lt;&gt;</p>\n"
-      it "CM577" $
+      it "CM579" $
         "< http://foo.bar >" ==->
           "<p>&lt; http://foo.bar &gt;</p>\n"
-      it "CM578" $
+      it "CM580" $
         "<m:abc>" ==->
           "<p><a href=\"m:abc\">m:abc</a></p>\n"
-      it "CM579" $
+      it "CM581" $
         "<foo.bar.baz>" ==->
           "<p><a href=\"foo.bar.baz\">foo.bar.baz</a></p>\n"
-      it "CM580" $
+      it "CM582" $
         "http://example.com" ==->
           "<p>http://example.com</p>\n"
-      it "CM581" $
+      it "CM583" $
         "foo@bar.example.com" ==->
           "<p>foo@bar.example.com</p>\n"
+    context "6.8 Raw HTML" $
+      -- NOTE We do not support raw HTML, see the readme.
+      return ()
     context "6.9 Hard line breaks" $ do
       -- NOTE We currently do not support hard line breaks represented in
-      -- markup as space before newline.
-      xit "CM603" $
-        "foo  \nbaz" ==-> "<p>foo<br>\nbaz</p>\n"
-      it "CM604" $
-        "foo\\\nbaz\n" ==-> "<p>foo<br>\nbaz</p>\n"
-      xit "CM605" $
-         "foo       \nbaz" ==-> "<p>foo<br>\nbaz</p>\n"
-      xit "CM606" $
-        "foo  \n     bar" ==-> "<p>foo<br>\nbar</p>\n"
+      -- markup as two spaces before newline.
+      it "CM605" $
+        "foo  \nbaz" ==->
+          "<p>foo\nbaz</p>\n"
+      it "CM606" $
+        "foo\\\nbaz\n" ==->
+          "<p>foo<br>\nbaz</p>\n"
       it "CM607" $
-        "foo\\\n     bar" ==-> "<p>foo<br>\nbar</p>\n"
-      xit "CM608" $
-        "*foo  \nbar*" ==-> "<p><em>foo<br>\nbar</em></p>\n"
+         "foo       \nbaz" ==->
+           "<p>foo\nbaz</p>\n"
+      it "CM608" $
+        "foo  \n     bar" ==->
+          "<p>foo\nbar</p>\n"
       it "CM609" $
-        "*foo\\\nbar*" ==-> "<p><em>foo<br>\nbar</em></p>\n"
+        "foo\\\n     bar" ==->
+          "<p>foo<br>\nbar</p>\n"
       it "CM610" $
-        "`code  \nspan`" ==-> "<p><code>code span</code></p>\n"
+        "*foo  \nbar*" ==->
+          "<p><em>foo\nbar</em></p>\n"
       it "CM611" $
-        "`code\\\nspan`" ==-> "<p><code>code\\ span</code></p>\n"
-      xit "CM612" $
-        "<a href=\"foo  \nbar\">" ==-> "<p><a href=\"foo  \nbar\"></p>\n"
-      xit "CM613" $ -- FIXME pending HTML inlines
-        "<a href=\"foo\\\nbar\">" ==-> "<p><a href=\"foo\\\nbar\"></p>\n"
+        "*foo\\\nbar*" ==->
+          "<p><em>foo<br>\nbar</em></p>\n"
+      it "CM612" $
+        "`code  \nspan`" ==->
+          "<p><code>code span</code></p>\n"
+      it "CM613" $
+        "`code\\\nspan`" ==->
+          "<p><code>code\\ span</code></p>\n"
       it "CM614" $
-        "foo\\" ==-> "<p>foo\\</p>\n"
-      xit "CM615" $
-        "foo  " ==-> "<p>foo</p>\n"
+        "<a href=\"foo  \nbar\">" ==->
+          "<p>&lt;a href=&quot;foo\nbar&quot;&gt;</p>\n"
+      it "CM615" $
+        "<a href=\"foo\\\nbar\">" ==->
+          "<p>&lt;a href=&quot;foo<br>\nbar&quot;&gt;</p>\n"
       it "CM616" $
-        "### foo\\" ==-> "<h3 id=\"foo\">foo\\</h3>\n"
+        "foo\\" ==->
+          "<p>foo\\</p>\n"
       it "CM617" $
-        "### foo  " ==-> "<h3 id=\"foo\">foo</h3>\n"
-    context "6.10 Soft line breaks" $ do
+        "foo  " ==->
+          "<p>foo</p>\n"
       it "CM618" $
-        "foo\nbaz" ==-> "<p>foo\nbaz</p>\n"
+        "### foo\\" ==->
+          "<h3 id=\"foo\">foo\\</h3>\n"
       it "CM619" $
-        "foo \n baz" ==-> "<p>foo\nbaz</p>\n"
-    context "6.11 Textual content" $ do
+        "### foo  " ==->
+          "<h3 id=\"foo\">foo</h3>\n"
+    context "6.10 Soft line breaks" $ do
       it "CM620" $
-        "hello $.;'there" ==-> "<p>hello $.;&#39;there</p>\n"
+        "foo\nbaz" ==->
+          "<p>foo\nbaz</p>\n"
       it "CM621" $
-        "Foo χρῆν" ==-> "<p>Foo χρῆν</p>\n"
+        "foo \n baz" ==->
+          "<p>foo\nbaz</p>\n"
+    context "6.11 Textual content" $ do
       it "CM622" $
-        "Multiple     spaces" ==-> "<p>Multiple     spaces</p>\n"
+        "hello $.;'there" ==->
+          "<p>hello $.;&#39;there</p>\n"
+      it "CM623" $
+        "Foo χρῆν" ==->
+          "<p>Foo χρῆν</p>\n"
+      it "CM624" $
+        "Multiple     spaces" ==->
+          "<p>Multiple     spaces</p>\n"
     -- NOTE I don't test these so extensively because they share
     -- implementation with emphasis and strong emphasis which are thoroughly
     -- tested already.

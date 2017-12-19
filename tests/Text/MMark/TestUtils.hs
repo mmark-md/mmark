@@ -17,7 +17,6 @@ import Test.Hspec
 import Text.MMark (MMark, MMarkErr)
 import Text.Megaparsec
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Text          as T
 import qualified Data.Text.Lazy     as TL
 import qualified Lucid              as L
 import qualified Text.MMark         as MMark
@@ -65,7 +64,7 @@ input ~~-> errs'' =
       "but it failed with:\n"                  ++
       MMark.parseErrorsPretty input errs'
     Right x -> expectationFailure $
-      "the parser is expected to fail, but it parsed: " ++ T.unpack (toText x)
+      "the parser is expected to fail, but it parsed: " ++ show (toText x)
   where
     errs = NE.fromList errs''
 

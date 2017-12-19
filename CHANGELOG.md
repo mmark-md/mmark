@@ -1,3 +1,11 @@
+## MMark 0.0.3.1
+
+* Fixed a couple of bugs in the parser for reference definitions.
+
+* Now link and image titles may contain newline character as per the Common
+  Mark spec. They also may contain blank lines, which is against the spec
+  though.
+
 ## MMark 0.0.3.0
 
 * Code can interrupt paragraphs now, as per Common Mark spec.

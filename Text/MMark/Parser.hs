@@ -430,7 +430,11 @@ pReferenceDef = do
   (pos, dlabel) <- try $ pRefLabel <* char ':'
   sc' <* optional eol <* sc'
   uri <- pUri
-  mtitle <- optional (sc1' *> optional eol *> sc' *> pTitle)
+  mtitle <- optional . try $ do
+    try (sc1' *> optional eol *> sc') <|> (sc' *> eol *> sc')
+    pTitle
+  sc'
+  eof <|> eol
   conflict <- registerReference dlabel (uri, mtitle)
   when conflict $ do
     setPosition pos
@@ -728,7 +732,7 @@ pTitle = choice
   , p '('  ')' ]
   where
     p start end = between (char start) (char end) $
-      let f x = x /= end && notNewline x
+      let f x = x /= end
       in manyEscapedWith f "unescaped character"
 
 -- | Parse label of a reference link.

@@ -32,7 +32,7 @@ https://markkarpov.com/post/announcing-mmark.html
 
 MMark mostly tries to follow the Common Mark specification as given here:
 
-https://github.com/jgm/CommonMark
+http://spec.commonmark.org/0.28/
 
 However, due to the fact that we do not allow inputs that do not make sense,
 and also try to guard against common mistakes (like writing `##My header`
@@ -204,6 +204,7 @@ Inline-level parsing:
   reference in not enclosed with `<` and `>`, then closing parenthesis
   character `)` is not considered part of URI (use `<uri>` syntax if you
   want a closing parenthesis as part of a URI).
+* Titles in links and images can contain blank lines.
 * Putting links in text of another link is not allowed, i.e. no nested links
   is possible.
 * Putting images in description of other images is not allowed (similarly to
