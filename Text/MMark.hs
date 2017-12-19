@@ -66,7 +66,7 @@
 -- === “Getting started” example
 --
 -- Here is a complete example of a program that reads a markdown file named
--- @\"input.md\"@ and outputs an HTML file named @\"output.md\"@:
+-- @\"input.md\"@ and outputs an HTML file named @\"output.html\"@:
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- >
@@ -136,7 +136,7 @@ import Text.MMark.Internal
 import Text.MMark.Parser
 import Text.Megaparsec (ParseError (..), parseErrorPretty_, mkPos)
 
--- | Extract contents of optional YAML block that may have been parsed.
+-- | Extract contents of an optional YAML block that may have been parsed.
 
 projectYaml :: MMark -> Maybe Value
 projectYaml = mmarkYaml
