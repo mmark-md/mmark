@@ -206,7 +206,6 @@ Inline-level parsing:
   want a closing parenthesis as part of a URI). Since the empty string is a
   valid URI and it may be confusing in some cases, we also force the user to
   write `<>` to represent the empty URI.
-* Titles in links and images can contain blank lines.
 * Putting links in text of another link is not allowed, i.e. no nested links
   is possible.
 * Putting images in description of other images is not allowed (similarly to
