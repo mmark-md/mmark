@@ -122,12 +122,12 @@ spec = parallel $ do
           "<h1 id=\"foo\">foo</h1>\n<h2 id=\"foo\">foo</h2>\n<h3 id=\"foo\">foo</h3>\n<h4 id=\"foo\">foo</h4>\n<h5 id=\"foo\">foo</h5>\n<h6 id=\"foo\">foo</h6>\n"
       it "CM33" $
         let s = "####### foo"
-        in s ~-> err (posN 6 s) (utok '#' <> elabel "white space")
+        in s ~-> err (posN 6 s) (utok '#' <> ews)
       it "CM34" $
         let s = "#5 bolt\n\n#hashtag"
         in s ~~->
-             [ err (posN 1 s)  (utok '5' <> etok '#' <> elabel "white space")
-             , err (posN 10 s) (utok 'h' <> etok '#' <> elabel "white space") ]
+             [ err (posN 1 s)  (utok '5' <> etok '#' <> ews)
+             , err (posN 10 s) (utok 'h' <> etok '#' <> ews) ]
       it "CM35" $
         "\\## foo" ==-> "<p>## foo</p>\n"
       it "CM36" $
@@ -166,8 +166,8 @@ spec = parallel $ do
       it "CM49" $
         let s = "## \n#\n### ###"
         in s ~~->
-             [ err (posN 3 s) (utok '\n' <> elabel "heading character" <> elabel "white space")
-             , err (posN 5 s) (utok '\n' <> etok '#' <> elabel "white space") ]
+             [ err (posN 3 s) (utok '\n' <> elabel "heading character" <> ews)
+             , err (posN 5 s) (utok '\n' <> etok '#' <> ews) ]
     context "4.3 Setext headings" $ do
       -- NOTE we do not support them, the tests have been adjusted
       -- accordingly.
@@ -391,7 +391,7 @@ spec = parallel $ do
         let s = "[Foo bar\\]]:my_(url) 'title (with parens)'\n\n[Foo bar\\]]"
         in s ~-> err (posN 19 s) (utoks ") " <> etok '#' <> etok '/' <> etok '?'
              <> eeof <> elabel "newline" <> elabel "the rest of path piece"
-             <> elabel "white space" )
+             <> ews )
       it "CM162" $
         "[Foo bar]:\n<my%20url>\n'title'\n\n[Foo bar]" ==->
           "<p><a href=\"my%20url\" title=\"title\">Foo bar</a></p>\n"
@@ -405,12 +405,13 @@ spec = parallel $ do
         "[foo]:\n/url\n\n[foo]" ==->
           "<p><a href=\"/url\">foo</a></p>\n"
       it "CM166" $
-        "[foo]:\n\n[foo]" ==->
-          "<p><a href>foo</a></p>\n" -- URI may be actually empty!
+        let s = "[foo]:\n\n[foo]"
+        in s ~-> err (posN 7 s)
+             (utok '\n' <> etok '<' <> elabel "URI" <> ews)
       it "CM167" $
         let s = "[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n\n[foo]\n"
         in s ~-> err (posN 11 s) (utok '\\' <> etok '#' <> etok '/'
-             <> etok '?' <> elabel "end of URI literal" <> elabel "the rest of path piece")
+             <> etok '?' <> euri <> elabel "the rest of path piece")
       it "CM168" $
         "[foo]\n\n[foo]: url" ==->
           "<p><a href=\"url\">foo</a></p>\n"
@@ -432,11 +433,11 @@ spec = parallel $ do
       it "CM174" $
         let s = "[foo]: /url \"title\" ok"
         in s ~-> err (posN 20 s) (utoks "ok" <> eeof <> elabel "newline"
-             <> elabel "white space")
+             <> ews)
       it "CM175" $
         let s = "[foo]: /url\n\"title\" ok\n"
         in s ~-> err (posN 20 s) (utoks "ok" <> eeof <> elabel "newline"
-             <> elabel "white space")
+             <> ews)
       it "CM176" $
         "    [foo]: /url \"title\"" ==->
           "<pre><code>[foo]: /url &quot;title&quot;\n</code></pre>\n"
@@ -1296,15 +1297,16 @@ spec = parallel $ do
         "[link](/uri)" ==->
           "<p><a href=\"/uri\">link</a></p>\n"
       it "CM461" $
-        "[link]()" ==->
-          "<p><a href>link</a></p>\n"
+        let s = "[link]()"
+        in s ~-> err (posN 7 s)
+           (utok ')' <> etok '<' <> elabel "URI" <> ews)
       it "CM462" $
         "[link](<>)" ==->
           "<p><a href>link</a></p>\n"
       it "CM463" $
         let s = "[link](/my uri)\n"
         in s ~-> err (posN 11 s)
-           (utok 'u' <> etok '"' <> etok '\'' <> etok '(' <> elabel "white space")
+           (utok 'u' <> etok '"' <> etok '\'' <> etok '(' <> ews)
       it "CM464" $
         let s = "[link](</my uri>)\n"
         in s ~-> err (posN 11 s)
@@ -1312,16 +1314,17 @@ spec = parallel $ do
       it "CM465" $
         let s = "[link](foo\nbar)\n"
         in s ~-> err (posN 11 s)
-           (utok 'b' <> etok '"' <> etok '\'' <> etok '(' <> elabel "white space")
+           (utok 'b' <> etok '"' <> etok '\'' <> etok '(' <> ews)
       it "CM466" $
         let s = "[link](<foo\nbar>)\n"
         in s ~-> err (posN 11 s)
            (utok '\n' <> etok '#' <> etok '/' <> etok '>' <> etok '?' <> eppi)
       it "CM467" $
         let s = "[link](\\(foo\\))"
-        in s ~-> err (posN 7 s) (utok '\\' <> etoks "//" <> etok '#' <>
-             etok '/' <> etok '<' <> etok '?' <> elabel "ASCII alpha character" <>
-             euri <> elabel "path piece" <> elabel "white space")
+        in s ~-> err (posN 7 s)
+             (utok '\\' <> etoks "//" <> etok '#' <> etok '/' <> etok '<' <>
+              etok '?' <> elabel "ASCII alpha character" <> euri <>
+              elabel "path piece" <> ews)
       it "CM468" $
         "[link](foo(and(bar)))\n" ==->
           "<p><a href=\"foo(and(bar\">link</a>))</p>\n"
@@ -1348,7 +1351,7 @@ spec = parallel $ do
         in s ~-> err (posN 7 s)
              (utok '"' <> etoks "//" <> etok '#' <> etok '/' <> etok '<' <>
               etok '?' <> elabel "ASCII alpha character" <> euri <>
-              elabel "path piece" <> elabel "white space")
+              elabel "path piece" <> ews)
       it "CM476" $
         "[link](/url \"title\")\n[link](/url 'title')\n[link](/url (title))" ==->
           "<p><a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a></p>\n"
@@ -1361,7 +1364,7 @@ spec = parallel $ do
              (utok ' ' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
       it "CM479" $
         let s = "[link](/url \"title \"and\" title\")\n"
-        in s ~-> err (posN 20 s) (utok 'a' <> etok ')' <> elabel "white space")
+        in s ~-> err (posN 20 s) (utok 'a' <> etok ')' <> ews)
       it "CM480" $
         "[link](/url 'title \"and\" title')" ==->
           "<p><a href=\"/url\" title=\"title &quot;and&quot; title\">link</a></p>\n"
@@ -1547,12 +1550,12 @@ spec = parallel $ do
         "[foo][]\n\n[foo]: /url1" ==->
           "<p><a href=\"/url1\">foo</a></p>\n"
       it "CM538" $
-        "[foo]()\n\n[foo]: /url1" ==->
-          "<p><a href>foo</a></p>\n"
+        let s = "[foo]()\n\n[foo]: /url1"
+        in s ~-> err (posN 6 s) (utok ')' <> etok '<' <> elabel "URI" <> ews)
       it "CM539" $
         let s = "[foo](not a link)\n\n[foo]: /url1"
         in s ~-> err (posN 10 s)
-           (utok 'a' <> etok '"' <> etok '\'' <> etok '(' <> elabel "white space")
+           (utok 'a' <> etok '"' <> etok '\'' <> etok '(' <> ews)
       it "CM540" $
         let s = "[foo][bar][baz]\n\n[baz]: /url"
         in s ~-> errFancy (posN 6 s) (couldNotMatchRef "bar" ["baz"])
@@ -1672,7 +1675,7 @@ spec = parallel $ do
           "<p>&lt;foo+@bar.example.com&gt;</p>\n"
       it "CM578" $
         "<>" ==->
-          "<p>&lt;&gt;</p>\n"
+          "<p><a href></a></p>\n"
       it "CM579" $
         "< http://foo.bar >" ==->
           "<p>&lt; http://foo.bar &gt;</p>\n"
@@ -1799,7 +1802,7 @@ spec = parallel $ do
       it "invalid headers are skipped properly" $ do
         let s = "#My header\n\nSomething goes __here __.\n"
         s ~~->
-          [ err (posN 1 s) (utok 'M' <> etok '#' <> elabel "white space")
+          [ err (posN 1 s) (utok 'M' <> etok '#' <> ews)
           , errFancy (posN 34 s) (nonFlanking "__") ]
       describe "every block in a list gets its parse error propagated" $ do
         context "with unordered list" $
@@ -1951,10 +1954,10 @@ ueib = ulabel "end of inline block"
 eeib :: Ord t => ET t
 eeib = elabel "end of inline block"
 
--- | Expecting end of URI literal.
+-- | Expecting end of URI.
 
 euri :: Ord t => ET t
-euri = elabel "end of URI literal"
+euri = elabel "end of URI"
 
 -- | Expecting the rest of path piece.
 
@@ -1965,6 +1968,11 @@ eppi = elabel "the rest of path piece"
 
 eic :: Ord t => ET t
 eic = elabel "inline content"
+
+-- | Expecting white space.
+
+ews :: Ord t => ET t
+ews = elabel "white space"
 
 -- | Error component complaining that the given 'Text' is not in left- or
 -- right- flanking position.

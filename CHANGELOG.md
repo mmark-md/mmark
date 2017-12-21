@@ -1,3 +1,10 @@
+## MMark 0.0.3.2
+
+* Empty strings are not parsed as URIs anymore (even though a valid URI may
+  be represented as the empty string). Instead, it's now possible to write
+  an empty URI using the `<>` syntax (which previously was not recognized as
+  a URI in some contexts).
+
 ## MMark 0.0.3.1
 
 * Fixed a couple of bugs in the parser for reference definitions.

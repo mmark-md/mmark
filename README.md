@@ -203,7 +203,9 @@ Inline-level parsing:
   character references is provided. In addition to that, when a URI
   reference in not enclosed with `<` and `>`, then closing parenthesis
   character `)` is not considered part of URI (use `<uri>` syntax if you
-  want a closing parenthesis as part of a URI).
+  want a closing parenthesis as part of a URI). Since the empty string is a
+  valid URI and it may be confusing in some cases, we also force the user to
+  write `<>` to represent the empty URI.
 * Titles in links and images can contain blank lines.
 * Putting links in text of another link is not allowed, i.e. no nested links
   is possible.

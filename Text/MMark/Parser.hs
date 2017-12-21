@@ -583,7 +583,6 @@ pImage = do
 
 pAutolink :: IParser Inline
 pAutolink = between (char '<') (char '>') $ do
-  notFollowedBy (char '>') -- empty links don't make sense
   uri' <- URI.parser
   let (txt, uri) =
         case isEmailUri uri' of
@@ -711,13 +710,14 @@ pLocation innerPos inner = do
 -- | Parse a URI.
 
 pUri :: (Ord e, Show e, MonadParsec e Text m) => m URI
-pUri =
-  between (char '<') (char '>') URI.parser <|> naked
+pUri = between (char '<') (char '>') URI.parser <|> naked
   where
     naked = do
       let f x = not (isSpaceN x || x == ')')
-          l   = "end of URI literal"
+          l   = "end of URI"
       (s, s') <- T.span f <$> getInput
+      when (T.null s) . void $
+        (satisfy f <?> "URI") -- this will now fail
       setInput s
       r <- region (replaceEof l) (URI.parser <* label l eof)
       setInput s'
