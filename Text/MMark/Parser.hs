@@ -39,6 +39,7 @@ import Text.Megaparsec.Char hiding (eol)
 import Text.URI (URI)
 import qualified Control.Applicative.Combinators.NonEmpty as NE
 import qualified Data.Char                  as Char
+import qualified Data.DList                 as DList
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as E
@@ -72,22 +73,6 @@ data InlineState
   | DoubleFrame InlineFrame InlineFrame -- ^ Two frames to be closed
   deriving (Eq, Ord, Show)
 
--- | An auxiliary type for collapsing levels of 'Either's.
-
-data Pair s a
-  = PairL s
-  | PairR ([a] -> [a])
-
-instance Semigroup s => Semigroup (Pair s a) where
-  (PairL l) <> (PairL r) = PairL (l <> r)
-  (PairL l) <> (PairR _) = PairL l
-  (PairR _) <> (PairL r) = PairL r
-  (PairR l) <> (PairR r) = PairR (l . r)
-
-instance Semigroup s => Monoid (Pair s a) where
-  mempty  = PairR id
-  mappend = (<>)
-
 ----------------------------------------------------------------------------
 -- Top-level API
 
@@ -111,18 +96,15 @@ parse file input =
     Right ((myaml, rawBlocks), defs) ->
       let parsed = doInline <$> rawBlocks
           doInline = fmap
-            $ first (nes . replaceEof "end of inline block")
+            $ first (replaceEof "end of inline block")
             . runIParser defs pInlinesTop
-          f block =
-            case foldMap e2p block of
-              PairL errs -> PairL errs
-              PairR _    -> PairR (fmap fromRight block :)
-      in case foldMap f parsed of
-           PairL errs   -> Left errs
-           PairR blocks -> Right MMark
+          e2p = either DList.singleton (const DList.empty)
+      in case NE.nonEmpty . DList.toList $ foldMap (foldMap e2p) parsed of
+           Nothing -> Right MMark
              { mmarkYaml      = myaml
-             , mmarkBlocks    = blocks []
+             , mmarkBlocks    = fmap fromRight <$> parsed
              , mmarkExtension = mempty }
+           Just errs -> Left errs
 
 ----------------------------------------------------------------------------
 -- Block parser
@@ -1075,11 +1057,6 @@ normalizeListItems xs' =
     toParagraph other         = other
     toNaked (Paragraph inner) = Naked inner
     toNaked other             = other
-
-e2p :: Either a b -> Pair a b
-e2p = \case
-  Left  a -> PairL a
-  Right b -> PairR (b:)
 
 succeeds :: Alternative m => m () -> m Bool
 succeeds m = True <$ m <|> pure False
