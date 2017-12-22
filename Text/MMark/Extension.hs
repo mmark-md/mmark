@@ -111,7 +111,6 @@ scanner
   -> (a -> Bni -> a)   -- ^ Folding function
   -> L.Fold Bni a      -- ^ Resulting 'L.Fold'
 scanner a f = L.Fold f a id
-{-# INLINE scanner #-}
 
 -- | Create a 'L.FoldM' from an initial state and a folding function
 -- operating in monadic context.
@@ -124,4 +123,3 @@ scannerM
   -> (a -> Bni -> m a) -- ^ Folding function
   -> L.FoldM m Bni a   -- ^ Resulting 'L.FoldM'
 scannerM a f = L.FoldM f a return
-{-# INLINE scannerM #-}

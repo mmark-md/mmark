@@ -237,7 +237,6 @@ runScanner
   -> L.Fold Bni a      -- ^ 'L.Fold' to use
   -> a                 -- ^ Result of scanning
 runScanner MMark {..} f = L.fold f mmarkBlocks
-{-# INLINE runScanner #-}
 
 -- | Like 'runScanner', but allows to run scanners with monadic context.
 --
@@ -252,7 +251,6 @@ runScannerM
   -> L.FoldM m Bni a   -- ^ 'L.FoldM' to use
   -> m a               -- ^ Result of scanning
 runScannerM MMark {..} f = L.foldM f mmarkBlocks
-{-# INLINE runScannerM #-}
 
 ----------------------------------------------------------------------------
 -- Renders
