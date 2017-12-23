@@ -25,6 +25,7 @@ where
 import Control.Applicative
 import Control.Monad
 import Data.Bifunctor (Bifunctor (..))
+import Data.Bool (bool)
 import Data.HTML.Entities (htmlEntityMap)
 import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.Maybe (isNothing, fromJust, fromMaybe, catMaybes)
@@ -298,7 +299,7 @@ pUnorderedList = do
       let tooFar = sourceLine p > sourceLine bulletPos <> pos1
           rlevel = slevel minLevel indLevel
       if tooFar || sourceColumn p < minLevel
-        then return [if tooFar then emptyParagraph else emptyNaked]
+        then return [bool Naked Paragraph tooFar emptyIspSpan]
         else subEnv True rlevel pBlocks
 
 -- | Parse a list bullet. Return a tuple with the following components (in
@@ -355,7 +356,7 @@ pOrderedList = do
       let tooFar = sourceLine p > sourceLine indexPos <> pos1
           rlevel = slevel minLevel indLevel
       if tooFar || sourceColumn p < minLevel
-        then return [if tooFar then emptyParagraph else emptyNaked]
+        then return [bool Naked Paragraph tooFar emptyIspSpan]
         else subEnv True rlevel pBlocks
 
 -- | Parse a list index. Return a tuple with the following components (in
@@ -784,6 +785,19 @@ pRfdr frame = try $ do
 ----------------------------------------------------------------------------
 -- Parsing helpers
 
+manyIndexed :: (Alternative m, Num n) => n -> (n -> m a) -> m [a]
+manyIndexed n' m = go n'
+  where
+    go !n = liftA2 (:) (m n) (go (n + 1)) <|> pure []
+
+foldMany :: Alternative f => f (a -> a) -> f (a -> a)
+foldMany f = go
+  where
+    go = (flip (.) <$> f <*> go) <|> pure id
+
+foldSome :: Alternative f => f (a -> a) -> f (a -> a)
+foldSome f = flip (.) <$> f <*> foldMany f
+
 nonEmptyLine :: BParser Text
 nonEmptyLine = takeWhile1P Nothing notNewline
 
@@ -931,8 +945,7 @@ assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)
 stripIndent :: Pos -> Text -> Text
 stripIndent indent txt = T.drop m txt
   where
-    m = snd $ T.foldl' f (0, 0) (T.takeWhile p txt)
-    p x = isSpace x || x == '>'
+    m = snd $ T.foldl' f (0, 0) (T.takeWhile isSpace txt)
     f (!j, !n) ch
       | j  >= i    = (j, n)
       | ch == ' '  = (j + 1, n + 1)
@@ -1019,24 +1032,8 @@ splitYamlError file str = maybe (Nothing, str) (first pure) (parseMaybe p str)
       r <- takeRest
       return (SourcePos file l c, r)
 
-emptyParagraph :: Block Isp
-emptyParagraph = Paragraph (IspSpan (initialPos "") "")
-
-emptyNaked :: Block Isp
-emptyNaked = Naked (IspSpan (initialPos "") "")
-
-manyIndexed :: (Alternative m, Num n) => n -> (n -> m a) -> m [a]
-manyIndexed n' m = go n'
-  where
-    go !n = liftA2 (:) (m n) (go (n + 1)) <|> pure []
-
-foldMany :: Alternative f => f (a -> a) -> f (a -> a)
-foldMany f = go
-  where
-    go = (flip (.) <$> f <*> go) <|> pure id
-
-foldSome :: Alternative f => f (a -> a) -> f (a -> a)
-foldSome f = flip (.) <$> f <*> foldMany f
+emptyIspSpan :: Isp
+emptyIspSpan = IspSpan (initialPos "") ""
 
 normalizeListItems :: NonEmpty [Block Isp] -> NonEmpty [Block Isp]
 normalizeListItems xs' =
