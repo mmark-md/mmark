@@ -8,6 +8,9 @@
 * Improved parse errors related to parsing of titles in links, images, and
   reference definitions.
 
+* Parsing of reference definitions now can recover from failures, so the
+  parser doesn't choke on malformed reference definitions anymore.
+
 ## MMark 0.0.3.1
 
 * Fixed a couple of bugs in the parser for reference definitions.

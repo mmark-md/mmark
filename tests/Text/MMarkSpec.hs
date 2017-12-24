@@ -389,9 +389,10 @@ spec = parallel $ do
           "<p><a href=\"/url\" title=\"the title\">foo</a></p>\n"
       it "CM161" $
         let s = "[Foo bar\\]]:my_(url) 'title (with parens)'\n\n[Foo bar\\]]"
-        in s ~-> err (posN 19 s) (utoks ") " <> etok '#' <> etok '/' <> etok '?'
-             <> eeof <> elabel "newline" <> elabel "the rest of path piece"
-             <> ews )
+        in s ~~->
+           [ err (posN 19 s) (utoks ") " <> etok '#' <> etok '/' <> etok '?'
+             <> elabel "newline" <> elabel "the rest of path piece" <> ews )
+           , errFancy (posN 45 s) (couldNotMatchRef "Foo bar]" []) ]
       it "CM162" $
         "[Foo bar]:\n<my%20url>\n'title'\n\n[Foo bar]" ==->
           "<p><a href=\"my%20url\" title=\"title\">Foo bar</a></p>\n"
@@ -406,8 +407,9 @@ spec = parallel $ do
           "<p><a href=\"/url\">foo</a></p>\n"
       it "CM166" $
         let s = "[foo]:\n\n[foo]"
-        in s ~-> err (posN 7 s)
-             (utok '\n' <> etok '<' <> elabel "URI" <> ews)
+        in s ~~->
+           [ err (posN 7 s) (utok '\n' <> etok '<' <> elabel "URI" <> ews)
+           , errFancy (posN 9 s) (couldNotMatchRef "foo" []) ]
       it "CM167" $
         let s = "[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n\n[foo]\n"
         in s ~-> err (posN 11 s) (utok '\\' <> etok '#' <> etok '/'
@@ -432,12 +434,10 @@ spec = parallel $ do
           "<p>bar</p>\n"
       it "CM174" $
         let s = "[foo]: /url \"title\" ok"
-        in s ~-> err (posN 20 s) (utoks "ok" <> eeof <> elabel "newline"
-             <> ews)
+        in s ~-> err (posN 20 s) (utoks "ok" <> elabel "newline" <> ews)
       it "CM175" $
         let s = "[foo]: /url\n\"title\" ok\n"
-        in s ~-> err (posN 20 s) (utoks "ok" <> eeof <> elabel "newline"
-             <> ews)
+        in s ~-> err (posN 20 s) (utoks "ok" <> elabel "newline" <> ews)
       it "CM176" $
         "    [foo]: /url \"title\"" ==->
           "<pre><code>[foo]: /url &quot;title&quot;\n</code></pre>\n"
@@ -824,8 +824,10 @@ spec = parallel $ do
           (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
       it "CM300" $
         let s = "[foo]\n\n[foo]: /bar\\* \"ti\\*tle\""
-        in s ~-> err (posN 18 s)
-          (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
+        in s ~~->
+           [ errFancy (posN 1 s) (couldNotMatchRef "foo" [])
+           , err (posN 18 s)
+               (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi) ]
       it "CM301" $
         "``` foo\\+bar\nfoo\n```" ==->
           "<pre><code class=\"language-foo+bar\">foo\n</code></pre>\n"
@@ -1797,7 +1799,7 @@ spec = parallel $ do
         let s = "[something]: something something"
         in s ~-> err (posN 23 s)
            (utoks "so" <> etok '\'' <> etok '\"' <> etok '(' <>
-            elabel "white space" <> elabel "newline" <> eeof)
+            elabel "white space" <> elabel "newline")
     context "multiple parse errors" $ do
       it "they are reported in correct order" $ do
         let s = "Foo `\n\nBar `.\n"

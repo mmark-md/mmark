@@ -171,7 +171,7 @@ pBlock = do
         , Just <$> pUnorderedList
         , Just <$> pOrderedList
         , Just <$> pBlockquote
-        , Nothing <$ pReferenceDef
+        , pReferenceDef
         , Just <$> pParagraph ]
       _  ->
           Just <$> pIndentedCodeBlock
@@ -408,26 +408,30 @@ pBlockquote = do
 
 -- | Parse a link\/image reference definition and register it.
 
-pReferenceDef :: BParser ()
+pReferenceDef :: BParser (Maybe (Block Isp))
 pReferenceDef = do
-  (pos, dlabel) <- try $ pRefLabel <* char ':'
-  sc' <* optional eol <* sc'
-  uri <- pUri
-  hadSpN <- optional $
-    (sc1' *> option False (True <$ eol)) <|> (True <$ (sc' <* eol))
-  sc'
-  mtitle <-
-    if isJust hadSpN
-      then optional pTitle <* sc'
-      else return Nothing
-  case (hadSpN, mtitle) of
-    (Just True,  Nothing) -> return ()
-    _                     -> eof <|> eol
-  conflict <- registerReference dlabel (uri, mtitle)
-  when conflict $ do
-    setPosition pos
-    customFailure (DuplicateReferenceDefinition dlabel)
-  sc
+  (pos, dlabel) <- try (pRefLabel <* char ':')
+  withRecovery recover $ do
+    sc' <* optional eol <* sc'
+    uri <- pUri
+    hadSpN <- optional $
+      (sc1' *> option False (True <$ eol)) <|> (True <$ (sc' <* eol))
+    sc'
+    mtitle <-
+      if isJust hadSpN
+        then optional pTitle <* sc'
+        else return Nothing
+    case (hadSpN, mtitle) of
+      (Just True,  Nothing) -> return ()
+      _                     -> hidden eof <|> eol
+    conflict <- registerReference dlabel (uri, mtitle)
+    when conflict $ do
+      setPosition pos
+      customFailure (DuplicateReferenceDefinition dlabel)
+    Nothing <$ sc
+  where
+    recover err =
+      Just (Naked (IspError err)) <$ takeWhileP Nothing notNewline <* sc
 
 -- | Parse a paragraph or naked text (is some cases).
 
