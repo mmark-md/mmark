@@ -1306,7 +1306,7 @@ spec = parallel $ do
       it "CM463" $
         let s = "[link](/my uri)\n"
         in s ~-> err (posN 11 s)
-           (utok 'u' <> etok '"' <> etok '\'' <> etok '(' <> ews)
+           (utok 'u' <> etok '"' <> etok '\'' <> etok '(' <> etok ')' <> ews)
       it "CM464" $
         let s = "[link](</my uri>)\n"
         in s ~-> err (posN 11 s)
@@ -1314,7 +1314,7 @@ spec = parallel $ do
       it "CM465" $
         let s = "[link](foo\nbar)\n"
         in s ~-> err (posN 11 s)
-           (utok 'b' <> etok '"' <> etok '\'' <> etok '(' <> ews)
+           (utok 'b' <> etok '"' <> etok '\'' <> etok '(' <> etok ')' <> ews)
       it "CM466" $
         let s = "[link](<foo\nbar>)\n"
         in s ~-> err (posN 11 s)
@@ -1555,7 +1555,7 @@ spec = parallel $ do
       it "CM539" $
         let s = "[foo](not a link)\n\n[foo]: /url1"
         in s ~-> err (posN 10 s)
-           (utok 'a' <> etok '"' <> etok '\'' <> etok '(' <> ews)
+           (utok 'a' <> etok '"' <> etok '\'' <> etok '(' <> etok ')' <> ews)
       it "CM540" $
         let s = "[foo][bar][baz]\n\n[baz]: /url"
         in s ~-> errFancy (posN 6 s) (couldNotMatchRef "bar" ["baz"])

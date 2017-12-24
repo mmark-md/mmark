@@ -5,6 +5,8 @@
   an empty URI using the `<>` syntax (which previously was not recognized as
   a URI in some contexts).
 
+* Improved parse errors related to parsing of titles in links and images.
+
 ## MMark 0.0.3.1
 
 * Fixed a couple of bugs in the parser for reference definitions.

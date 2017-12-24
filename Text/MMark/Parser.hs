@@ -664,10 +664,15 @@ pLocation innerPos inner = do
       return (dest, mtitle)
   where
     inplace = do
-      void (char '(') <* sc
-      dest   <- pUri
-      mtitle <- optional (sc1 *> pTitle)
-      sc <* char ')'
+      void (char '(')
+      sc'
+      dest     <- pUri
+      hadSpace <- option False (True <$ sc1)
+      mtitle   <- if hadSpace
+        then optional pTitle
+        else return Nothing
+      sc'
+      void (char ')')
       return (dest, mtitle)
     withRef =
       pRefLabel >>= uncurry lookupRef
