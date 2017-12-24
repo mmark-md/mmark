@@ -28,7 +28,7 @@ import Data.Bifunctor (Bifunctor (..))
 import Data.Bool (bool)
 import Data.HTML.Entities (htmlEntityMap)
 import Data.List.NonEmpty (NonEmpty (..), (<|))
-import Data.Maybe (isNothing, fromJust, fromMaybe, catMaybes)
+import Data.Maybe (isNothing, fromJust, fromMaybe, catMaybes, isJust)
 import Data.Monoid (Any (..))
 import Data.Semigroup (Semigroup (..))
 import Data.Text (Text)
@@ -413,11 +413,16 @@ pReferenceDef = do
   (pos, dlabel) <- try $ pRefLabel <* char ':'
   sc' <* optional eol <* sc'
   uri <- pUri
-  mtitle <- optional . try $ do
-    try (sc1' *> optional eol *> sc') <|> (sc' *> eol *> sc')
-    pTitle
+  hadSpN <- optional $
+    (sc1' *> option False (True <$ eol)) <|> (True <$ (sc' <* eol))
   sc'
-  eof <|> eol
+  mtitle <-
+    if isJust hadSpN
+      then optional pTitle <* sc'
+      else return Nothing
+  case (hadSpN, mtitle) of
+    (Just True,  Nothing) -> return ()
+    _                     -> eof <|> eol
   conflict <- registerReference dlabel (uri, mtitle)
   when conflict $ do
     setPosition pos
@@ -669,9 +674,8 @@ pLocation innerPos inner = do
       dest     <- pUri
       hadSpace <- option False (True <$ sc1)
       mtitle   <- if hadSpace
-        then optional pTitle
+        then optional pTitle <* sc'
         else return Nothing
-      sc'
       void (char ')')
       return (dest, mtitle)
     withRef =

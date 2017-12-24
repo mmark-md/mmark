@@ -1792,6 +1792,12 @@ spec = parallel $ do
       it "a composite, complex example" $
         "***Something ~~~is not~~ going~ ^so well^** today*." ==->
           "<p><em><strong>Something <sub><del>is not</del> going</sub> <sup>so well</sup></strong> today</em>.</p>\n"
+    context "title parse errors" $
+      it "parse error is OK in reference definitions" $
+        let s = "[something]: something something"
+        in s ~-> err (posN 23 s)
+           (utoks "so" <> etok '\'' <> etok '\"' <> etok '(' <>
+            elabel "white space" <> elabel "newline" <> eeof)
     context "multiple parse errors" $ do
       it "they are reported in correct order" $ do
         let s = "Foo `\n\nBar `.\n"
