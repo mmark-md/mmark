@@ -11,6 +11,8 @@
 * Parsing of reference definitions now can recover from failures, so the
   parser doesn't choke on malformed reference definitions anymore.
 
+* Reduced allocations and improved speed of the parser significantly.
+
 ## MMark 0.0.3.1
 
 * Fixed a couple of bugs in the parser for reference definitions.

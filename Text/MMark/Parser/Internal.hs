@@ -10,8 +10,7 @@
 -- An internal module that builds a framework on which the
 -- "Text.MMark.Parser" module is built.
 
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Text.MMark.Parser.Internal
   ( -- * Block-level parser monad
@@ -44,7 +43,6 @@ module Text.MMark.Parser.Internal
   , MMarkErr (..) )
 where
 
-import Control.Applicative
 import Control.Monad.State.Strict
 import Data.Default.Class
 import Data.Function ((&))
@@ -67,14 +65,7 @@ import qualified Text.Megaparsec     as M
 
 -- | Block-level parser type.
 
-newtype BParser a = BParser
-  { unBParser :: ParsecT MMarkErr Text (State BlockState) a }
-  deriving ( Functor
-           , Applicative
-           , Alternative
-           , Monad
-           , MonadPlus
-           , MonadParsec MMarkErr Text )
+type BParser a = ParsecT MMarkErr Text (State BlockState) a
 
 -- | Run a computation in the 'BParser' monad.
 
@@ -87,7 +78,7 @@ runBParser
      -- ^ Input to parse
   -> Either (NonEmpty (ParseError Char MMarkErr)) (a, Defs)
      -- ^ Result of parsing
-runBParser (BParser p) file input =
+runBParser p file input =
   case runState (runParserT p file input) def of
     (Left err, _) -> Left  (err :| [])
     (Right x, st) -> Right (x, st ^. bstDefs)
@@ -95,12 +86,12 @@ runBParser (BParser p) file input =
 -- | Ask whether naked paragraphs are allowed in this context.
 
 isNakedAllowed :: BParser Bool
-isNakedAllowed = BParser $ gets (^. bstAllowNaked)
+isNakedAllowed = gets (^. bstAllowNaked)
 
 -- | Lookup current reference indentation level.
 
 refLevel :: BParser Pos
-refLevel = BParser $ gets (^. bstRefLevel)
+refLevel = gets (^. bstRefLevel)
 
 -- | Execute 'BParser' computation with modified environment.
 
@@ -109,11 +100,9 @@ subEnv
   -> Pos               -- ^ Reference indentation level
   -> BParser a         -- ^ The parser we want to set the environment for
   -> BParser a         -- ^ The resulting parser
-subEnv allowNaked rlevel
-  = BParser
-  . locally bstAllowNaked allowNaked
-  . locally bstRefLevel   rlevel
-  . unBParser
+subEnv allowNaked rlevel =
+  locally bstAllowNaked allowNaked .
+  locally bstRefLevel   rlevel
 
 -- | Register a reference (link\/image) definition.
 
@@ -138,7 +127,7 @@ registerGeneric
   -> Text              -- ^ Definition name
   -> a                 -- ^ Data
   -> BParser Bool      -- ^ 'True' if there is a conflicting definition
-registerGeneric l name a = BParser $ do
+registerGeneric l name a = do
   let dlabel = mkDefLabel name
   defs <- gets (^. bstDefs . l)
   if HM.member dlabel defs
@@ -152,14 +141,7 @@ registerGeneric l name a = BParser $ do
 
 -- | Inline-level parser type.
 
-newtype IParser a = IParser
-  { unIParser :: StateT InlineState (Parsec MMarkErr Text) a }
-  deriving ( Functor
-           , Applicative
-           , Alternative
-           , Monad
-           , MonadPlus
-           , MonadParsec MMarkErr Text )
+type IParser a = StateT InlineState (Parsec MMarkErr Text) a
 
 -- | Run a computation in the 'IParser' monad.
 
@@ -174,7 +156,7 @@ runIParser
   -> Either (ParseError Char MMarkErr) a
      -- ^ Result of parsing
 runIParser _ _ (IspError err) = Left err
-runIParser defs (IParser p) (IspSpan startPos input) =
+runIParser defs p (IspSpan startPos input) =
   snd (runParser' (evalStateT p ist) pst)
   where
     ist = def & istDefs .~ defs
@@ -188,53 +170,53 @@ runIParser defs (IParser p) (IspSpan startPos input) =
 -- | Disallow parsing of empty inlines.
 
 disallowEmpty :: IParser a -> IParser a
-disallowEmpty = IParser . locally istAllowEmpty False . unIParser
+disallowEmpty = locally istAllowEmpty False
 
 -- | Ask whether parsing of empty inlines is allowed.
 
 isEmptyAllowed :: IParser Bool
-isEmptyAllowed = IParser . gets $ view istAllowEmpty
+isEmptyAllowed = gets (view istAllowEmpty)
 
 -- | Disallow parsing of links.
 
 disallowLinks :: IParser a -> IParser a
-disallowLinks = IParser . locally istAllowLinks False . unIParser
+disallowLinks = locally istAllowLinks False
 
 -- | Ask whether parsing of links is allowed.
 
 isLinksAllowed :: IParser Bool
-isLinksAllowed = IParser . gets $ view istAllowLinks
+isLinksAllowed = gets (view istAllowLinks)
 
 -- | Disallow parsing of images.
 
 disallowImages :: IParser a -> IParser a
-disallowImages = IParser . locally istAllowImages False . unIParser
+disallowImages = locally istAllowImages False
 
 -- | Ask whether parsing of images is allowed.
 
 isImagesAllowed :: IParser Bool
-isImagesAllowed = IParser . gets $ view istAllowImages
+isImagesAllowed = gets (view istAllowImages)
 
 -- | Ask whether the last seen char type was space.
 
 isLastSpace :: IParser Bool
-isLastSpace = IParser . gets $ view (istLastChar . to (== SpaceChar))
+isLastSpace = gets $ view (istLastChar . to (== SpaceChar))
 
 -- | Ask whether the last seen char type was “other” (not space).
 
 isLastOther :: IParser Bool
-isLastOther = IParser . gets $ view (istLastChar . to (== OtherChar))
+isLastOther = gets $ view (istLastChar . to (== OtherChar))
 
 -- | Register that the last seen char type is space.
 
 lastSpace :: IParser ()
-lastSpace = IParser . modify' $ set istLastChar SpaceChar
+lastSpace = modify' $ set istLastChar SpaceChar
 {-# INLINE lastSpace #-}
 
 -- | Register that the last seen char type is “other” (not space).
 
 lastOther :: IParser ()
-lastOther = IParser . modify' $ set istLastChar OtherChar
+lastOther = modify' $ set istLastChar OtherChar
 {-# INLINE lastOther #-}
 
 -- | Lookup a link\/image reference definition.
@@ -267,7 +249,7 @@ lookupGeneric
   -> IParser (Either [Text] a)
      -- ^ A collection of suggested reference names in 'Left' (typo
      -- corrections) or the requested definition in 'Right'
-lookupGeneric l name = IParser $ do
+lookupGeneric l name = do
   let dlabel = mkDefLabel name
   defs <- gets (view (istDefs . l))
   case HM.lookup dlabel defs of
