@@ -7,6 +7,14 @@
 [![Build Status](https://travis-ci.org/mrkkrp/mmark.svg?branch=master)](https://travis-ci.org/mrkkrp/mmark)
 [![Coverage Status](https://coveralls.io/repos/mrkkrp/mmark/badge.svg?branch=master&service=github)](https://coveralls.io/github/mrkkrp/mmark?branch=master)
 
+* [MMark and Common Mark](#mmark-and-common-mark)
+    * [Differences in inline parsing](#differences-in-inline-parsing)
+    * [Other differences](#other-differences)
+* [About MMark-specific extensions](#about-mmark-specific-extensions)
+* [Performance](#performance)
+* [Contribution](#contribution)
+* [License](#license)
+
 MMark (read “em-mark”) is a strict markdown processor for writers. “Strict”
 means that not every input is considered valid markdown document and parse
 errors are possible and even desirable, because they allow to spot markup
@@ -213,7 +221,7 @@ Inline-level parsing:
 * HTML inlines are not supported for the same reason why HTML blocks are not
   supported.
 
-### Additional information about MMark-specific extensions
+## About MMark-specific extensions
 
 * YAML block must start with three hyphens `---` and end with three hyphens
   `---`. It can only be placed at the beginning of a markdown document.
