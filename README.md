@@ -233,13 +233,13 @@ I have compared speed and memory consumption of various Haskell markdown
 libraries by running them on an identical, big-enough markdown document and
 by rendering it as HTML:
 
-Library      | Execution time | Allocated   | Max residency | Parsing library
--------------|----------------|-------------|---------------|----------------
-`cmark`      | 325.5 μs       |     228,440 |         9,608 | Custom C code
-`mmark`      | 9.897 ms       |  32,325,976 |     1,025,880 | Megaparsec
-`cheapskate` | 10.84 ms       |  44,686,272 |       799,200 | Custom Haskell code
-`markdown` † | 14.14 ms       |  69,261,816 |       699,656 | Attoparsec
-`pandoc`     | 38.32 ms       | 141,868,840 |     1,471,080 | Parsec
+Library             | Execution time | Allocated   | Max residency | Parsing library
+--------------------|----------------|-------------|---------------|----------------
+`cmark-0.5.6`       | 325.5 μs       |     228,440 |         9,608 | Custom C code
+`mmark-0.0.3.2`     | 9.897 ms       |  32,325,976 |     1,025,880 | Megaparsec
+`cheapskate-0.1.1`  | 10.84 ms       |  44,686,272 |       799,200 | Custom Haskell code
+`markdown-0.1.16` † | 14.14 ms       |  69,261,816 |       699,656 | Attoparsec
+`pandoc-2.0.5`      | 38.32 ms       | 141,868,840 |     1,471,080 | Parsec
 
 *Results are ordered from fastest to slowest.*
 
