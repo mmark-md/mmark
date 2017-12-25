@@ -219,6 +219,29 @@ Inline-level parsing:
   `---`. It can only be placed at the beginning of a markdown document.
   Trailing white space after the `---` sequences is allowed.
 
+## Performance
+
+I have compared speed and memory consumption of various Haskell markdown
+libraries by running them on an identical, big-enough markdown document and
+by rendering it as HTML:
+
+Library      | Execution time | Allocated   | Max residency | Parsing library
+-------------|----------------|-------------|---------------|----------------
+`cmark`      | 325.5 μs       |     228,440 |         9,608 | Custom C code
+`cheapskate` | 10.84 ms       |  44,686,272 |       799,200 | Custom Haskell code
+`mmark`      | 12.10 ms       |  62,319,152 |       917,856 | Megaparsec
+`markdown` † | 14.14 ms       |  69,261,816 |       699,656 | Attoparsec
+`pandoc`     | 38.32 ms       | 141,868,840 |     1,471,080 | Parsec
+
+*Results are ordered from fastest to slowest.*
+
+† The `markdown` library is sloppy and parses markdown incorrectly. For
+example, it parses the following `*My * text` as an inline containing
+emphasis, while in reality both asterisks must form flanking delimiter runs
+to create emphasis, like so `*My* text`. This allowed `markdown` to get away
+with a far simpler approach to parsing at the price that it's not really a
+valid markdown implementation.
+
 ## Contribution
 
 Issues, bugs, and questions may be reported in [the GitHub issue tracker for
