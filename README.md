@@ -236,8 +236,8 @@ by rendering it as HTML:
 Library      | Execution time | Allocated   | Max residency | Parsing library
 -------------|----------------|-------------|---------------|----------------
 `cmark`      | 325.5 μs       |     228,440 |         9,608 | Custom C code
+`mmark`      | 9.897 ms       |  32,325,976 |     1,025,880 | Megaparsec
 `cheapskate` | 10.84 ms       |  44,686,272 |       799,200 | Custom Haskell code
-`mmark`      | 12.10 ms       |  62,319,152 |       917,856 | Megaparsec
 `markdown` † | 14.14 ms       |  69,261,816 |       699,656 | Attoparsec
 `pandoc`     | 38.32 ms       | 141,868,840 |     1,471,080 | Parsec
 
