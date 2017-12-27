@@ -196,7 +196,7 @@ instance ShowErrorComponent MMarkErr where
       "ordered list start numbers must be nine digits or less, " ++ show n
         ++ " is too big"
     ListIndexOutOfOrder actual expected ->
-      "list index out of order: " ++ show actual ++ ", expected "
+      "list index is out of order: " ++ show actual ++ ", expected "
         ++ show expected
     NonFlankingDelimiterRun dels ->
       showTokens dels ++ " should be in left- or right- flanking position"

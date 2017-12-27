@@ -90,9 +90,6 @@ parse
      -- ^ Parse errors or parsed document
 parse file input =
   case runBParser pMMark file input of
-    -- NOTE This parse error only happens when document structure on block
-    -- level cannot be parsed even with recovery, which should not normally
-    -- happen except for the cases when we deal with YAML parsing errors.
     Left errs -> Left errs
     Right ((myaml, rawBlocks), defs) ->
       let parsed = doInline <$> rawBlocks
@@ -142,12 +139,12 @@ pYamlBlock = do
           then return []
           else (l :) <$> go
   ls <- go
-  case (Yaml.decodeEither . TE.encodeUtf8 . T.intercalate "\n") ls of
-    Left err' -> do
-      let (apos, err) = splitYamlError (sourceName dpos) err'
-      return $ Left (fromMaybe dpos apos, err)
-    Right v ->
-      return (Right v)
+  return $
+    case (Yaml.decodeEither . TE.encodeUtf8 . T.intercalate "\n") ls of
+      Left err' ->
+        let (apos, err) = splitYamlError (sourceName dpos) err'
+        in Left (fromMaybe dpos apos, err)
+      Right v -> Right v
 
 -- | Parse several (possibly zero) blocks in a row.
 
@@ -287,8 +284,8 @@ pUnorderedList :: BParser (Block Isp)
 pUnorderedList = do
   (bullet, bulletPos, minLevel, indLevel) <-
     pListBullet Nothing
-  x      <- innerBlocks bulletPos minLevel indLevel
-  xs     <- many $ do
+  x  <- innerBlocks bulletPos minLevel indLevel
+  xs <- many $ do
     (_, bulletPos', minLevel', indLevel') <-
       pListBullet (Just (bullet, bulletPos))
     innerBlocks bulletPos' minLevel' indLevel'
@@ -315,16 +312,16 @@ pListBullet
      -- ^ Bullet 'Char' and start position of the first bullet in a list
   -> BParser (Char, SourcePos, Pos, Pos)
 pListBullet mbullet = try $ do
-  pos     <- getPosition
-  l       <- (<> mkPos 2) <$> L.indentLevel
-  bullet  <-
+  pos    <- getPosition
+  l      <- (<> mkPos 2) <$> L.indentLevel
+  bullet <-
     case mbullet of
       Nothing -> char '-' <|> char '+' <|> char '*'
       Just (bullet, bulletPos) -> do
         guard (sourceColumn pos >= sourceColumn bulletPos)
         char bullet
   eof <|> sc1
-  l'      <- L.indentLevel
+  l'     <- L.indentLevel
   return (bullet, pos, l, l')
 
 -- | Parse an ordered list.
@@ -806,10 +803,10 @@ manyIndexed n' m = go n'
 foldMany :: Alternative f => f (a -> a) -> f (a -> a)
 foldMany f = go
   where
-    go = (flip (.) <$> f <*> go) <|> pure id
+    go = liftA2 (flip (.)) f go <|> pure id
 
 foldSome :: Alternative f => f (a -> a) -> f (a -> a)
-foldSome f = flip (.) <$> f <*> foldMany f
+foldSome f = liftA2 (flip (.)) f (foldMany f)
 
 nonEmptyLine :: BParser Text
 nonEmptyLine = takeWhile1P Nothing notNewline
