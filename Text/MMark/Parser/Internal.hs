@@ -20,7 +20,6 @@ module Text.MMark.Parser.Internal
   , refLevel
   , subEnv
   , registerReference
-  , registerFootnote
     -- * Inline-level parser monad
   , IParser
   , runIParser
@@ -35,7 +34,6 @@ module Text.MMark.Parser.Internal
   , lastSpace
   , lastOther
   , lookupReference
-  , lookupFootnote
   , Isp (..)
     -- * Reference and footnote definitions
   , Defs
@@ -53,7 +51,6 @@ import Data.Text (Text)
 import Data.Text.Metrics (damerauLevenshteinNorm)
 import Lens.Micro (Lens', (^.), (.~), set, over, to)
 import Lens.Micro.Extras (view)
-import Text.MMark.Internal
 import Text.MMark.Parser.Internal.Type
 import Text.Megaparsec hiding (State)
 import Text.URI (URI)
@@ -111,14 +108,6 @@ registerReference
   -> (URI, Maybe Text) -- ^ Reference 'URI' and optional title
   -> BParser Bool      -- ^ 'True' if there is a conflicting definition
 registerReference = registerGeneric referenceDefs
-
--- | Register a footnote definition.
-
-registerFootnote
-  :: Text              -- ^ Reference name
-  -> NonEmpty Inline   -- ^ FIXME Footnote definition
-  -> BParser Bool      -- ^ 'True' if there is a conflicting definition
-registerFootnote = registerGeneric footnoteDefs
 
 -- | A generic function for registering definitions in 'BParser'.
 
@@ -228,16 +217,6 @@ lookupReference
      -- ^ A collection of suggested reference names in 'Left' (typo
      -- corrections) or the requested definition in 'Right'
 lookupReference = lookupGeneric referenceDefs
-
--- | Lookup a footnote definition.
-
-lookupFootnote
-  :: Text
-     -- ^ Footnote name
-  -> IParser (Either [Text] (NonEmpty Inline))
-     -- ^ A collection of suggested reference names in 'Left' (typo
-     -- corrections) or the requested definition in 'Right'
-lookupFootnote = lookupGeneric footnoteDefs
 
 -- | A generic function for looking up definition in 'IParser'.
 

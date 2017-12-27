@@ -33,7 +33,6 @@ module Text.MMark.Parser.Internal.Type
     -- * Reference and footnote definitions
   , Defs
   , referenceDefs
-  , footnoteDefs
   , DefLabel
   , mkDefLabel
   , unDefLabel
@@ -54,7 +53,6 @@ import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
 import Lens.Micro.TH
-import Text.MMark.Internal
 import Text.Megaparsec
 import Text.URI (URI)
 import qualified Data.CaseInsensitive as CI
@@ -137,14 +135,11 @@ data CharType
 data Defs = Defs
   { _referenceDefs :: HashMap DefLabel (URI, Maybe Text)
     -- ^ Reference definitions containing a 'URI' and optionally title
-  , _footnoteDefs :: HashMap DefLabel (NonEmpty Inline)
-    -- ^ FIXME Footnote definitions
   }
 
 instance Default Defs where
   def = Defs
     { _referenceDefs = HM.empty
-    , _footnoteDefs  = HM.empty
     }
 
 -- | An opaque type for definition label.
