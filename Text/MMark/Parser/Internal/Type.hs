@@ -132,7 +132,7 @@ data CharType
 
 -- | An opaque container for reference and footnote definitions.
 
-data Defs = Defs
+newtype Defs = Defs
   { _referenceDefs :: HashMap DefLabel (URI, Maybe Text)
     -- ^ Reference definitions containing a 'URI' and optionally title
   }
