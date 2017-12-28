@@ -20,13 +20,15 @@ where
 import Control.Arrow
 import Control.Monad
 import Data.Char (isSpace)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Data.Semigroup
 import Lucid
 import Text.MMark.Type
 import Text.MMark.Util
-import qualified Data.Text as T
-import qualified Text.URI  as URI
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Text          as T
+import qualified Text.URI           as URI
 
 -- | Render a 'MMark' markdown document. You can then render @'Html' ()@ to
 -- various things:
@@ -81,6 +83,8 @@ defaultBlockRender = \case
     let f x = class_ $ "language-" <> T.takeWhile (not . isSpace) x
     pre_ $ code_ (maybe [] (pure . f) infoString) (toHtml txt)
     newline
+  Naked (_,html) ->
+    html >> newline
   Paragraph (_,html) ->
     p_ html >> newline
   Blockquote blocks -> do
@@ -101,10 +105,22 @@ defaultBlockRender = \case
         li_ (newline <* mapM_ defaultBlockRender x)
         newline
     newline
-  Naked (_,html) ->
-    html >> newline
+  Table calign (hs :| rows) ->
+    table_ $ do
+      thead_ . tr_ $
+        forM_ (NE.zip calign hs) $ \(a, h) ->
+          th_ (alignStyle a) (snd h)
+      forM_ rows $ \row ->
+        tr_ $
+          forM_ (NE.zip calign row) $ \(a, h) ->
+            td_ (alignStyle a) (snd h)
   where
     mkId ois = [(id_ . headerId . getOis) ois]
+    alignStyle = \case
+      CellAlignDefault -> []
+      CellAlignLeft    -> [style_ "text-align:left"]
+      CellAlignRight   -> [style_ "text-align:right"]
+      CellAlignCenter  -> [style_ "text-align:center"]
 
 -- | Apply a render to a given 'Inline'.
 

@@ -22,6 +22,7 @@ module Text.MMark.Type
   , Render (..)
   , Bni
   , Block (..)
+  , CellAlign (..)
   , Inline (..)
   , Ois
   , mkOisInternal
@@ -150,6 +151,8 @@ data Block a
     -- ^ Heading (level 6), leaf block
   | CodeBlock (Maybe Text) Text
     -- ^ Code block, leaf block with info string and contents
+  | Naked a
+    -- ^ Naked content, without an enclosing tag
   | Paragraph a
     -- ^ Paragraph, leaf block
   | Blockquote [Block a]
@@ -158,11 +161,31 @@ data Block a
     -- ^ Ordered list ('Word' is the start index), container block
   | UnorderedList (NonEmpty [Block a])
     -- ^ Unordered list, container block
-  | Naked a
-    -- ^ Naked content, without an enclosing tag
+  | Table (NonEmpty CellAlign) (NonEmpty (NonEmpty a))
+    -- ^ Table, first argument is the alignment options, then we have a
+    -- 'NonEmpty' list of rows, where every row is a 'NonEmpty' list of
+    -- cells, where every cell is an @a@ thing.
+    --
+    -- The first row is always the header row, because pipe-tables that we
+    -- support cannot lack a header row.
+    --
+    -- @since 0.0.4.0
   deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor, Foldable)
 
 instance NFData a => NFData (Block a)
+
+-- | Options for cell alignment in tables.
+--
+-- @since 0.0.4.0
+
+data CellAlign
+  = CellAlignDefault   -- ^ No specific alignment specified
+  | CellAlignLeft      -- ^ Left-alignment
+  | CellAlignRight     -- ^ Right-alignment
+  | CellAlignCenter    -- ^ Center-alignment
+  deriving (Show, Eq, Ord, Data, Typeable, Generic)
+
+instance NFData CellAlign
 
 -- | Inline markdown content.
 

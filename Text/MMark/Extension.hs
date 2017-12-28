@@ -43,6 +43,7 @@ module Text.MMark.Extension
     -- ** Block-level manipulation
   , Bni
   , Block (..)
+  , CellAlign (..)
   , blockTrans
   , blockRender
   , Ois
