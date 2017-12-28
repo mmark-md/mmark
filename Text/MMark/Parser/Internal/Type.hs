@@ -165,36 +165,48 @@ unDefLabel (DefLabel x) = CI.original x
 data MMarkErr
   = YamlParseError String
     -- ^ YAML error that occurred during parsing of a YAML block
+  | NonFlankingDelimiterRun (NonEmpty Char)
+    -- ^ This delimiter run should be in left- or right- flanking position
   | ListStartIndexTooBig Word
     -- ^ Ordered list start numbers must be nine digits or less
+    --
+    -- @since 0.0.2.0
   | ListIndexOutOfOrder Word Word
     -- ^ The index in an ordered list is out of order, first number is the
     -- actual index we ran into, the second number is the expected index
-  | NonFlankingDelimiterRun (NonEmpty Char)
-    -- ^ This delimiter run should be in left- or right- flanking position
+    --
+    -- @since 0.0.2.0
   | DuplicateReferenceDefinition Text
     -- ^ Duplicate reference definitions are not allowed
+    --
+    -- @since 0.0.3.0
   | CouldNotFindReferenceDefinition Text [Text]
     -- ^ Could not find this reference definition, the second argument is
     -- the collection of close names (typo corrections)
+    --
+    -- @since 0.0.3.0
   | InvalidNumericCharacter Int
     -- ^ This numeric character is invalid
+    --
+    -- @since 0.0.3.0
   | UnknownHtmlEntityName Text
     -- ^ Unknown HTML5 entity name
+    --
+    -- @since 0.0.3.0
   deriving (Eq, Ord, Show, Read, Generic, Typeable, Data)
 
 instance ShowErrorComponent MMarkErr where
   showErrorComponent = \case
     YamlParseError str ->
       "YAML parse error: " ++ str
+    NonFlankingDelimiterRun dels ->
+      showTokens dels ++ " should be in left- or right- flanking position"
     ListStartIndexTooBig n ->
       "ordered list start numbers must be nine digits or less, " ++ show n
         ++ " is too big"
     ListIndexOutOfOrder actual expected ->
       "list index is out of order: " ++ show actual ++ ", expected "
         ++ show expected
-    NonFlankingDelimiterRun dels ->
-      showTokens dels ++ " should be in left- or right- flanking position"
     DuplicateReferenceDefinition name ->
       "duplicate reference definitions are not allowed: \""
         ++ T.unpack name ++ "\""
