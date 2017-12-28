@@ -33,8 +33,9 @@ import Data.Monoid (Any (..))
 import Data.Semigroup (Semigroup (..))
 import Data.Text (Text)
 import Data.Void
-import Text.MMark.Internal
 import Text.MMark.Parser.Internal
+import Text.MMark.Type
+import Text.MMark.Util
 import Text.Megaparsec hiding (parse, State (..))
 import Text.Megaparsec.Char hiding (eol)
 import Text.URI (URI)

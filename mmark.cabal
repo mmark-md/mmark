@@ -57,10 +57,12 @@ library
     build-depends:    semigroups       == 0.18.*
   exposed-modules:    Text.MMark
                     , Text.MMark.Extension
-  other-modules:      Text.MMark.Internal
-                    , Text.MMark.Parser
+  other-modules:      Text.MMark.Parser
                     , Text.MMark.Parser.Internal
                     , Text.MMark.Parser.Internal.Type
+                    , Text.MMark.Render
+                    , Text.MMark.Type
+                    , Text.MMark.Util
   if flag(dev)
     ghc-options:      -O0 -Wall -Werror
   else
