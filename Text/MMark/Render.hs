@@ -105,15 +105,25 @@ defaultBlockRender = \case
         li_ (newline <* mapM_ defaultBlockRender x)
         newline
     newline
-  Table calign (hs :| rows) ->
+  Table calign (hs :| rows) -> do
     table_ $ do
-      thead_ . tr_ $
-        forM_ (NE.zip calign hs) $ \(a, h) ->
-          th_ (alignStyle a) (snd h)
-      forM_ rows $ \row ->
+      newline
+      thead_ $ do
+        newline
         tr_ $
-          forM_ (NE.zip calign row) $ \(a, h) ->
-            td_ (alignStyle a) (snd h)
+          forM_ (NE.zip calign hs) $ \(a, h) ->
+            th_ (alignStyle a) (snd h)
+        newline
+      newline
+      tbody_ $ do
+        newline
+        forM_ rows $ \row -> do
+          tr_ $
+            forM_ (NE.zip calign row) $ \(a, h) ->
+              td_ (alignStyle a) (snd h)
+          newline
+      newline
+    newline
   where
     mkId ois = [(id_ . headerId . getOis) ois]
     alignStyle = \case

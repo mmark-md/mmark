@@ -170,6 +170,7 @@ pBlock = do
         , Just <$> pOrderedList
         , Just <$> pBlockquote
         , pReferenceDef
+        , Just <$> pTable
         , Just <$> pParagraph ]
       _  ->
           Just <$> pIndentedCodeBlock
@@ -430,6 +431,51 @@ pReferenceDef = do
   where
     recover err =
       Just (Naked (IspError err)) <$ takeWhileP Nothing notNewline <* sc
+
+-- | Parse a pipe-table.
+
+pTable :: BParser (Block Isp)
+pTable = do
+  (n, caligns, headerRow) <- try $ do
+    gotFirst  <- option False (True <$ pipe)
+    headerRow <- NE.sepBy1 cell (try (pipe <* notFollowedBy eol))
+    let n = NE.length headerRow
+    guard (gotFirst || n > 1)
+    void (optional pipe)
+    eol
+    void (optional pipe)
+    caligns <- NE.fromList <$> sepByCount n calign pipe
+    void (optional pipe)
+    eof <|> eol
+    return (n, caligns, headerRow)
+  otherRows <- many $ do
+    enough <- lookAhead (option True (isBlank <$> nonEmptyLine))
+    guard (not enough)
+    void (optional pipe)
+    x <- NE.fromList <$> sepByCount n cell pipe
+    void (optional pipe)
+    eof <|> eol
+    return x
+  Table caligns (headerRow :| otherRows) <$ sc
+  where
+    cell = do
+      startPos <- getPosition
+      chs      <- many (label "inline content" $ escapedChar <|> satisfy cellChar)
+      return (IspSpan startPos (T.stripEnd $ T.pack chs))
+    cellChar x = x /= '|' && notNewline x
+    pipe = char '|' <* sc'
+    calign = do
+      let colon' = option False (True <$ char ':')
+      l <- colon'
+      void (count 3 (char '-') <* many (char '-'))
+      r <- colon'
+      sc'
+      return $
+        case (l, r) of
+          (False, False) -> CellAlignDefault
+          (True,  False) -> CellAlignLeft
+          (False, True)  -> CellAlignRight
+          (True,  True)  -> CellAlignCenter
 
 -- | Parse a paragraph or naked text (is some cases).
 
@@ -808,6 +854,10 @@ foldMany f = go
 
 foldSome :: Alternative f => f (a -> a) -> f (a -> a)
 foldSome f = liftA2 (flip (.)) f (foldMany f)
+
+sepByCount :: Applicative f => Int -> f a -> f sep -> f [a]
+sepByCount 0 _ _   = pure []
+sepByCount n p sep = liftA2 (:) p (count (n - 1) (sep *> p))
 
 nonEmptyLine :: BParser Text
 nonEmptyLine = takeWhile1P Nothing notNewline
