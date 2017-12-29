@@ -445,7 +445,7 @@ pTable = do
     r <- pipe'
     let n = NE.length headerRow
     guard (n > 1 || l || r)
-    eol
+    eol <* sc'
     lookAhead nonEmptyLine >>= guard . isHeaderLike
     return (n, headerRow)
   caligns <- rowWrapper (NE.fromList <$> sepByCount n calign pipe)
@@ -465,6 +465,7 @@ pTable = do
       r <- p
       void (optional pipe)
       eof <|> eol
+      sc'
       return r
     pipe = char '|' <* sc'
     calign = do
