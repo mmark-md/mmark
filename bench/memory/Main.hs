@@ -12,6 +12,7 @@ main = mainWith $ do
   bparser "data/bench-heading.md"
   bparser "data/bench-fenced-code-block.md"
   bparser "data/bench-indented-code-block.md"
+  bparser "data/bench-intensive-emphasis.md"
   bparser "data/bench-unordered-list.md"
   bparser "data/bench-ordered-list.md"
   bparser "data/bench-blockquote.md"
