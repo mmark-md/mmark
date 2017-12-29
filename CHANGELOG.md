@@ -2,6 +2,8 @@
 
 * Added support for pipe tables (like on GitHub).
 
+* Fixed a nasty space leak in the parser, made it faster too.
+
 ## MMark 0.0.3.2
 
 * Empty strings are not parsed as URIs anymore (even though a valid URI may
