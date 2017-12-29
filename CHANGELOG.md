@@ -1,3 +1,7 @@
+## MMark 0.0.4.0
+
+* Added support for pipe tables (like on GitHub).
+
 ## MMark 0.0.3.2
 
 * Empty strings are not parsed as URIs anymore (even though a valid URI may

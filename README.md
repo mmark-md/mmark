@@ -57,7 +57,7 @@ MMark supports:
 * superscript using `^this^` syntax
 * subscript using `~this~` syntax
 * automatic assignment of ids to headers
-* “pipe” tables (as used on GitHub) (NOT YET)
+* pipe tables (as on GitHub)
 
 One do not need to enable or tweak anything for these to work, they are
 built-in features.

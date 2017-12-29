@@ -1800,6 +1800,57 @@ spec = parallel $ do
         in s ~-> err (posN 23 s)
            (utoks "so" <> etok '\'' <> etok '\"' <> etok '(' <>
             elabel "white space" <> elabel "newline")
+    context "tables" $ do
+      it "recognizes single column tables" $ do
+        let o = "<table>\n<thead>\n<tr><th>Foo</th></tr>\n</thead>\n<tbody>\n<tr><td>foo</td></tr>\n</tbody>\n</table>\n"
+        "|Foo\n---\nfoo" ==-> o
+        "Foo|\n---\nfoo" ==-> o
+        "| Foo |\n  ---  \n  foo  " ==-> o
+        "| Foo |\n| --- |\n| foo |" ==-> o
+      it "reports correct parse errors when parsing the header line" $
+        (let s = "Foo | Bar\na-- | ---"
+         in s ~-> err (posN 10 s) (utok 'a' <> etok '-' <> etok ':' <> etok '|' <> elabel "white space"))
+        >>
+        (let s = "Foo | Bar\n-a- | ---"
+         in s ~-> err (posN 11 s) (utok 'a' <> etok '-'))
+        >>
+        (let s = "Foo | Bar\n--a | ---"
+         in s ~-> err (posN 12 s) (utok 'a' <> etok '-'))
+        >>
+        (let s = "Foo | Bar\n---a | ---"
+         in s ~-> err (posN 13 s) (utok 'a' <> etok '-' <> etok ':' <> etok '|' <> elabel "white space"))
+      it "falls back to paragraph when header line is weird enough" $
+        "Foo | Bar\nab- | ---" ==->
+          "<p>Foo | Bar\nab- | ---</p>\n"
+      it "demands that number of columns in rows match number of columns in header" $
+        (let s = "Foo | Bar | Baz\n--- | --- | ---\nfoo | bar"
+         in s ~-> err (posN 41 s) (ueof <> etok '|' <> eic))
+        >>
+        (let s = "Foo | Bar | Baz\n--- | --- | ---\nfoo | bar\n\nHere it goes."
+         in s ~-> err (posN 41 s) (utok '\n' <> etok '|' <> eic))
+      it "recognizes escaped pipes" $
+        "Foo \\| | Bar\n--- | ---\nfoo | \\|" ==->
+          "<table>\n<thead>\n<tr><th>Foo |</th><th>Bar</th></tr>\n</thead>\n<tbody>\n<tr><td>foo</td><td>|</td></tr>\n</tbody>\n</table>\n"
+      it "escaped characters preserve backslashes for inline-level parser" $
+        "Foo | Bar\n--- | ---\n\\*foo\\* | bar" ==->
+          "<table>\n<thead>\n<tr><th>Foo</th><th>Bar</th></tr>\n</thead>\n<tbody>\n<tr><td>*foo*</td><td>bar</td></tr>\n</tbody>\n</table>\n"
+      it "escaped pipes do not fool position tracking" $
+        let s = "Foo | Bar\n--- | ---\n\\| *fo | bar"
+        in s ~-> err (posN 26 s) (ueib <> etok '*' <> elabel "inline content")
+      it "parses tables with just header row" $
+        "Foo | Bar\n--- | ---" ==->
+          "<table>\n<thead>\n<tr><th>Foo</th><th>Bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n"
+      it "recognizes end of table correctly" $
+        "Foo | Bar\n--- | ---\nfoo | bar\n\nHere goes a paragraph." ==->
+          "<table>\n<thead>\n<tr><th>Foo</th><th>Bar</th></tr>\n</thead>\n<tbody>\n<tr><td>foo</td><td>bar</td></tr>\n</tbody>\n</table>\n<p>Here goes a paragraph.</p>\n"
+      it "is capable of reporting a parse error per cell" $
+        let s = "Foo | *Bar\n--- | ----\n_foo | bar_"
+        in s ~~->
+           [ err (posN 10 s) (ueib <> etok '*' <> eic)
+           , err (posN 26 s) (ueib <> etok '_' <> eic)
+           , errFancy (posN 32 s) (nonFlanking "_") ]
+      it "renders a comprehensive table correctly" $
+        withFiles "data/table.md" "data/table.html"
     context "multiple parse errors" $ do
       it "they are reported in correct order" $ do
         let s = "Foo `\n\nBar `.\n"

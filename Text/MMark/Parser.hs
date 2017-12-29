@@ -9,13 +9,14 @@
 --
 -- MMark markdown parser.
 
-{-# LANGUAGE BangPatterns      #-}
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE BangPatterns              #-}
+{-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE TypeFamilies              #-}
 
 module Text.MMark.Parser
   ( MMarkErr (..)
@@ -30,6 +31,7 @@ import Data.HTML.Entities (htmlEntityMap)
 import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.Maybe (isNothing, fromJust, fromMaybe, catMaybes, isJust)
 import Data.Monoid (Any (..))
+import Data.Ratio ((%))
 import Data.Semigroup (Semigroup (..))
 import Data.Text (Text)
 import Data.Void
@@ -170,6 +172,7 @@ pBlock = do
         , Just <$> pOrderedList
         , Just <$> pBlockquote
         , pReferenceDef
+        , Just <$> pTable
         , Just <$> pParagraph ]
       _  ->
           Just <$> pIndentedCodeBlock
@@ -430,6 +433,59 @@ pReferenceDef = do
   where
     recover err =
       Just (Naked (IspError err)) <$ takeWhileP Nothing notNewline <* sc
+
+-- | Parse a pipe table.
+
+pTable :: BParser (Block Isp)
+pTable = do
+  (n, headerRow) <- try $ do
+    let pipe' = option False (True <$ pipe)
+    l <- pipe'
+    headerRow <- NE.sepBy1 cell (try (pipe <* notFollowedBy eol))
+    r <- pipe'
+    let n = NE.length headerRow
+    guard (n > 1 || l || r)
+    eol <* sc'
+    lookAhead nonEmptyLine >>= guard . isHeaderLike
+    return (n, headerRow)
+  caligns <- rowWrapper (NE.fromList <$> sepByCount n calign pipe)
+  otherRows <- many $ do
+    lookAhead (option True (isBlank <$> nonEmptyLine)) >>= guard . not
+    rowWrapper (NE.fromList <$> sepByCount n cell pipe)
+  Table caligns (headerRow :| otherRows) <$ sc
+  where
+    cell = do
+      startPos <- getPosition
+      txt      <- fmap (T.stripEnd . bakeText) . foldMany . choice $
+        [ (++) . reverse . T.unpack <$> hidden (string "\\|")
+        , (:) <$> label "inline content" (satisfy cellChar) ]
+      return (IspSpan startPos txt)
+    cellChar x = x /= '|' && notNewline x
+    rowWrapper p = do
+      void (optional pipe)
+      r <- p
+      void (optional pipe)
+      eof <|> eol
+      sc'
+      return r
+    pipe = char '|' <* sc'
+    calign = do
+      let colon' = option False (True <$ char ':')
+      l <- colon'
+      void (count 3 (char '-') <* many (char '-'))
+      r <- colon'
+      sc'
+      return $
+        case (l, r) of
+          (False, False) -> CellAlignDefault
+          (True,  False) -> CellAlignLeft
+          (False, True)  -> CellAlignRight
+          (True,  True)  -> CellAlignCenter
+    isHeaderLike txt =
+      T.length (T.filter isHeaderConstituent txt) % T.length txt >
+      8 % 10
+    isHeaderConstituent x =
+      isSpace x || x == '|' || x == '-' || x == ':'
 
 -- | Parse a paragraph or naked text (is some cases).
 
@@ -808,6 +864,10 @@ foldMany f = go
 
 foldSome :: Alternative f => f (a -> a) -> f (a -> a)
 foldSome f = liftA2 (flip (.)) f (foldMany f)
+
+sepByCount :: Applicative f => Int -> f a -> f sep -> f [a]
+sepByCount 0 _ _   = pure []
+sepByCount n p sep = liftA2 (:) p (count (n - 1) (sep *> p))
 
 nonEmptyLine :: BParser Text
 nonEmptyLine = takeWhile1P Nothing notNewline

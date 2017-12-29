@@ -16,6 +16,7 @@ main = mainWith $ do
   bparser "data/bench-ordered-list.md"
   bparser "data/bench-blockquote.md"
   bparser "data/bench-paragraph.md"
+  bparser "data/table.md"
   bparser "data/comprehensive.md"
 
 ----------------------------------------------------------------------------
