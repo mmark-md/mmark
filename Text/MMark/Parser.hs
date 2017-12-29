@@ -9,13 +9,14 @@
 --
 -- MMark markdown parser.
 
-{-# LANGUAGE BangPatterns      #-}
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE BangPatterns              #-}
+{-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE TypeFamilies              #-}
 
 module Text.MMark.Parser
   ( MMarkErr (..)
@@ -30,6 +31,7 @@ import Data.HTML.Entities (htmlEntityMap)
 import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.Maybe (isNothing, fromJust, fromMaybe, catMaybes, isJust)
 import Data.Monoid (Any (..))
+import Data.Ratio ((%))
 import Data.Semigroup (Semigroup (..))
 import Data.Text (Text)
 import Data.Void
@@ -436,33 +438,34 @@ pReferenceDef = do
 
 pTable :: BParser (Block Isp)
 pTable = do
-  (n, caligns, headerRow) <- try $ do
-    gotFirst  <- option False (True <$ pipe)
+  (n, headerRow) <- try $ do
+    let pipe' = option False (True <$ pipe)
+    l <- pipe'
     headerRow <- NE.sepBy1 cell (try (pipe <* notFollowedBy eol))
+    r <- pipe'
     let n = NE.length headerRow
-    guard (gotFirst || n > 1)
-    void (optional pipe)
+    guard (n > 1 || l || r)
     eol
-    void (optional pipe)
-    caligns <- NE.fromList <$> sepByCount n calign pipe
-    void (optional pipe)
-    eof <|> eol
-    return (n, caligns, headerRow)
+    lookAhead nonEmptyLine >>= guard . isHeaderLike
+    return (n, headerRow)
+  caligns <- rowWrapper (NE.fromList <$> sepByCount n calign pipe)
   otherRows <- many $ do
-    enough <- lookAhead (option True (isBlank <$> nonEmptyLine))
-    guard (not enough)
-    void (optional pipe)
-    x <- NE.fromList <$> sepByCount n cell pipe
-    void (optional pipe)
-    eof <|> eol
-    return x
+    lookAhead (option True (isBlank <$> nonEmptyLine)) >>= guard . not
+    rowWrapper (NE.fromList <$> sepByCount n cell pipe)
   Table caligns (headerRow :| otherRows) <$ sc
   where
     cell = do
       startPos <- getPosition
-      chs      <- many (label "inline content" $ escapedChar <|> satisfy cellChar)
+      chs      <- many . label "inline content" $
+        escapedChar <|> satisfy cellChar
       return (IspSpan startPos (T.stripEnd $ T.pack chs))
     cellChar x = x /= '|' && notNewline x
+    rowWrapper p = do
+      void (optional pipe)
+      r <- p
+      void (optional pipe)
+      eof <|> eol
+      return r
     pipe = char '|' <* sc'
     calign = do
       let colon' = option False (True <$ char ':')
@@ -476,6 +479,11 @@ pTable = do
           (True,  False) -> CellAlignLeft
           (False, True)  -> CellAlignRight
           (True,  True)  -> CellAlignCenter
+    isHeaderLike txt =
+      T.length (T.filter isHeaderConstituent txt) % T.length txt >
+      8 % 10
+    isHeaderConstituent x =
+      isSpace x || x == '|' || x == '-' || x == ':'
 
 -- | Parse a paragraph or naked text (is some cases).
 
