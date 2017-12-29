@@ -434,7 +434,7 @@ pReferenceDef = do
     recover err =
       Just (Naked (IspError err)) <$ takeWhileP Nothing notNewline <* sc
 
--- | Parse a pipe-table.
+-- | Parse a pipe table.
 
 pTable :: BParser (Block Isp)
 pTable = do
