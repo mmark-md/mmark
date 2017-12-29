@@ -7,6 +7,7 @@
 [![Build Status](https://travis-ci.org/mrkkrp/mmark.svg?branch=master)](https://travis-ci.org/mrkkrp/mmark)
 [![Coverage Status](https://coveralls.io/repos/mrkkrp/mmark/badge.svg?branch=master&service=github)](https://coveralls.io/github/mrkkrp/mmark?branch=master)
 
+* [Quick start: MMark vs GitHub-flavored markdown](#quick-start-mmark-vs-github-flavored-markdown)
 * [MMark and Common Mark](#mmark-and-common-mark)
     * [Differences in inline parsing](#differences-in-inline-parsing)
     * [Other differences](#other-differences)
@@ -27,14 +28,43 @@ MMark in its current state features:
 * A parser that produces high-quality error messages and does not choke on
   first parse error. It is capable of reporting many parse errors where
   makes sense.
+
 * An extension system allowing to create extensions that alter parsed
   markdown document in some way. Some of them are available in the
   [`mmark-ext`](https://hackage.haskell.org/package/mmark-ext) package.
+
 * A [`lucid`](https://hackage.haskell.org/package/lucid)-based render.
 
 There is also a blog post announcing the project:
 
 https://markkarpov.com/post/announcing-mmark.html
+
+## Quick start: MMark vs GitHub-flavored markdown
+
+It's easy to start using MMark if you're used to GitHub-flavored markdown.
+There are three main differences:
+
+1. URIs are not automatically recognized, you must to enclose them in `<`
+   and `>`.
+
+2. Block quotes require only one `>` and they continue as long as long the
+   inner content is indented.
+
+   This is OK:
+
+   ```
+   > Here goes my block quote.
+     And this is the second line of the quote.
+   ```
+
+   This produces *two* block quotes:
+
+   ```
+   > Here goes my block quote.
+   > And this is another block quote!
+   ```
+
+3. See [differences in inline parsing](#differences-in-inline-parsing).
 
 ## MMark and Common Mark
 
