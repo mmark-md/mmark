@@ -857,12 +857,15 @@ manyIndexed n' m = go n'
   where
     go !n = liftA2 (:) (m n) (go (n + 1)) <|> pure []
 
-foldMany :: Alternative f => f (a -> a) -> f (a -> a)
-foldMany f = go
+foldMany :: MonadPlus m => m (a -> a) -> m (a -> a)
+foldMany f = go id
   where
-    go = liftA2 (flip (.)) f go <|> pure id
+    go g =
+      optional f >>= \case
+        Nothing -> pure g
+        Just h  -> go (h . g)
 
-foldSome :: Alternative f => f (a -> a) -> f (a -> a)
+foldSome :: MonadPlus m => m (a -> a) -> m (a -> a)
 foldSome f = liftA2 (flip (.)) f (foldMany f)
 
 sepByCount :: Applicative f => Int -> f a -> f sep -> f [a]
