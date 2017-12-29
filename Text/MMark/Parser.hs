@@ -456,9 +456,10 @@ pTable = do
   where
     cell = do
       startPos <- getPosition
-      chs      <- many . label "inline content" $
-        escapedChar <|> satisfy cellChar
-      return (IspSpan startPos (T.stripEnd $ T.pack chs))
+      txt      <- fmap (T.stripEnd . bakeText) . foldMany . choice $
+        [ (++) . reverse . T.unpack <$> hidden (string "\\|")
+        , (:) <$> label "inline content" (satisfy cellChar) ]
+      return (IspSpan startPos txt)
     cellChar x = x /= '|' && notNewline x
     rowWrapper p = do
       void (optional pipe)
