@@ -23,7 +23,7 @@ module Text.MMark.Parser
   , parse )
 where
 
-import Control.Applicative
+import Control.Applicative (Alternative, liftA2)
 import Control.Monad
 import Data.Bifunctor (Bifunctor (..))
 import Data.Bool (bool)
@@ -41,7 +41,7 @@ import Text.MMark.Util
 import Text.Megaparsec hiding (parse, State (..))
 import Text.Megaparsec.Char hiding (eol)
 import Text.URI (URI)
-import qualified Control.Applicative.Combinators.NonEmpty as NE
+import qualified Control.Monad.Combinators.NonEmpty as NE
 import qualified Data.Char                  as Char
 import qualified Data.DList                 as DList
 import qualified Data.HashMap.Strict        as HM
@@ -456,8 +456,8 @@ pTable = do
   where
     cell = do
       startPos <- getPosition
-      txt      <- fmap (T.stripEnd . bakeText) . foldMany . choice $
-        [ (++) . reverse . T.unpack <$> hidden (string "\\|")
+      txt      <- fmap (T.stripEnd . T.pack) . foldMany' . choice $
+        [ (++) . T.unpack <$> hidden (string "\\|")
         , (:) <$> label "inline content" (satisfy cellChar) ]
       return (IspSpan startPos txt)
     cellChar x = x /= '|' && notNewline x
@@ -542,7 +542,7 @@ pInlinesTop = do
 
 pInlines :: IParser (NonEmpty Inline)
 pInlines = do
-  done        <- hidden atEnd
+  done        <- atEnd
   allowsEmpty <- isEmptyAllowed
   if done
     then
@@ -865,10 +865,21 @@ foldMany f = go id
         Nothing -> pure g
         Just h  -> go (h . g)
 
+foldMany' :: MonadPlus m => m ([a] -> [a]) -> m [a]
+foldMany' f = ($ []) <$> go id
+  where
+    go g =
+      optional f >>= \case
+        Nothing -> pure g
+        Just h  -> go (g . h)
+
 foldSome :: MonadPlus m => m (a -> a) -> m (a -> a)
 foldSome f = liftA2 (flip (.)) f (foldMany f)
 
-sepByCount :: Applicative f => Int -> f a -> f sep -> f [a]
+foldSome' :: MonadPlus m => m ([a] -> [a]) -> m [a]
+foldSome' f = liftA2 ($) f (foldMany' f)
+
+sepByCount :: MonadPlus m => Int -> m a -> m sep -> m [a]
 sepByCount 0 _ _   = pure []
 sepByCount n p sep = liftA2 (:) p (count (n - 1) (sep *> p))
 
@@ -879,7 +890,7 @@ manyEscapedWith :: MonadParsec MMarkErr Text m
   => (Char -> Bool)
   -> String
   -> m Text
-manyEscapedWith f l = fmap bakeText . foldMany . choice $
+manyEscapedWith f l = fmap T.pack . foldMany' . choice $
   [ (:) <$> escapedChar
   , (:) <$> numRef
   , (++) . reverse <$> entityRef
@@ -888,7 +899,7 @@ manyEscapedWith f l = fmap bakeText . foldMany . choice $
 someEscapedWith :: MonadParsec MMarkErr Text m
   => (Char -> Bool)
   -> m Text
-someEscapedWith f = fmap bakeText . foldSome . choice $
+someEscapedWith f = fmap T.pack . foldSome' . choice $
   [ (:) <$> escapedChar
   , (:) <$> numRef
   , (++) . reverse <$> entityRef
