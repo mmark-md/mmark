@@ -1,3 +1,8 @@
+## MMark 0.0.4.1
+
+* This version uses `megaparsec-6.4.0` and `parser-combinators-0.4.0` and
+  has improved performance.
+
 ## MMark 0.0.4.0
 
 * Added support for pipe tables (like on GitHub).
