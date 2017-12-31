@@ -44,8 +44,8 @@ https://markkarpov.com/post/announcing-mmark.html
 It's easy to start using MMark if you're used to GitHub-flavored markdown.
 There are three main differences:
 
-1. URIs are not automatically recognized, you must to enclose them in `<`
-   and `>`.
+1. URIs are not automatically recognized, you must enclose them in `<` and
+   `>`.
 
 2. Block quotes require only one `>` and they continue as long as long the
    inner content is indented.
