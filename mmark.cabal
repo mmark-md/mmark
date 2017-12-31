@@ -1,5 +1,5 @@
 name:                 mmark
-version:              0.0.4.0
+version:              0.0.4.1
 cabal-version:        >= 1.18
 tested-with:          GHC==7.10.3, GHC==8.0.2, GHC==8.2.2
 license:              BSD3
