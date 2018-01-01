@@ -100,7 +100,7 @@ spec = parallel $ do
         let s = "_ _ _ _ a\n\na------\n\n---a---\n"
         in s ~-> errFancy posI (nonFlanking "_")
       it "CM26" $
-        " *\\-*" ==-> "<p><em>-</em></p>\n"
+        " *-*" ==-> "<p><em>-</em></p>\n"
       it "CM27" $
         "- foo\n***\n- bar" ==->
           "<ul>\n<li>\nfoo\n</li>\n</ul>\n<hr>\n<ul>\n<li>\nbar\n</li>\n</ul>\n"
@@ -983,10 +983,10 @@ spec = parallel $ do
         in s ~-> err (posN 8 s) (ueib <> etok '*' <> eic)
       it "CM348" $
         let s = "*(*foo)\n"
-        in s ~-> errFancy posI (nonFlanking "*")
+        in s ~-> err (posN 7 s) (ueib <> etok '*' <> eic)
       it "CM349" $
-        let s = "*(*foo*)*\n"
-        in s ~-> errFancy posI (nonFlanking "*")
+        "*(*foo*)*" ==->
+          "<p><em>(<em>foo</em>)</em></p>\n"
       it "CM350" $
         let s = "*foo*bar\n"
         in s ~-> errFancy (posN 4 s) (nonFlanking "*")
@@ -994,11 +994,11 @@ spec = parallel $ do
         let s = "_foo bar _\n"
         in s ~-> errFancy (posN 9 s) (nonFlanking "_")
       it "CM352" $
-        let s = "_(_foo)\n"
-        in s ~-> errFancy posI (nonFlanking "_")
+        let s = "_(_foo)"
+        in s ~-> err (posN 7 s) (ueib <> etok '_' <> eic)
       it "CM353" $
-        let s = "_(_foo_)_\n"
-        in s ~-> errFancy posI (nonFlanking "_")
+        "_(_foo_)_" ==->
+          "<p><em>(<em>foo</em>)</em></p>\n"
       it "CM354" $
         let s = "_foo_bar\n"
         in s ~-> errFancy (posN 4 s) (nonFlanking "_")
@@ -1009,7 +1009,7 @@ spec = parallel $ do
         let s = "_foo_bar_baz_\n"
         in s ~-> errFancy (posN 4 s) (nonFlanking "_")
       it "CM357" $
-        "_\\(bar\\)_.\n" ==-> "<p><em>(bar)</em>.</p>\n"
+        "_(bar\\)_.\n" ==-> "<p><em>(bar)</em>.</p>\n"
       it "CM358" $
         "**foo bar**\n" ==-> "<p><strong>foo bar</strong></p>\n"
       it "CM359" $
@@ -1045,19 +1045,19 @@ spec = parallel $ do
         "__foo, __bar__, baz__" ==->
           "<p><strong>foo, <strong>bar</strong>, baz</strong></p>\n"
       it "CM370" $
-        "foo-__\\(bar\\)__" ==-> "<p>foo-<strong>(bar)</strong></p>\n"
+        "foo-__\\(bar)__" ==-> "<p>foo-<strong>(bar)</strong></p>\n"
       it "CM371" $
         let s = "**foo bar **\n"
         in s ~-> errFancy (posN 10 s) (nonFlanking "**")
       it "CM372" $
         let s = "**(**foo)\n"
-        in s ~-> errFancy posI (nonFlanking "**")
+        in s ~-> err (posN 9 s) (ueib <> etoks "**" <> eic)
       it "CM373" $
-        let s = "*(**foo**)*\n"
-        in s ~-> errFancy posI (nonFlanking "*")
-      xit "CM374" $ -- FIXME doesn't pass with current approach
+        "*(**foo**)*" ==->
+          "<p><em>(<strong>foo</strong>)</em></p>\n"
+      it "CM374" $
         "**Gomphocarpus (*Gomphocarpus physocarpus*, syn.\n*Asclepias physocarpa*)**" ==->
-        "<p><strong>Gomphocarpus (<em>Gomphocarpus physocarpus</em>, syn.\n<em>Asclepias physocarpa</em>)</strong></p>\n"
+          "<p><strong>Gomphocarpus (<em>Gomphocarpus physocarpus</em>, syn.\n<em>Asclepias physocarpa</em>)</strong></p>\n"
       it "CM375" $
         "**foo \"*bar*\" foo**" ==->
           "<p><strong>foo &quot;<em>bar</em>&quot; foo</strong></p>\n"
@@ -1069,10 +1069,10 @@ spec = parallel $ do
         in s ~-> errFancy (posN 10 s) (nonFlanking "__")
       it "CM378" $
         let s = "__(__foo)\n"
-        in s ~-> errFancy posI (nonFlanking "__")
+        in s ~-> err (posN 9 s) (ueib <> etoks "__" <> eic)
       it "CM379" $
-        let s = "_(__foo__)_\n"
-        in s ~-> errFancy posI (nonFlanking "_")
+        "_(__foo__)_" ==->
+          "<p><em>(<strong>foo</strong>)</em></p>\n"
       it "CM380" $
         let s = "__foo__bar\n"
         in s ~-> errFancy (posN 5 s) (nonFlanking "__")
@@ -1083,7 +1083,7 @@ spec = parallel $ do
         "__foo\\_\\_bar\\_\\_baz__" ==->
           "<p><strong>foo__bar__baz</strong></p>\n"
       it "CM383" $
-        "__\\(bar\\)__." ==->
+        "__(bar\\)__." ==->
           "<p><strong>(bar)</strong>.</p>\n"
       it "CM384" $
         "*foo [bar](/url)*" ==->
@@ -1862,7 +1862,7 @@ spec = parallel $ do
         let s = "#My header\n\nSomething goes __here __.\n"
         s ~~->
           [ err (posN 1 s) (utok 'M' <> etok '#' <> ews)
-          , errFancy (posN 34 s) (nonFlanking "__") ]
+          , err (posN 37 s) (ueib <> etoks "__" <> eic) ]
       describe "every block in a list gets its parse error propagated" $ do
         context "with unordered list" $
           it "works" $ do

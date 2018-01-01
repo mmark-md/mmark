@@ -124,8 +124,9 @@ data Isp
 
 data CharType
   = SpaceChar          -- ^ White space or a transparent character
+  | PunctChar          -- ^ Punctuation character
   | OtherChar          -- ^ Other character
-  deriving (Eq)
+  deriving (Eq, Ord, Show)
 
 ----------------------------------------------------------------------------
 -- Reference and footnote definitions

@@ -126,37 +126,57 @@ parsed.
 
 I decided to make parsing of emphasis, strong emphasis, and similar
 constructs like strikethrough, subscript, and superscript more symmetric and
-less ad-hoc. This is a work in progress and I'm not fully satisfied with the
-current approach as it does not allow to express some combinations of
-characters and markup, but in 99% of practical cases it is identical to
-Common Mark, and normal markdown intuitions will work OK for the users.
+less ad-hoc. In 99% of practical cases it is identical to Common Mark, and
+normal markdown intuitions will work OK for the users.
 
-Let's start by dividing all characters into three groups:
+Let's start by dividing all characters into four groups:
+
+* **Space characters**, including space, tab, newline, carriage return, and
+  other characters like non-breaking space.
 
 * **Markup characters**, including the following: `*`, `~`, `_`, `` ` ``,
   `^`, `[`, `]`. These are used for markup and whenever they appear in a
   document, they must form valid markup constructions. To be used as
   ordinary punctuation characters they must be backslash escaped.
 
-* **Space characters**, including space, tab, newline and carriage return.
+* **Punctuation characters**, which include all punctuation characters that
+  are not **markup characters**.
 
 * **Other characters**, which include all characters not falling into the
-  two groups described above.
+  three groups described above.
 
-**Markup characters** can be “converted” to **other characters** via
-backslash escaping. We'll see how this is useful in a few moments.
+Next, let's assign *levels* to all groups but **markup characters**:
 
-We'll call **markdown characters** placed between **space characters** and
-**other characters** *left-flanking delimiter run*. These markup characters
-sort of hang on the left hand side of a word.
+* **Space characters**—level 0
+* **Punctuation characters**—level 1
+* **Other characters**—level 2
 
-Similarly we'll call **markdown characters** placed between **other
-characters** and **space characters** *right-flanking delimiter run*. These
-hang on the right hand side of a word.
+When **markup characters** or **punctuation characters** are escaped with
+backslash they become **other characters**.
 
-Emphasis markup (and other similar things like strikethrough, which we won't
-mention explicitly anymore for brevity) can start only as left-flanking
-delimiter run and end only as right-flanking delimiter run.
+We'll call **markdown characters** placed between a character of level `L`
+and a character of level `R` *left-flanking delimiter run* if and only if:
+
+```
+level(L) < level(R)
+```
+
+These **markup characters** sort of hang on the left hand side of a word.
+
+Similarly we'll call **markdown characters** placed between a character of
+level `L` and a character of level `R` *right-flanking delimiter run* if and
+only if:
+
+```
+level(L) > level (R)
+```
+
+These **markup characters** hang on the right hand side of a word.
+
+*Emphasis markup* (and other similar things like strikethrough, which we
+won't mention explicitly anymore for brevity) can start only as
+*left-flanking delimiter run* and end only as *right-flanking delimiter
+run*.
 
 This produces a parse error:
 
@@ -171,40 +191,24 @@ And this too:
 __foo__bar
 ```
 
-This means that inter-word emphasis is not supported by this approach. (This
-is a pity, maybe I should adjust something to allow it.)
+This means that inter-word emphasis is not supported by this approach.
 
-There is one more tricky thing. In some cases we want to end emphasis and
-have full stop or other punctuation right after it:
+The next example is OK because `s` is an **other character** and `.` is a
+**punctuation character**, so `level('s') > level('.')`.
 
 ```
 Here it *goes*.
 ```
 
-You can see that the closing `*` is not in right-flanking position here, and
-so it's a parse error. To avoid this, some punctuation characters that
-normally appear outside of markup were made “transparent” and thus they are
-regarded as white space, so the example above parses correctly and works as
-expected. To put a transparent character inside emphasis, backslash escaping
-is necessary:
+In some rare cases backslash escaping can help get the right result:
 
 ```
-We *\(can\)* have it.
+Here goes *(something\)*.
 ```
 
-Here `(` and `)` are transparent punctuation characters, just like `.`, so
-they must be turned into **other characters** to go inside the emphasis.
-This is a corner case and should not be common in practice.
-
-So far the main limitation of this approach is the pains with inter-word
-markup, as in this example:
-
-```
-**We started to work on the *issue*.**
-```
-
-Should we escape `.` here? On one hand we should, to close `**`. But if we
-do, the closing `*` won't be in right-flanking position anymore. God dammit.
+We escaped the closing parenthesis `)` so it becomes an **other character**
+with level 2 and so its level is greater than the level of plain punctuation
+character `.`.
 
 ### Other differences
 
@@ -265,7 +269,7 @@ identical, big-enough markdown document and by rendering it as HTML:
 Library             | Parsing library     | Execution time | Allocated   | Max residency
 --------------------|---------------------|---------------:|------------:|-------------:
 `cmark-0.5.6`       | Custom C code       |       311.8 μs |     228,440 |         9,608
-`mmark-0.0.4.1`     | Megaparsec          |       7.169 ms |  32,203,304 |        37,856
+`mmark-0.0.4.2`     | Megaparsec          |       7.757 ms |  32,207,640 |        37,856
 `cheapskate-0.1.1`  | Custom Haskell code |       10.22 ms |  44,686,272 |       799,200
 `markdown-0.1.16` † | Attoparsec          |       13.51 ms |  69,261,816 |       699,656
 `pandoc-2.0.5`      | Parsec              |       36.01 ms | 141,868,840 |     1,471,080
