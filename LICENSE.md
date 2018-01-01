@@ -1,4 +1,4 @@
-Copyright © 2017 Mark Karpov
+Copyright © 2017–2018 Mark Karpov
 
 All rights reserved.
 
