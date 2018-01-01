@@ -591,7 +591,7 @@ pCodeSpan = do
                takeWhile1P Nothing (== '`') <|>
                takeWhile1P Nothing (/= '`'))
       finalizer
-  r <$ lastOther
+  r <$ lastChar OtherChar
 
 -- | Parse a link.
 
@@ -602,7 +602,7 @@ pLink = do
   txt <- disallowLinks (disallowEmpty pInlines)
   void (char ']')
   (dest, mtitle) <- pLocation pos txt
-  Link txt dest mtitle <$ lastOther
+  Link txt dest mtitle <$ lastChar OtherChar
 
 -- | Parse an image.
 
@@ -610,7 +610,7 @@ pImage :: IParser Inline
 pImage = do
   (pos, alt)    <- emptyAlt <|> nonEmptyAlt
   (src, mtitle) <- pLocation pos alt
-  Image alt src mtitle <$ lastOther
+  Image alt src mtitle <$ lastChar OtherChar
   where
     emptyAlt = do
       pos <- getPosition
@@ -638,7 +638,7 @@ pAutolink = between (char '<') (char '>') $ do
           Just email ->
             ( nes (Plain email)
             , URI.makeAbsolute mailtoScheme uri' )
-  Link txt uri Nothing <$ lastOther
+  Link txt uri Nothing <$ lastChar OtherChar
 
 -- | Parse inline content inside an enclosing construction such as emphasis,
 -- strikeout, superscript, and\/or subscript markup.
@@ -668,7 +668,7 @@ pHardLineBreak = do
   eol
   notFollowedBy eof
   sc'
-  lastSpace
+  lastChar SpaceChar
   return LineBreak
 
 -- | Parse plain text.
@@ -677,37 +677,36 @@ pPlain :: IParser Inline
 pPlain = fmap (Plain . bakeText) . foldSome $ do
   ch <- lookAhead (anyChar <?> "inline content")
   let newline' =
-        (('\n':) . dropWhile isSpace) <$ eol <* sc' <* lastSpace
+        (('\n':) . dropWhile isSpace) <$ eol <* sc' <* lastChar SpaceChar
   case ch of
     '\\' -> (:) <$>
-      ((escapedChar <* lastOther) <|>
-        try (char '\\' <* notFollowedBy eol <* lastOther))
+      ((escapedChar <* lastChar OtherChar) <|>
+        try (char '\\' <* notFollowedBy eol <* lastChar OtherChar))
     '\n' ->
       newline'
     '\r' ->
       newline'
     '!' -> do
       notFollowedBy (string "![")
-      (:) <$> char '!'
+      (:) <$> char '!' <* lastChar PunctChar
     '<' -> do
       notFollowedBy pAutolink
-      (:) <$> char '<'
+      (:) <$> char '<' <* lastChar PunctChar
     '&' -> choice
       [ (:) <$> numRef
       , (++) . reverse <$> entityRef
-      , (:) <$> char '&' ]
+      , (:) <$> char '&' ] <* lastChar PunctChar
     _ ->
-      (:) <$> pOther ch
-  where
-    pOther ch
-      | isSpace ch = char ch <* lastSpace
-      | isTrans ch = char ch <* lastSpace
-      | isOther ch = char ch <* lastOther
-      | otherwise  = failure
-          (Just . Tokens . nes $ ch)
-          (E.singleton . Label . NE.fromList $ "inline content")
-    isTrans x = isTransparentPunctuation x && x /= '!'
-    isOther x = not (isMarkupChar x) && x /= '\\' && x /= '!' && x /= '<'
+      (:) <$>
+        if Char.isSpace ch
+          then char ch <* lastChar SpaceChar
+          else if isSpecialChar ch
+                 then failure
+                   (Just . Tokens . nes $ ch)
+                   (E.singleton . Label . NE.fromList $ "inline content")
+                 else if Char.isPunctuation ch
+                        then char ch <* lastChar PunctChar
+                        else char ch <* lastChar OtherChar
 
 ----------------------------------------------------------------------------
 -- Auxiliary inline-level parsers
@@ -823,9 +822,9 @@ pLfdr = try $ do
       failNow = do
         setPosition pos
         (customFailure . NonFlankingDelimiterRun . toNesTokens) dels
-  isLastOther >>= flip when failNow
-  rch <- lookAhead (optional anyChar)
-  when (maybe True isTransparent rch) failNow
+  lch <- getLastChar
+  rch <- getNextChar OtherChar
+  when (lch >= rch) failNow
   return st
 
 -- | Parse a closing markup sequence corresponding to given 'InlineFrame'.
@@ -842,12 +841,24 @@ pRfdr frame = try $ do
   let failNow = do
         setPosition pos
         (customFailure . NonFlankingDelimiterRun . toNesTokens) dels
-      goodAfter x =
-        isTransparent x || isMarkupChar x
-  isLastSpace >>= flip when failNow
-  rch <- lookAhead (optional anyChar)
-  unless (maybe True goodAfter rch) failNow
+  lch <- getLastChar
+  rch <- getNextChar SpaceChar
+  when (lch <= rch) failNow
   return frame
+
+-- | Get 'CharType' of the next char in the input stream.
+
+getNextChar
+  :: CharType          -- ^ What we should consider frame constituent characters
+  -> IParser CharType
+getNextChar frameType = lookAhead (option SpaceChar (charType <$> anyChar))
+  where
+    charType ch
+      | isFrameConstituent ch = frameType
+      | Char.isSpace       ch = SpaceChar
+      | ch == '\\'            = OtherChar
+      | Char.isPunctuation ch = PunctChar
+      | otherwise             = OtherChar
 
 ----------------------------------------------------------------------------
 -- Parsing helpers
@@ -959,25 +970,19 @@ eol' :: MonadParsec e Text m => m Bool
 eol' = option False (True <$ eol)
 
 ----------------------------------------------------------------------------
--- Other helpers
-
-slevel :: Pos -> Pos -> Pos
-slevel a l = if l >= ilevel a then a else l
-
-ilevel :: Pos -> Pos
-ilevel = (<> mkPos 4)
+-- Char classification
 
 isSpace :: Char -> Bool
 isSpace x = x == ' ' || x == '\t'
 
 isSpaceN :: Char -> Bool
-isSpaceN x = isSpace x || x == '\n' || x == '\r'
+isSpaceN x = isSpace x || isNewline x
+
+isNewline :: Char -> Bool
+isNewline x = x == '\n' || x == '\r'
 
 notNewline :: Char -> Bool
-notNewline x = x /= '\n' && x /= '\r'
-
-isBlank :: Text -> Bool
-isBlank = T.all isSpace
+notNewline = not . isNewline
 
 isFrameConstituent :: Char -> Bool
 isFrameConstituent = \case
@@ -996,6 +1001,9 @@ isMarkupChar x = isFrameConstituent x || f x
       '`' -> True
       _   -> False
 
+isSpecialChar :: Char -> Bool
+isSpecialChar x = isMarkupChar x || x == '\\' || x == '!' || x == '<'
+
 isAsciiPunctuation :: Char -> Bool
 isAsciiPunctuation x =
   (x >= '!' && x <= '/') ||
@@ -1003,26 +1011,17 @@ isAsciiPunctuation x =
   (x >= '[' && x <= '`') ||
   (x >= '{' && x <= '~')
 
-isTransparentPunctuation :: Char -> Bool
-isTransparentPunctuation = \case
-  '!' -> True
-  '"' -> True
-  '(' -> True
-  ')' -> True
-  ',' -> True
-  '-' -> True
-  '.' -> True
-  ':' -> True
-  ';' -> True
-  '?' -> True
-  '{' -> True
-  '}' -> True
-  '–' -> True
-  '—' -> True
-  _   -> False
+----------------------------------------------------------------------------
+-- Other helpers
 
-isTransparent :: Char -> Bool
-isTransparent x = Char.isSpace x || isTransparentPunctuation x
+slevel :: Pos -> Pos -> Pos
+slevel a l = if l >= ilevel a then a else l
+
+ilevel :: Pos -> Pos
+ilevel = (<> mkPos 4)
+
+isBlank :: Text -> Bool
+isBlank = T.all isSpace
 
 assembleCodeBlock :: Pos -> [Text] -> Text
 assembleCodeBlock indent ls = T.unlines (stripIndent indent <$> ls)

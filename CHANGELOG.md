@@ -1,3 +1,8 @@
+## MMark 0.0.4.2
+
+* Made parsing of emphasis-like markup more flexible and forgiving, see
+  `README.md` for more information.
+
 ## MMark 0.0.4.1
 
 * This version uses `megaparsec-6.4.0` and `parser-combinators-0.4.0` and

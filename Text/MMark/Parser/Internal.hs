@@ -29,12 +29,11 @@ module Text.MMark.Parser.Internal
   , isLinksAllowed
   , disallowImages
   , isImagesAllowed
-  , isLastSpace
-  , isLastOther
-  , lastSpace
-  , lastOther
+  , getLastChar
+  , lastChar
   , lookupReference
   , Isp (..)
+  , CharType (..)
     -- * Reference and footnote definitions
   , Defs
     -- * Other
@@ -49,7 +48,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Ratio ((%))
 import Data.Text (Text)
 import Data.Text.Metrics (damerauLevenshteinNorm)
-import Lens.Micro (Lens', (^.), (.~), set, over, to)
+import Lens.Micro (Lens', (^.), (.~), set, over)
 import Lens.Micro.Extras (view)
 import Text.MMark.Parser.Internal.Type
 import Text.Megaparsec hiding (State)
@@ -186,27 +185,16 @@ disallowImages = locally istAllowImages False
 isImagesAllowed :: IParser Bool
 isImagesAllowed = gets (view istAllowImages)
 
--- | Ask whether the last seen char type was space.
+-- | Get type of the last parsed character.
 
-isLastSpace :: IParser Bool
-isLastSpace = gets $ view (istLastChar . to (== SpaceChar))
+getLastChar :: IParser CharType
+getLastChar = gets (view istLastChar)
 
--- | Ask whether the last seen char type was “other” (not space).
+-- | Register type of the last parsed character.
 
-isLastOther :: IParser Bool
-isLastOther = gets $ view (istLastChar . to (== OtherChar))
-
--- | Register that the last seen char type is space.
-
-lastSpace :: IParser ()
-lastSpace = modify' $ set istLastChar SpaceChar
-{-# INLINE lastSpace #-}
-
--- | Register that the last seen char type is “other” (not space).
-
-lastOther :: IParser ()
-lastOther = modify' $ set istLastChar OtherChar
-{-# INLINE lastOther #-}
+lastChar :: CharType -> IParser ()
+lastChar = modify' . set istLastChar
+{-# INLINE lastChar #-}
 
 -- | Lookup a link\/image reference definition.
 
