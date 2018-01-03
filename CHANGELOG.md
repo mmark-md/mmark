@@ -1,3 +1,7 @@
+## MMark 0.0.4.3
+
+* Compiles with `modern-uri-0.2.0.0` and later.
+
 ## MMark 0.0.4.2
 
 * Made parsing of emphasis-like markup more flexible and forgiving, see

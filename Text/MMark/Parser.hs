@@ -35,12 +35,14 @@ import Data.Ratio ((%))
 import Data.Semigroup (Semigroup (..))
 import Data.Text (Text)
 import Data.Void
+import Lens.Micro ((^.))
 import Text.MMark.Parser.Internal
 import Text.MMark.Type
 import Text.MMark.Util
 import Text.Megaparsec hiding (parse, State (..))
 import Text.Megaparsec.Char hiding (eol)
 import Text.URI (URI)
+import Text.URI.Lens (uriPath)
 import qualified Control.Monad.Combinators.NonEmpty as NE
 import qualified Data.Char                  as Char
 import qualified Data.DList                 as DList
@@ -1094,7 +1096,7 @@ replaceEof altLabel = \case
 
 isEmailUri :: URI -> Maybe Text
 isEmailUri uri =
-  case URI.unRText <$> URI.uriPath uri of
+  case URI.unRText <$> uri ^. uriPath of
     [x] ->
       if Email.isValid (TE.encodeUtf8 x) &&
           (isNothing (URI.uriScheme uri) ||
