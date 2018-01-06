@@ -47,8 +47,8 @@ There are three main differences:
 1. URIs are not automatically recognized, you must enclose them in `<` and
    `>`.
 
-2. Block quotes require only one `>` and they continue as long as long the
-   inner content is indented.
+2. Block quotes require only one `>` and they continue as long as the inner
+   content is indented.
 
    This is OK:
 
