@@ -268,11 +268,11 @@ identical, big-enough markdown document and by rendering it as HTML:
 
 Library             | Parsing library     | Execution time | Allocated   | Max residency
 --------------------|---------------------|---------------:|------------:|-------------:
-`cmark-0.5.6`       | Custom C code       |       311.8 μs |     228,440 |         9,608
-`mmark-0.0.4.2`     | Megaparsec          |       7.757 ms |  32,207,640 |        37,856
-`cheapskate-0.1.1`  | Custom Haskell code |       10.22 ms |  44,686,272 |       799,200
-`markdown-0.1.16` † | Attoparsec          |       13.51 ms |  69,261,816 |       699,656
-`pandoc-2.0.5`      | Parsec              |       36.01 ms | 141,868,840 |     1,471,080
+`cmark-0.5.6`       | Custom C code       |       316.1 μs |     228,440 |         9,608
+`mmark-0.0.4.3`     | Megaparsec          |       7.280 ms |  32,207,640 |        37,856
+`cheapskate-0.1.1`  | Custom Haskell code |       10.30 ms |  44,686,272 |       799,200
+`markdown-0.1.16` † | Attoparsec          |       13.58 ms |  69,261,816 |       699,656
+`pandoc-2.0.5`      | Parsec              |       36.04 ms | 141,868,840 |     1,471,080
 
 *Results are ordered from fastest to slowest.*
 
