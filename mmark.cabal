@@ -6,8 +6,8 @@ license:              BSD3
 license-file:         LICENSE.md
 author:               Mark Karpov <markkarpov92@gmail.com>
 maintainer:           Mark Karpov <markkarpov92@gmail.com>
-homepage:             https://github.com/mrkkrp/mmark
-bug-reports:          https://github.com/mrkkrp/mmark/issues
+homepage:             https://github.com/mmark-md/mmark
+bug-reports:          https://github.com/mmark-md/mmark/issues
 category:             Text
 synopsis:             Strict markdown processor for writers
 build-type:           Simple
@@ -19,7 +19,7 @@ data-files:           data/*.md
 
 source-repository head
   type:               git
-  location:           https://github.com/mrkkrp/mmark.git
+  location:           https://github.com/mmark-md/mmark.git
 
 flag dev
   description:        Turn on development settings.

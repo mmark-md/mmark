@@ -4,8 +4,8 @@
 [![Hackage](https://img.shields.io/hackage/v/mmark.svg?style=flat)](https://hackage.haskell.org/package/mmark)
 [![Stackage Nightly](http://stackage.org/package/mmark/badge/nightly)](http://stackage.org/nightly/package/mmark)
 [![Stackage LTS](http://stackage.org/package/mmark/badge/lts)](http://stackage.org/lts/package/mmark)
-[![Build Status](https://travis-ci.org/mrkkrp/mmark.svg?branch=master)](https://travis-ci.org/mrkkrp/mmark)
-[![Coverage Status](https://coveralls.io/repos/mrkkrp/mmark/badge.svg?branch=master&service=github)](https://coveralls.io/github/mrkkrp/mmark?branch=master)
+[![Build Status](https://travis-ci.org/mmark-md/mmark.svg?branch=master)](https://travis-ci.org/mmark-md/mmark)
+[![Coverage Status](https://coveralls.io/repos/mmark-md/mmark/badge.svg?branch=master&service=github)](https://coveralls.io/github/mmark-md/mmark?branch=master)
 
 * [Quick start: MMark vs GitHub-flavored markdown](#quick-start-mmark-vs-github-flavored-markdown)
 * [MMark and Common Mark](#mmark-and-common-mark)
@@ -13,6 +13,7 @@
     * [Other differences](#other-differences)
 * [About MMark-specific extensions](#about-mmark-specific-extensions)
 * [Performance](#performance)
+* [Related packages](#related-packages)
 * [Contribution](#contribution)
 * [License](#license)
 
@@ -30,8 +31,7 @@ MMark in its current state features:
   makes sense.
 
 * An extension system allowing to create extensions that alter parsed
-  markdown document in some way. Some of them are available in the
-  [`mmark-ext`](https://hackage.haskell.org/package/mmark-ext) package.
+  markdown document in some way.
 
 * A [`lucid`](https://hackage.haskell.org/package/lucid)-based render.
 
@@ -283,10 +283,19 @@ to create emphasis, like so `*My* text`. This allowed `markdown` to get away
 with a far simpler approach to parsing at the price that it's not really a
 valid markdown implementation.
 
+## Related packages
+
+* [`mmark-ext`](https://hackage.haskell.org/package/mmark-ext) contains some
+  commonly useful MMark extensions.
+* [`mmark-cli`](https://hackage.haskell.org/package/mmark-cli) is a command
+  line interface to MMark.
+* [`flycheck-mmark`](https://github.com/mmark-md/flycheck-mmark) is a way to
+  check markdown documents against MMark parser interactively from Emacs.
+
 ## Contribution
 
 Issues, bugs, and questions may be reported in [the GitHub issue tracker for
-this project](https://github.com/mrkkrp/mmark/issues).
+this project](https://github.com/mmark-md/mmark/issues).
 
 Pull requests are also welcome and will be reviewed quickly.
 
