@@ -102,7 +102,7 @@
 --
 -- === Other modules of interest
 --
--- The "Text.MMark" module contains all the “core” functionality you may
+-- The "Text.MMark" module contains all the “core” functionality one may
 -- need. However, one of the main selling points of MMark is that it's
 -- possible to write your own extensions which stay highly composable (if
 -- done right), so proliferation of third-party extensions is to be expected

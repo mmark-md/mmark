@@ -14,11 +14,23 @@
 -- > import Text.MMark.Extension (Bni, Block (..), Inline (..))
 -- > import qualified Text.MMark.Extension as Ext
 --
--- === Details about extensions
+-- === Philosophy of MMark extensions
 --
--- There are four kinds of extension-producing functions. They correspond
--- internally to four functions that are applied to the parsed document in
--- turn:
+-- The extension system is guided by the following goals:
+--
+--     1. Make it powerful, so users can write interesting extensions.
+--     2. Make it efficient, so every type of transformation is only applied
+--        once and the number of traversals of the syntax tree stays
+--        constant no matter how many extensions the user chooses to use and
+--        how complex they are.
+--     3. Make it easy to write extensions that are very focused in what
+--        they do and do not interfere with each other in weird and
+--        unexpected ways.
+--
+-- I ruled out allowing users to mess with AST directly pretty quickly
+-- because it would be against the points 2 and 3. Instead, there are four
+-- kinds of extension-producing functions. They correspond internally to
+-- four functions that are applied to the parsed document in turn:
 --
 --     * 'blockTrans' is applied first, as it's quite general and can change
 --       block-level structure of document as well as inline-level
@@ -27,13 +39,39 @@
 --       in the previous step.
 --     * 'inlineRender' is applied to every inline; this function produces
 --       HTML rendition of the inlines and we also preserve the original
---       inline so 'blockRender' can look at it (sometimes it is useful).
+--       inlines so 'blockRender' can look at it (see 'Ois').
 --     * 'blockRender' is applied to every block to obtain HTML rendition of
 --       the whole document.
 --
 -- When one combines different extensions, extensions of the same kind get
 -- fused together into a single function. This allows for faster processing
--- in the end.
+-- and constant number of traversals over AST in the end.
+--
+-- One could note that the current design does not allow prepending or
+-- appending new elements to the AST. This is a limitation by design because
+-- we try to make the order in which extensions are applied not important
+-- (it's not always possible, though). Thus, if we want to e.g. insert a
+-- table of contents into a document, we need to do so by transforming an
+-- already existing element, such as code block with a special info string
+-- (this is how the extension works in the @mmark-ext@ package).
+--
+-- Another limitation by design is that extensions cannot change how the
+-- parser works. I find endless syntax-changing (or syntax-augmenting, if
+-- you will) extensions (as implemented by Pandoc for example) ugly, because
+-- they erode the core familiar markdown syntax and turn it into a
+-- monstrosity. In MMark we choose a different path of re-purposing existing
+-- markdown constructs, adding a special meaning to them in certain
+-- situations.
+--
+-- === Room for improvement
+--
+-- One flaw of the current system is that it does not allow reporting
+-- errors, so we have to silently fallback to some default behavior when we
+-- can't apply an extension in a meaningful way. Such extension-produced
+-- errors obviously should contain their positions in the original markdown
+-- input, which would require us storing this information in AST in some
+-- way. I'm not sure if the additional complexity (and possible performance
+-- trade-offs) is really worth it, so it hasn't been implemented so far.
 
 {-# LANGUAGE RankNTypes #-}
 

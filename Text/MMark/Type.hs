@@ -58,9 +58,9 @@ data MMark = MMark
 instance NFData MMark where
   rnf MMark {..} = rnf mmarkYaml `seq` rnf mmarkBlocks
 
--- | An extension. You can apply extensions with 'useExtension' and
--- 'useExtensions' functions. The "Text.MMark.Extension" module provides
--- tools for extension creation.
+-- | An extension. You can apply extensions with 'Text.MMark.useExtension'
+-- and 'Text.MMark.useExtensions' functions. The "Text.MMark.Extension"
+-- module provides tools for writing your own extensions.
 --
 -- Note that 'Extension' is an instance of 'Semigroup' and 'Monoid', i.e.
 -- you can combine several extensions into one. Since the @('<>')@ operator
@@ -217,8 +217,8 @@ instance NFData Inline
 -- | A wrapper for “originial inlines”. Source inlines are wrapped in this
 -- during rendering of inline components and then it's available to block
 -- render, but only for inspection. Altering of 'Ois' is not possible
--- because the user cannot construct a value of the 'Ois' type, she can only
--- inspect it with 'getOis'.
+-- because the user cannot construct a value of the 'Ois' type, he\/she can
+-- only inspect it with 'getOis'.
 
 newtype Ois = Ois (NonEmpty Inline)
 
