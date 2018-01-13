@@ -58,6 +58,13 @@ data MMark = MMark
 instance NFData MMark where
   rnf MMark {..} = rnf mmarkYaml `seq` rnf mmarkBlocks
 
+-- | Dummy instance.
+--
+-- @since 0.0.5.0
+
+instance Show MMark where
+  show = const "MMark {..}"
+
 -- | An extension. You can apply extensions with 'Text.MMark.useExtension'
 -- and 'Text.MMark.useExtensions' functions. The "Text.MMark.Extension"
 -- module provides tools for writing your own extensions.

@@ -1,6 +1,8 @@
-## MMark 0.0.4.4
+## MMark 0.0.5.0
 
 * Documentation improvements.
+
+* Added a dummy `Show` instance for the `MMark` type.
 
 ## MMark 0.0.4.3
 
