@@ -1824,7 +1824,7 @@ spec = parallel $ do
           "<p>Foo | Bar\nab- | ---</p>\n"
       it "demands that number of columns in rows match number of columns in header" $
         (let s = "Foo | Bar | Baz\n--- | --- | ---\nfoo | bar"
-         in s ~-> err (posN 41 s) (ueof <> etok '|' <> eic))
+         in s ~-> err (posN 41 s) (ulabel "end of table block" <> etok '|' <> eic))
         >>
         (let s = "Foo | Bar | Baz\n--- | --- | ---\nfoo | bar\n\nHere it goes."
          in s ~-> err (posN 41 s) (utok '\n' <> etok '|' <> eic))

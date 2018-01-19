@@ -450,11 +450,13 @@ pTable = do
     eol <* sc'
     lookAhead nonEmptyLine >>= guard . isHeaderLike
     return (n, headerRow)
-  caligns <- rowWrapper (NE.fromList <$> sepByCount n calign pipe)
-  otherRows <- many $ do
-    lookAhead (option True (isBlank <$> nonEmptyLine)) >>= guard . not
-    rowWrapper (NE.fromList <$> sepByCount n cell pipe)
-  Table caligns (headerRow :| otherRows) <$ sc
+  withRecovery recover $ do
+    sc'
+    caligns <- rowWrapper (NE.fromList <$> sepByCount n calign pipe)
+    otherRows <- many $ do
+      endOfTable >>= guard . not
+      rowWrapper (NE.fromList <$> sepByCount n cell pipe)
+    Table caligns (headerRow :| otherRows) <$ sc
   where
     cell = do
       startPos <- getPosition
@@ -488,6 +490,13 @@ pTable = do
       8 % 10
     isHeaderConstituent x =
       isSpace x || x == '|' || x == '-' || x == ':'
+    endOfTable =
+      lookAhead (option True (isBlank <$> nonEmptyLine))
+    recover err =
+      Naked (IspError (replaceEof "end of table block" err)) <$
+        manyTill
+          (optional nonEmptyLine)
+          (endOfTable >>= guard) <* sc
 
 -- | Parse a paragraph or naked text (is some cases).
 

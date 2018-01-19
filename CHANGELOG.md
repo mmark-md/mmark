@@ -1,3 +1,8 @@
+## MMark 0.0.5.1
+
+* The parser can now recover from block-level parse errors in tables and
+  continue parsing.
+
 ## MMark 0.0.5.0
 
 * Documentation improvements.
