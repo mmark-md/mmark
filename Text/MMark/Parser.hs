@@ -462,6 +462,7 @@ pTable = do
       startPos <- getPosition
       txt      <- fmap (T.stripEnd . T.pack) . foldMany' . choice $
         [ (++) . T.unpack <$> hidden (string "\\|")
+        , (++) . T.unpack <$> pCodeSpanB
         , (:) <$> label "inline content" (satisfy cellChar) ]
       return (IspSpan startPos txt)
     cellChar x = x /= '|' && notNewline x
@@ -539,6 +540,23 @@ pParagraph = do
     (IspSpan startPos (assembleParagraph (l:ls []))) <$ sc
 
 ----------------------------------------------------------------------------
+-- Auxiliary block-level parsers
+
+-- | 'match' a code span, this is a specialised and adjusted version of
+-- 'pCodeSpan'.
+
+pCodeSpanB :: BParser Text
+pCodeSpanB = fmap fst . match . hidden $ do
+  n <- try (length <$> some (char '`'))
+  let finalizer = try $ do
+        void $ count n (char '`')
+        notFollowedBy (char '`')
+  skipManyTill (label "code span content" $
+                  takeWhile1P Nothing (== '`') <|>
+                  takeWhile1P Nothing (\x -> x /= '`' && notNewline x))
+    finalizer
+
+----------------------------------------------------------------------------
 -- Inline parser
 
 -- | The top level inline parser.
@@ -590,6 +608,8 @@ pInlines = do
             else pPlain
 
 -- | Parse a code span.
+--
+-- See also: 'pCodeSpanB'.
 
 pCodeSpan :: IParser Inline
 pCodeSpan = do

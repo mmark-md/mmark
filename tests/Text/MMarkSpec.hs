@@ -1837,6 +1837,21 @@ spec = parallel $ do
       it "escaped pipes do not fool position tracking" $
         let s = "Foo | Bar\n--- | ---\n\\| *fo | bar"
         in s ~-> err (posN 26 s) (ueib <> etok '*' <> elabel "inline content")
+      it "pipes in code spans in headers do not fool the parser" $
+        "`|Foo|` | `|Bar|`\n--- | ---\nfoo | bar" ==->
+          "<table>\n<thead>\n<tr><th><code>|Foo|</code></th><th><code>|Bar|</code></th></tr>\n</thead>\n<tbody>\n<tr><td>foo</td><td>bar</td></tr>\n</tbody>\n</table>\n"
+      it "pipes in code spans in cells do not fool the parser" $
+        "Foo | Bar\n--- | ---\n`|foo|` | `|bar|`" ==->
+          "<table>\n<thead>\n<tr><th>Foo</th><th>Bar</th></tr>\n</thead>\n<tbody>\n<tr><td><code>|foo|</code></td><td><code>|bar|</code></td></tr>\n</tbody>\n</table>\n"
+      it "multi-line code spans are disallowed in table headers" $
+        "`Foo\nBar` | Bar\n--- | ---\nfoo | bar" ==->
+          "<p><code>Foo Bar</code> | Bar\n--- | ---\nfoo | bar</p>\n"
+      it "multi-line code spans are disallowed in table cells" $
+        let s = "Foo | Bar\n--- | ---\n`foo\nbar` | bar"
+        in s ~~->
+           [ err (posN 24 s) (utok '\n' <> etok '`' <> elabel "code span content")
+           , err (posN 35 s) (ueib <> etok '`' <> elabel "code span content")
+           ]
       it "parses tables with just header row" $
         "Foo | Bar\n--- | ---" ==->
           "<table>\n<thead>\n<tr><th>Foo</th><th>Bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n"

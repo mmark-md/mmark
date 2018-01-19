@@ -3,6 +3,9 @@
 * The parser can now recover from block-level parse errors in tables and
   continue parsing.
 
+* Pipes in code spans in table cells are not considered as table cell
+  delimiters anymore.
+
 ## MMark 0.0.5.0
 
 * Documentation improvements.
