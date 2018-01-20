@@ -64,7 +64,9 @@ There are three main differences:
    > And this is another block quote!
    ```
 
-3. See [differences in inline parsing](#differences-in-inline-parsing).
+3. HTML blocks and inline HTML are not supported.
+
+4. See [differences in inline parsing](#differences-in-inline-parsing).
 
 ## MMark and Common Mark
 
