@@ -170,11 +170,11 @@ pBlock = do
         [ Just <$> pThematicBreak
         , Just <$> pAtxHeading
         , Just <$> pFencedCodeBlock
+        , Just <$> pTable
         , Just <$> pUnorderedList
         , Just <$> pOrderedList
         , Just <$> pBlockquote
         , pReferenceDef
-        , Just <$> pTable
         , Just <$> pParagraph ]
       _  ->
           Just <$> pIndentedCodeBlock
@@ -441,6 +441,8 @@ pReferenceDef = do
 pTable :: BParser (Block Isp)
 pTable = do
   (n, headerRow) <- try $ do
+    pos <- L.indentLevel
+    option False (T.any (== '|') <$> lookAhead nonEmptyLine) >>= guard
     let pipe' = option False (True <$ pipe)
     l <- pipe'
     headerRow <- NE.sepBy1 cell (try (pipe <* notFollowedBy eol))
@@ -448,18 +450,22 @@ pTable = do
     let n = NE.length headerRow
     guard (n > 1 || l || r)
     eol <* sc'
+    L.indentLevel >>= \i -> guard (i == pos || i == (pos <> pos1))
     lookAhead nonEmptyLine >>= guard . isHeaderLike
     return (n, headerRow)
-  caligns <- rowWrapper (NE.fromList <$> sepByCount n calign pipe)
-  otherRows <- many $ do
-    lookAhead (option True (isBlank <$> nonEmptyLine)) >>= guard . not
-    rowWrapper (NE.fromList <$> sepByCount n cell pipe)
-  Table caligns (headerRow :| otherRows) <$ sc
+  withRecovery recover $ do
+    sc'
+    caligns <- rowWrapper (NE.fromList <$> sepByCount n calign pipe)
+    otherRows <- many $ do
+      endOfTable >>= guard . not
+      rowWrapper (NE.fromList <$> sepByCount n cell pipe)
+    Table caligns (headerRow :| otherRows) <$ sc
   where
     cell = do
       startPos <- getPosition
       txt      <- fmap (T.stripEnd . T.pack) . foldMany' . choice $
         [ (++) . T.unpack <$> hidden (string "\\|")
+        , (++) . T.unpack <$> pCodeSpanB
         , (:) <$> label "inline content" (satisfy cellChar) ]
       return (IspSpan startPos txt)
     cellChar x = x /= '|' && notNewline x
@@ -488,6 +494,13 @@ pTable = do
       8 % 10
     isHeaderConstituent x =
       isSpace x || x == '|' || x == '-' || x == ':'
+    endOfTable =
+      lookAhead (option True (isBlank <$> nonEmptyLine))
+    recover err =
+      Naked (IspError (replaceEof "end of table block" err)) <$
+        manyTill
+          (optional nonEmptyLine)
+          (endOfTable >>= guard) <* sc
 
 -- | Parse a paragraph or naked text (is some cases).
 
@@ -528,6 +541,23 @@ pParagraph = do
       else return (id, Naked)
   (if allowNaked then toBlock else Paragraph)
     (IspSpan startPos (assembleParagraph (l:ls []))) <$ sc
+
+----------------------------------------------------------------------------
+-- Auxiliary block-level parsers
+
+-- | 'match' a code span, this is a specialised and adjusted version of
+-- 'pCodeSpan'.
+
+pCodeSpanB :: BParser Text
+pCodeSpanB = fmap fst . match . hidden $ do
+  n <- try (length <$> some (char '`'))
+  let finalizer = try $ do
+        void $ count n (char '`')
+        notFollowedBy (char '`')
+  skipManyTill (label "code span content" $
+                  takeWhile1P Nothing (== '`') <|>
+                  takeWhile1P Nothing (\x -> x /= '`' && notNewline x))
+    finalizer
 
 ----------------------------------------------------------------------------
 -- Inline parser
@@ -581,6 +611,8 @@ pInlines = do
             else pPlain
 
 -- | Parse a code span.
+--
+-- See also: 'pCodeSpanB'.
 
 pCodeSpan :: IParser Inline
 pCodeSpan = do

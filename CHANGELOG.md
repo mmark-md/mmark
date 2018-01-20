@@ -1,3 +1,17 @@
+## MMark 0.0.5.1
+
+* The parser can now recover from block-level parse errors in tables and
+  continue parsing.
+
+* Pipes in code spans in table cells are not considered as table cell
+  delimiters anymore.
+
+* Table sub-parser now faster rejects inputs that do not look like a table,
+  this improves overall performance.
+
+* Better handling of the cases when a block can be interpreted as a list and
+  as a table at the same time.
+
 ## MMark 0.0.5.0
 
 * Documentation improvements.
