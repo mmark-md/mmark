@@ -6,6 +6,9 @@
 * Pipes in code spans in table cells are not considered as table cell
   delimiters anymore.
 
+* Table sub-parser now faster rejects inputs that do not look like a table,
+  this improves overall performance.
+
 ## MMark 0.0.5.0
 
 * Documentation improvements.

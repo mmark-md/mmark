@@ -441,6 +441,7 @@ pReferenceDef = do
 pTable :: BParser (Block Isp)
 pTable = do
   (n, headerRow) <- try $ do
+    option False (T.any (== '|') <$> lookAhead nonEmptyLine) >>= guard
     let pipe' = option False (True <$ pipe)
     l <- pipe'
     headerRow <- NE.sepBy1 cell (try (pipe <* notFollowedBy eol))
