@@ -1805,7 +1805,7 @@ spec = parallel $ do
         let o = "<table>\n<thead>\n<tr><th>Foo</th></tr>\n</thead>\n<tbody>\n<tr><td>foo</td></tr>\n</tbody>\n</table>\n"
         "|Foo\n---\nfoo" ==-> o
         "Foo|\n---\nfoo" ==-> o
-        "| Foo |\n  ---  \n  foo  " ==-> o
+        "| Foo |\n ---  \n  foo  " ==-> o
         "| Foo |\n| --- |\n| foo |" ==-> o
       it "reports correct parse errors when parsing the header line" $
         (let s = "Foo | Bar\na-- | ---"
@@ -1864,6 +1864,22 @@ spec = parallel $ do
            [ err (posN 10 s) (ueib <> etok '*' <> eic)
            , err (posN 26 s) (ueib <> etok '_' <> eic)
            , errFancy (posN 32 s) (nonFlanking "_") ]
+      it "tables have higher precedence than unordered lists" $ do
+        "+ foo | bar\n------|----\n" ==->
+          "<table>\n<thead>\n<tr><th>+ foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n"
+        "+ foo | bar\n -----|----\n" ==->
+          "<table>\n<thead>\n<tr><th>+ foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n"
+      it "tables have higher precedence than ordered lists" $ do
+        "1. foo | bar\n-------|----\n" ==->
+          "<table>\n<thead>\n<tr><th>1. foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n"
+        "1. foo | bar\n ------|----\n" ==->
+          "<table>\n<thead>\n<tr><th>1. foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n"
+      it "if table is indented inside unordered list, it's put there" $
+        "+ foo | bar\n  ----|----\n" ==->
+          "<ul>\n<li>\n<table>\n<thead>\n<tr><th>foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n</li>\n</ul>\n"
+      it "if table is indented inside ordered list, it's put there" $
+        "1. foo | bar\n   ----|----\n" ==->
+          "<ol>\n<li>\n<table>\n<thead>\n<tr><th>foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n</li>\n</ol>\n"
       it "renders a comprehensive table correctly" $
         withFiles "data/table.md" "data/table.html"
     context "multiple parse errors" $ do

@@ -9,6 +9,9 @@
 * Table sub-parser now faster rejects inputs that do not look like a table,
   this improves overall performance.
 
+* Better handling of the cases when a block can be interpreted as a list and
+  as a table at the same time.
+
 ## MMark 0.0.5.0
 
 * Documentation improvements.

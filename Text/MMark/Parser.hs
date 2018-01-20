@@ -170,11 +170,11 @@ pBlock = do
         [ Just <$> pThematicBreak
         , Just <$> pAtxHeading
         , Just <$> pFencedCodeBlock
+        , Just <$> pTable
         , Just <$> pUnorderedList
         , Just <$> pOrderedList
         , Just <$> pBlockquote
         , pReferenceDef
-        , Just <$> pTable
         , Just <$> pParagraph ]
       _  ->
           Just <$> pIndentedCodeBlock
@@ -441,6 +441,7 @@ pReferenceDef = do
 pTable :: BParser (Block Isp)
 pTable = do
   (n, headerRow) <- try $ do
+    pos <- L.indentLevel
     option False (T.any (== '|') <$> lookAhead nonEmptyLine) >>= guard
     let pipe' = option False (True <$ pipe)
     l <- pipe'
@@ -449,6 +450,7 @@ pTable = do
     let n = NE.length headerRow
     guard (n > 1 || l || r)
     eol <* sc'
+    L.indentLevel >>= \i -> guard (i == pos || i == (pos <> pos1))
     lookAhead nonEmptyLine >>= guard . isHeaderLike
     return (n, headerRow)
   withRecovery recover $ do
