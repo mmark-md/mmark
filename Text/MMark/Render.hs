@@ -20,6 +20,7 @@ where
 import Control.Arrow
 import Control.Monad
 import Data.Char (isSpace)
+import Data.Function (fix)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Data.Semigroup
@@ -56,15 +57,18 @@ applyBlockRender
   :: Render (Block (Ois, Html ()))
   -> Block (Ois, Html ())
   -> Html ()
-applyBlockRender r = getRender r defaultBlockRender
+applyBlockRender r = fix (runRender r . defaultBlockRender)
 
 -- | The default 'Block' render. Note that it does not care about what we
 -- have rendered so far because it always starts rendering. Thus it's OK to
 -- just pass it something dummy as the second argument of the inner
 -- function.
 
-defaultBlockRender :: Block (Ois, Html ()) -> Html ()
-defaultBlockRender = \case
+defaultBlockRender
+  :: (Block (Ois, Html ()) -> Html ())
+     -- ^ Rendering function to use to render sub-blocks
+  -> Block (Ois, Html ()) -> Html ()
+defaultBlockRender blockRender = \case
   ThematicBreak ->
     hr_ [] >> newline
   Heading1 (h,html) ->
@@ -88,21 +92,21 @@ defaultBlockRender = \case
   Paragraph (_,html) ->
     p_ html >> newline
   Blockquote blocks -> do
-    blockquote_ (newline <* mapM_ defaultBlockRender blocks)
+    blockquote_ (newline <* mapM_ blockRender blocks)
     newline
   OrderedList i items -> do
     let startIndex = [start_ (T.pack $ show i) | i /= 1]
     ol_ startIndex $ do
       newline
       forM_ items $ \x -> do
-        li_ (newline <* mapM_ defaultBlockRender x)
+        li_ (newline <* mapM_ blockRender x)
         newline
     newline
   UnorderedList items -> do
     ul_ $ do
       newline
       forM_ items $ \x -> do
-        li_ (newline <* mapM_ defaultBlockRender x)
+        li_ (newline <* mapM_ blockRender x)
         newline
     newline
   Table calign (hs :| rows) -> do
@@ -135,32 +139,35 @@ defaultBlockRender = \case
 -- | Apply a render to a given 'Inline'.
 
 applyInlineRender :: Render Inline -> Inline -> Html ()
-applyInlineRender r = getRender r defaultInlineRender
+applyInlineRender r = fix (runRender r . defaultInlineRender)
 
 -- | The default render for 'Inline' elements. Comments about
 -- 'defaultBlockRender' apply here just as well.
 
-defaultInlineRender :: Inline -> Html ()
-defaultInlineRender = \case
+defaultInlineRender
+  :: (Inline -> Html ())
+     -- ^ Rendering function to use to render sub-inlines
+  -> Inline -> Html ()
+defaultInlineRender inlineRender = \case
   Plain txt ->
     toHtml txt
   LineBreak ->
     br_ [] >> newline
   Emphasis inner ->
-    em_ (mapM_ defaultInlineRender inner)
+    em_ (mapM_ inlineRender inner)
   Strong inner ->
-    strong_ (mapM_ defaultInlineRender inner)
+    strong_ (mapM_ inlineRender inner)
   Strikeout inner ->
-    del_ (mapM_ defaultInlineRender inner)
+    del_ (mapM_ inlineRender inner)
   Subscript inner ->
-    sub_ (mapM_ defaultInlineRender inner)
+    sub_ (mapM_ inlineRender inner)
   Superscript inner ->
-    sup_ (mapM_ defaultInlineRender inner)
+    sup_ (mapM_ inlineRender inner)
   CodeSpan txt ->
     code_ (toHtmlRaw txt)
   Link inner dest mtitle ->
     let title = maybe [] (pure . title_) mtitle
-    in a_ (href_ (URI.render dest) : title) (mapM_ defaultInlineRender inner)
+    in a_ (href_ (URI.render dest) : title) (mapM_ inlineRender inner)
   Image desc src mtitle ->
     let title = maybe [] (pure . title_) mtitle
     in img_ (alt_ (asPlainText desc) : src_ (URI.render src) : title)

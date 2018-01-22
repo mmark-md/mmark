@@ -24,21 +24,29 @@ spec = parallel $ do
       doc <- mkDoc "# My heading"
       toText (MMark.useExtension h1_to_h2 doc)
         `shouldBe` "<h2 id=\"my-heading\">My heading</h2>\n"
-  describe "blockRender" $
+  describe "blockRender" $ do
     it "works" $ do
       doc <- mkDoc "# My heading"
       toText (MMark.useExtension add_h1_content doc)
         `shouldBe` "<h1 data-content=\"My heading\" id=\"my-heading\">My heading</h1>\n"
+    it "extensions can affect nested block structures" $ do
+      doc <- mkDoc "* # Something"
+      toText (MMark.useExtension add_h1_content doc)
+       `shouldBe` "<ul>\n<li>\n<h1 data-content=\"Something\" id=\"something\">Something</h1>\n</li>\n</ul>\n"
   describe "inlineTrans" $
     it "works" $ do
       doc <- mkDoc "# My *heading*"
       toText (MMark.useExtension em_to_strong doc)
         `shouldBe` "<h1 id=\"my-heading\">My <strong>heading</strong></h1>\n"
-  describe "inlineRender" $
+  describe "inlineRender" $ do
     it "works" $ do
       doc <- mkDoc "# My *heading*"
       toText (MMark.useExtension (add_em_class "foo") doc)
         `shouldBe` "<h1 id=\"my-heading\">My <em class=\"foo\">heading</em></h1>\n"
+    it "extensions can affect nested inline structures" $ do
+      doc <- mkDoc "[*heading*](/url)"
+      toText (MMark.useExtension (add_em_class "foo") doc)
+        `shouldBe` "<p><a href=\"/url\"><em class=\"foo\">heading</em></a></p>\n"
   describe "asPlainText" $ do
     let f x = Ext.asPlainText (x:|[])
     context "with Plain" $

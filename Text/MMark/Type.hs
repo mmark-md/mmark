@@ -118,7 +118,7 @@ instance Monoid Extension where
 -- the type @a -> Html ()@.
 
 newtype Render a = Render
-  { getRender :: (a -> Html ()) -> a -> Html () }
+  { runRender :: (a -> Html ()) -> a -> Html () }
 
 instance Semigroup (Render a) where
   Render f <> Render g = Render $ \h -> f (g h)
