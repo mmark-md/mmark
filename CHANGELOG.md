@@ -1,3 +1,9 @@
+## MMark 0.0.5.2
+
+* Fix the bug that prevented application of rendering extensions to
+  sub-blocks (blocks contained inside other blocks) and sub-inlines (inlines
+  contained inside other inlines).
+
 ## MMark 0.0.5.1
 
 * The parser can now recover from block-level parse errors in tables and
