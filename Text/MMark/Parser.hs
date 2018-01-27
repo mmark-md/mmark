@@ -663,6 +663,7 @@ pImage = do
 
 pAutolink :: IParser Inline
 pAutolink = between (char '<') (char '>') $ do
+  notFollowedBy (char '>')
   uri' <- URI.parser
   let (txt, uri) =
         case isEmailUri uri' of

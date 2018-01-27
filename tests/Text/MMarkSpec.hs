@@ -1677,7 +1677,7 @@ spec = parallel $ do
           "<p>&lt;foo+@bar.example.com&gt;</p>\n"
       it "CM578" $
         "<>" ==->
-          "<p><a href></a></p>\n"
+          "<p>&lt;&gt;</p>\n"
       it "CM579" $
         "< http://foo.bar >" ==->
           "<p>&lt; http://foo.bar &gt;</p>\n"
