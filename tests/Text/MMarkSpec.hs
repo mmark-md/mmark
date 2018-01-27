@@ -66,8 +66,8 @@ spec = parallel $ do
       it "CM12" $
         let s = "- `one\n- two`"
         in s ~~->
-           [ err (posN 6 s) (ueib <> etok '`' <> elabel "code span content")
-           , err (posN 13 s) (ueib <> etok '`' <> elabel "code span content") ]
+           [ err (posN 6 s) (ueib <> etok '`' <> ecsc)
+           , err (posN 13 s) (ueib <> etok '`' <> ecsc) ]
     context "4.1 Thematic breaks" $ do
       it "CM13" $
         "***\n---\n___" ==-> "<hr>\n<hr>\n<hr>\n"
@@ -204,8 +204,8 @@ spec = parallel $ do
       it "CM60" $
         let s = "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n"
         in s ~~->
-           [ err (posN 4 s) (ueib <> etok '`' <> elabel "code span content")
-           , err (posN 11 s) (ueib <> etok '`' <> elabel "code span content") ]
+           [ err (posN 4 s) (ueib <> etok '`' <> ecsc)
+           , err (posN 11 s) (ueib <> etok '`' <> ecsc) ]
       it "CM61" $
         "> Foo\n---" ==->
           "<blockquote>\n<p>Foo</p>\n</blockquote>\n<hr>\n"
@@ -313,7 +313,7 @@ spec = parallel $ do
       it "CM95" $
         let s = "```"
         in s ~-> err (posN 3 s)
-           (ueib <> etok '`' <> elabel "code span content")
+           (ueib <> etok '`' <> ecsc)
       it "CM96" $
         let s = "`````\n\n```\naaa\n"
         in s ~-> err (posN 15 s)
@@ -786,7 +786,7 @@ spec = parallel $ do
     context "6 Inlines" $
       it "CM288" $
         let s  = "`hi`lo`\n"
-        in s ~-> err (posN 7 s) (ueib <> etok '`' <> elabel "code span content")
+        in s ~-> err (posN 7 s) (ueib <> etok '`' <> ecsc)
     context "6.1 Blackslash escapes" $ do
       it "CM289" $
         "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~\n"
@@ -881,7 +881,7 @@ spec = parallel $ do
           "<pre><code class=\"language-f\246\246\">foo\n</code></pre>\n"
       it "CM312" $
         "`f&ouml;&ouml;`" ==->
-          "<p><code>f&ouml;&ouml;</code></p>\n"
+          "<p><code>f&amp;ouml;&amp;ouml;</code></p>\n"
       it "CM313" $
         "    f&ouml;f&ouml;" ==->
           "<pre><code>f&amp;ouml;f&amp;ouml;\n</code></pre>\n"
@@ -903,7 +903,7 @@ spec = parallel $ do
         "`foo `` bar`" ==-> "<p><code>foo `` bar</code></p>\n"
       it "CM321" $
         let s  = "`foo\\`bar`\n"
-        in s ~-> err (posN 10 s) (ueib <> etok '`' <> elabel "code span content")
+        in s ~-> err (posN 10 s) (ueib <> etok '`' <> ecsc)
       it "CM322" $
         let s  = "*foo`*`\n"
         in s ~-> err (posN 7 s) (ueib <> etok '*' <> eic)
@@ -912,25 +912,25 @@ spec = parallel $ do
         in s ~-> err (posN 20 s) (ueib <> etok ']' <> eic)
       it "CM324" $
         let s = "`<a href=\"`\">`\n"
-        in s ~-> err (posN 14 s) (ueib <> etok '`' <> elabel "code span content")
+        in s ~-> err (posN 14 s) (ueib <> etok '`' <> ecsc)
       it "CM325" $
         "<a href=\"`\">`" ==->
-          "<p>&lt;a href=&quot;<code>\"></code></p>\n"
+          "<p>&lt;a href=&quot;<code>&quot;&gt;</code></p>\n"
       it "CM326" $
         let s = "`<http://foo.bar.`baz>`\n"
-        in s ~-> err (posN 23 s) (ueib <> etok '`' <> elabel "code span content")
+        in s ~-> err (posN 23 s) (ueib <> etok '`' <> ecsc)
       it "CM327" $
         "<http://foo.bar.`baz>`" ==->
-          "<p>&lt;http://foo.bar.<code>baz></code></p>\n"
+          "<p>&lt;http://foo.bar.<code>baz&gt;</code></p>\n"
       it "CM328" $
         let s  = "```foo``\n"
-        in s ~-> err (posN 8 s) (ueib <> etok '`' <> elabel "code span content")
+        in s ~-> err (posN 8 s) (ueib <> etok '`' <> ecsc)
       it "CM329" $
         let s = "`foo\n"
-        in s ~-> err (posN 4 s) (ueib <> etok '`' <> elabel "code span content")
+        in s ~-> err (posN 4 s) (ueib <> etok '`' <> ecsc)
       it "CM330" $
         let s = "`foo``bar``\n"
-        in s ~-> err (posN 11 s) (ueib <> etok '`' <> elabel "code span content")
+        in s ~-> err (posN 11 s) (ueib <> etok '`' <> ecsc)
     context "6.4 Emphasis and strong emphasis" $ do
       it "CM331" $
         "*foo bar*" ==-> "<p><em>foo bar</em></p>\n"
@@ -1849,8 +1849,8 @@ spec = parallel $ do
       it "multi-line code spans are disallowed in table cells" $
         let s = "Foo | Bar\n--- | ---\n`foo\nbar` | bar"
         in s ~~->
-           [ err (posN 24 s) (utok '\n' <> etok '`' <> elabel "code span content")
-           , err (posN 35 s) (ueib <> etok '`' <> elabel "code span content")
+           [ err (posN 24 s) (utok '\n' <> etok '`' <> ecsc)
+           , err (posN 35 s) (ueib <> etok '`' <> ecsc)
            ]
       it "parses tables with just header row" $
         "Foo | Bar\n--- | ---" ==->
@@ -1885,7 +1885,7 @@ spec = parallel $ do
     context "multiple parse errors" $ do
       it "they are reported in correct order" $ do
         let s = "Foo `\n\nBar `.\n"
-            pe = ueib <> etok '`' <> elabel "code span content"
+            pe = ueib <> etok '`' <> ecsc
         s ~~->
           [ err (posN 5  s) pe
           , err (posN 13 s) pe ]
@@ -2063,6 +2063,11 @@ eic = elabel "inline content"
 
 ews :: Ord t => ET t
 ews = elabel "white space"
+
+-- | Expecting code span content.
+
+ecsc :: Ord t => ET t
+ecsc = elabel "code span content"
 
 -- | Error component complaining that the given 'Text' is not in left- or
 -- right- flanking position.
