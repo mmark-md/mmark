@@ -164,7 +164,7 @@ defaultInlineRender inlineRender = \case
   Superscript inner ->
     sup_ (mapM_ inlineRender inner)
   CodeSpan txt ->
-    code_ (toHtmlRaw txt)
+    code_ (toHtml txt)
   Link inner dest mtitle ->
     let title = maybe [] (pure . title_) mtitle
     in a_ (href_ (URI.render dest) : title) (mapM_ inlineRender inner)

@@ -1,6 +1,10 @@
+## MMark 0.0.5.3
+
+* Now HTML is escaped properly inside inline code spans.
+
 ## MMark 0.0.5.2
 
-* Fix the bug that prevented application of rendering extensions to
+* Fixed the bug that prevented application of rendering extensions to
   sub-blocks (blocks contained inside other blocks) and sub-inlines (inlines
   contained inside other inlines).
 
