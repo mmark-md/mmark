@@ -1,3 +1,8 @@
+## MMark 0.0.5.4
+
+* Empty autolinks are now disallowed. `<>` will result in literal `<>` in
+  resulting HTML.
+
 ## MMark 0.0.5.3
 
 * Now HTML is escaped properly inside inline code spans.
