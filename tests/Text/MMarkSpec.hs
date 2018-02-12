@@ -1973,12 +1973,15 @@ spec = parallel $ do
         doc <- mkDoc "Here we go."
         MMark.projectYaml doc `shouldBe` Nothing
     context "when document contains a YAML section" $ do
-      context "when it is valid" $
-        it "returns the YAML section" $ do
+      context "when it is valid" $ do
+        let r = object
+              [ "x" .= Number 100
+              , "y" .= Number 200 ]
+        it "returns the YAML section (1)" $ do
           doc <- mkDoc "---\nx: 100\ny: 200\n---\nHere we go."
-          let r = object
-                [ "x" .= Number 100
-                , "y" .= Number 200 ]
+          MMark.projectYaml doc `shouldBe` Just r
+        it "returns the YAML section (2)" $ do
+          doc <- mkDoc "---\nx: 100\ny: 200\n---\n\n"
           MMark.projectYaml doc `shouldBe` Just r
       context "when it is invalid" $ do
         let mappingErr = fancy . ErrorCustom . YamlParseError $

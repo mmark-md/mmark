@@ -136,14 +136,14 @@ pYamlBlock :: BParser (Either (SourcePos, String) Yaml.Value)
 pYamlBlock = do
   dpos <- getPosition
   string "---" *> sc' *> eol
-  let go = do
+  let go acc = do
         l <- takeWhileP Nothing notNewline
         void (optional eol)
         e <- atEnd
         if e || T.stripEnd l == "---"
-          then return []
-          else (l :) <$> go
-  ls <- go
+          then return acc
+          else go (acc . (l:))
+  ls <- go id <*> ([] <$ sc)
   return $
     case (Yaml.decodeEither . TE.encodeUtf8 . T.intercalate "\n") ls of
       Left err' ->

@@ -1,3 +1,8 @@
+## MMark 0.0.5.5
+
+* Fixed the bug in parser which signalled a parse error when YAML block was
+  followed by more than one newline without markdown content after it.
+
 ## MMark 0.0.5.4
 
 * Empty autolinks are now disallowed. `<>` will result in literal `<>` in
