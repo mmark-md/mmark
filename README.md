@@ -42,7 +42,7 @@ https://markkarpov.com/post/announcing-mmark.html
 ## Quick start: MMark vs GitHub-flavored markdown
 
 It's easy to start using MMark if you're used to GitHub-flavored markdown.
-There are three main differences:
+There are four main differences:
 
 1. URIs are not automatically recognized, you must enclose them in `<` and
    `>`.
