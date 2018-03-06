@@ -221,7 +221,7 @@ data Inline
 
 instance NFData Inline
 
--- | A wrapper for “originial inlines”. Source inlines are wrapped in this
+-- | A wrapper for “original inlines”. Source inlines are wrapped in this
 -- during rendering of inline components and then it's available to block
 -- render, but only for inspection. Altering of 'Ois' is not possible
 -- because the user cannot construct a value of the 'Ois' type, he\/she can
