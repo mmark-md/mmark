@@ -121,7 +121,7 @@ newtype Render a = Render
   { runRender :: (a -> Html ()) -> a -> Html () }
 
 instance Semigroup (Render a) where
-  Render f <> Render g = Render $ \h -> f (g h)
+  Render f <> Render g = Render (f . g)
 
 instance Monoid (Render a) where
   mempty  = Render id
