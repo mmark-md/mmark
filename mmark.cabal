@@ -61,6 +61,7 @@ library
                     , Text.MMark.Parser.Internal
                     , Text.MMark.Parser.Internal.Type
                     , Text.MMark.Render
+                    , Text.MMark.Trans
                     , Text.MMark.Type
                     , Text.MMark.Util
   if flag(dev)

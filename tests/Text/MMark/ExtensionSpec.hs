@@ -19,11 +19,15 @@ import qualified Text.URI             as URI
 
 spec :: Spec
 spec = parallel $ do
-  describe "blockTrans" $
+  describe "blockTrans" $ do
     it "works" $ do
       doc <- mkDoc "# My heading"
       toText (MMark.useExtension h1_to_h2 doc)
         `shouldBe` "<h2 id=\"my-heading\">My heading</h2>\n"
+    it "extensions can affect nested block structures" $ do
+      doc <- mkDoc "* # My heading"
+      toText (MMark.useExtension h1_to_h2 doc)
+        `shouldBe` "<ul>\n<li>\n<h2 id=\"my-heading\">My heading</h2>\n</li>\n</ul>\n"
   describe "blockRender" $ do
     it "works" $ do
       doc <- mkDoc "# My heading"
@@ -33,11 +37,15 @@ spec = parallel $ do
       doc <- mkDoc "* # Something"
       toText (MMark.useExtension add_h1_content doc)
        `shouldBe` "<ul>\n<li>\n<h1 data-content=\"Something\" id=\"something\">Something</h1>\n</li>\n</ul>\n"
-  describe "inlineTrans" $
+  describe "inlineTrans" $ do
     it "works" $ do
       doc <- mkDoc "# My *heading*"
       toText (MMark.useExtension em_to_strong doc)
         `shouldBe` "<h1 id=\"my-heading\">My <strong>heading</strong></h1>\n"
+    it "extensions can affect nested inline structures" $ do
+      doc <- mkDoc "# My ~*heading*~"
+      toText (MMark.useExtension em_to_strong doc)
+        `shouldBe` "<h1 id=\"my-heading\">My <sub><strong>heading</strong></sub></h1>\n"
   describe "inlineRender" $ do
     it "works" $ do
       doc <- mkDoc "# My *heading*"
@@ -134,7 +142,7 @@ add_h1_content = Ext.blockRender $ \old block ->
       [ L.data_ "content" (Ext.asPlainText . Ext.getOis . fst $ inner) ]
     other          -> old other
 
--- | Covert all 'Emphasis' to 'Strong'.
+-- | Convert all 'Emphasis' to 'Strong'.
 
 em_to_strong :: MMark.Extension
 em_to_strong = Ext.inlineTrans $ \case
