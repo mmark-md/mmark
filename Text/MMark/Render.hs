@@ -22,9 +22,9 @@ import Control.Monad
 import Data.Char (isSpace)
 import Data.Function (fix)
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Monoid hiding ((<>))
 import Data.Semigroup
 import Lucid
+import Text.MMark.Trans
 import Text.MMark.Type
 import Text.MMark.Util
 import qualified Data.List.NonEmpty as NE
@@ -46,10 +46,10 @@ render MMark {..} =
     rBlock
       = applyBlockRender extBlockRender
       . fmap rInlines
-      . appEndo extBlockTrans
+      . applyBlockTrans extBlockTrans
     rInlines
       = (mkOisInternal &&& mapM_ (applyInlineRender extInlineRender))
-      . fmap (appEndo extInlineTrans)
+      . fmap (applyInlineTrans extInlineTrans)
 
 -- | Apply a 'Render' to a given @'Block' 'Html' ()@.
 

@@ -106,7 +106,11 @@ import Text.MMark.Util
 import qualified Control.Foldl as L
 
 -- | Create an extension that performs a transformation on 'Block's of
--- markdown document.
+-- markdown document. Since a block may contain other blocks we choose to
+-- perform transformations from the most deeply nested blocks moving
+-- upwards. This has the benefit that the result of any transformation is
+-- final in the sense that sub-elements of resulting block won't be
+-- traversed again.
 
 blockTrans :: (Bni -> Bni) -> Extension
 blockTrans f = mempty { extBlockTrans = Endo f }
@@ -131,7 +135,9 @@ blockRender
 blockRender f = mempty { extBlockRender = Render f }
 
 -- | Create an extension that performs a transformation on 'Inline'
--- components in entire markdown document.
+-- components in entire markdown document. Similarly to 'blockTrans' the
+-- transformation is applied from the most deeply nested elements moving
+-- upwards.
 
 inlineTrans :: (Inline -> Inline) -> Extension
 inlineTrans f = mempty { extInlineTrans = Endo f }
