@@ -9,6 +9,7 @@
 --
 -- MMark rendering machinery.
 
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -22,7 +23,6 @@ import Control.Monad
 import Data.Char (isSpace)
 import Data.Function (fix)
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Semigroup
 import Lucid
 import Text.MMark.Trans
 import Text.MMark.Type
@@ -30,6 +30,10 @@ import Text.MMark.Util
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
 import qualified Text.URI           as URI
+
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup
+#endif
 
 -- | Render a 'MMark' markdown document. You can then render @'Html' ()@ to
 -- various things:
