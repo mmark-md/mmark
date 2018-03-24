@@ -1,7 +1,0 @@
-resolver: lts-10.0
-packages:
-- '.'
-extra-deps:
-- megaparsec-6.4.0
-- modern-uri-0.1.2.1
-- parser-combinators-0.4.0
