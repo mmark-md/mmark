@@ -90,7 +90,7 @@ MMark supports:
 * automatic assignment of ids to headers
 * pipe tables (as on GitHub)
 
-One do not need to enable or tweak anything for these to work, they are
+One does not need to enable or tweak anything for these to work, they are
 built-in features.
 
 ### Differences in inline parsing
