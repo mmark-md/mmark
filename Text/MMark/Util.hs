@@ -9,7 +9,6 @@
 --
 -- Internal utilities.
 
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -63,10 +62,6 @@ headerFragment :: Text -> URI
 headerFragment fragment = URI
   { uriScheme    = Nothing
   , uriAuthority = Left False
-#if MIN_VERSION_modern_uri(0,2,0)
   , uriPath      = Nothing
-#else
-  , uriPath      = []
-#endif
   , uriQuery     = []
   , uriFragment  = URI.mkFragment fragment }

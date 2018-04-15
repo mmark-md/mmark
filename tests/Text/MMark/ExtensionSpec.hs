@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -107,11 +106,7 @@ spec = parallel $ do
         frag <- URI.mkFragment fragment
         URI.uriScheme    uri `shouldBe` Nothing
         URI.uriAuthority uri `shouldBe` Left False
-#if MIN_VERSION_modern_uri(0,2,0)
         URI.uriPath      uri `shouldBe` Nothing
-#else
-        URI.uriPath      uri `shouldBe` []
-#endif
         URI.uriQuery     uri `shouldBe` []
         URI.uriFragment  uri `shouldBe` Just frag
 
