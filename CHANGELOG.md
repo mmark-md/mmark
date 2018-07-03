@@ -1,3 +1,7 @@
+## MMark 0.0.5.7
+
+* Improved parse errors related to the optional YAML block.
+
 ## MMark 0.0.5.6
 
 * Now `blockTrans` and `inlineTrans` are applied to deeply nested elements
