@@ -29,12 +29,11 @@ import Data.Bifunctor (Bifunctor (..))
 import Data.Bool (bool)
 import Data.HTML.Entities (htmlEntityMap)
 import Data.List.NonEmpty (NonEmpty (..), (<|))
-import Data.Maybe (isNothing, fromJust, fromMaybe, catMaybes, isJust)
+import Data.Maybe (isNothing, fromJust, catMaybes, isJust)
 import Data.Monoid (Any (..))
 import Data.Ratio ((%))
 import Data.Semigroup (Semigroup (..))
 import Data.Text (Text)
-import Data.Void
 import Lens.Micro ((^.))
 import Text.MMark.Parser.Internal
 import Text.MMark.Type
@@ -145,10 +144,10 @@ pYamlBlock = do
           else go (acc . (l:))
   ls <- go id <*> ([] <$ sc)
   return $
-    case (Yaml.decodeEither . TE.encodeUtf8 . T.intercalate "\n") ls of
+    case (Yaml.decodeEither' . TE.encodeUtf8 . T.intercalate "\n") ls of
       Left err' ->
-        let (apos, err) = splitYamlError (sourceName dpos) err'
-        in Left (fromMaybe dpos apos, err)
+        let (apos, err) = splitYamlError err'
+        in Left (maybe dpos ($ sourceName dpos) apos, err)
       Right v -> Right v
 
 -- | Parse several (possibly zero) blocks in a row.
@@ -1138,18 +1137,37 @@ isEmailUri uri =
         else Nothing
     _ -> Nothing
 
-splitYamlError :: FilePath -> String -> (Maybe SourcePos, String)
-splitYamlError file str = maybe (Nothing, str) (first pure) (parseMaybe p str)
-  where
-    p :: Parsec Void String (SourcePos, String)
-    p = do
-      void (string "YAML parse exception at line ")
-      l <- mkPos . (+ 2) <$> L.decimal
-      void (string ", column ")
-      c <- mkPos . (+ 1) <$> L.decimal
-      void (string ":\n")
-      r <- takeRest
-      return (SourcePos file l c, r)
+splitYamlError
+  :: Yaml.ParseException
+  -> (Maybe (FilePath -> SourcePos), String)
+splitYamlError = \case
+  Yaml.NonScalarKey -> (Nothing, "non scalar key")
+  Yaml.UnknownAlias anchor -> (Nothing, "unknown alias \"" ++ anchor ++ "\"")
+  Yaml.UnexpectedEvent exptd unexptd ->
+    ( Nothing
+    , "unexpected event: expected " ++ show exptd
+      ++ ", but received " ++ show unexptd
+    )
+  Yaml.InvalidYaml myerror -> case myerror of
+    Nothing -> (Nothing, "unspecified error")
+    Just yerror -> case yerror of
+      Yaml.YamlException s -> (Nothing, s)
+      Yaml.YamlParseException problem context mark ->
+        ( Just (\f -> SourcePos f
+                 (mkPos $ Yaml.yamlLine mark + 2)
+                 (mkPos $ Yaml.yamlColumn mark + 1))
+        , case context of
+            "" -> problem
+            _  -> context ++ ", " ++ problem
+        )
+  Yaml.AesonException s -> (Nothing, s)
+  Yaml.OtherParseException exc -> (Nothing, show exc)
+  Yaml.NonStringKeyAlias anchor value ->
+    ( Nothing
+    , "non-string key alias; anchor name: " ++ anchor
+      ++ ", value: " ++ show value
+    )
+  Yaml.CyclicIncludes -> (Nothing, "cyclic includes")
 
 emptyIspSpan :: Isp
 emptyIspSpan = IspSpan (initialPos "") ""
