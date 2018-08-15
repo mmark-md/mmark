@@ -1656,7 +1656,7 @@ spec = parallel $ do
           "<p><a href=\"made-up-scheme://foo/,bar\">made-up-scheme://foo/,bar</a></p>\n"
       it "CM571" $
         "<http://../>" ==->
-          "<p>&lt;http://../&gt;</p>\n"
+          "<p><a href=\"http://../\">http://../</a></p>\n"
       it "CM572" $
         "<localhost:5001/foo>" ==->
           "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>\n"
