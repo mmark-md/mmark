@@ -1,3 +1,11 @@
+## MMark 0.0.6.0
+
+* Uses Megaparsec 7. The `parse` function now returns `ParseErrorBundle` on
+  failure.
+
+* Dropped `parseErrorsPretty`, use `errorBundlePretty` from `megaparsec`
+  instead.
+
 ## MMark 0.0.5.7
 
 * Improved parse errors related to the optional YAML block.

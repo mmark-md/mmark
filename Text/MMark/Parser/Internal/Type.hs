@@ -48,6 +48,7 @@ import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
 import Data.List (intercalate)
 import Data.List.NonEmpty (NonEmpty (..))
+import Data.Proxy
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -114,9 +115,9 @@ instance Default InlineState where
 -- | 'Inline' source pending parsing.
 
 data Isp
-  = IspSpan SourcePos Text
+  = IspSpan Int Text
     -- ^ We have an inline source pending parsing
-  | IspError (ParseError Char MMarkErr)
+  | IspError (ParseError Text MMarkErr)
     -- ^ We should just return this parse error
   deriving (Eq, Show)
 
@@ -201,7 +202,8 @@ instance ShowErrorComponent MMarkErr where
     YamlParseError str ->
       "YAML parse error: " ++ str
     NonFlankingDelimiterRun dels ->
-      showTokens dels ++ " should be in left- or right- flanking position"
+      showTokens (Proxy :: Proxy Text) dels
+        ++ " should be in left- or right- flanking position"
     ListStartIndexTooBig n ->
       "ordered list start numbers must be nine digits or less, " ++ show n
         ++ " is too big"

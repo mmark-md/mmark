@@ -30,10 +30,10 @@ import qualified Text.MMark         as MMark
 mkDoc :: Text -> IO MMark
 mkDoc input =
   case MMark.parse "" input of
-    Left errs -> do
+    Left bundle -> do
       expectationFailure $
         "while parsing a document, parse error(s) occurred:\n" ++
-        MMark.parseErrorsPretty input errs
+        errorBundlePretty bundle
       undefined
     Right x -> return x
 
@@ -53,20 +53,29 @@ infix 2 ~~->
 (~~->)
   :: Text
      -- ^ Input for parser
-  -> [ParseError Char MMarkErr]
+  -> [ParseError Text MMarkErr]
      -- ^ Expected collection of parse errors, in order
   -> Expectation
 input ~~-> errs'' =
   case MMark.parse "" input of
-    Left errs' -> unless (errs == errs') . expectationFailure $
-      "the parser is expected to fail with:\n" ++
-      MMark.parseErrorsPretty input errs       ++
-      "but it failed with:\n"                  ++
-      MMark.parseErrorsPretty input errs'
+    Left bundle' -> unless (bundle == bundle') . expectationFailure $
+      "\nthe parser is expected to fail with:\n\n" ++
+      errorBundlePretty bundle                 ++
+      "\nbut it failed with:\n\n"                  ++
+      errorBundlePretty bundle'
     Right x -> expectationFailure $
       "the parser is expected to fail, but it parsed: " ++ show (toText x)
   where
-    errs = NE.fromList errs''
+    bundle = ParseErrorBundle
+      { bundleErrors = NE.fromList errs''
+      , bundlePosState = PosState
+        { pstateInput = input
+        , pstateOffset = 0
+        , pstateSourcePos = initialPos ""
+        , pstateTabWidth = mkPos 4
+        , pstateLinePrefix = ""
+        }
+      }
 
 -- | The same as @('~~->')@, but expects only one parse error.
 
@@ -75,7 +84,7 @@ infix 2 ~->
 (~->)
   :: Text
      -- ^ Input for parser
-  -> ParseError Char MMarkErr
+  -> ParseError Text MMarkErr
      -- ^ Expected parse error to compare with
   -> Expectation
 input ~-> err = input ~~-> [err]
@@ -91,9 +100,9 @@ infix 2 =->
   -> Expectation
 input =-> expected =
   case MMark.parse "" input of
-    Left errs -> expectationFailure $
+    Left bundle -> expectationFailure $
       "the parser is expected to succeed, but it failed with:\n" ++
-      MMark.parseErrorsPretty input errs
+      errorBundlePretty bundle
     Right factual -> toText factual `shouldBe` expected
 
 -- | Just like @('=->')@, but also appends newline to given input and tries

@@ -41,10 +41,10 @@ module Text.MMark.Parser.Internal
 where
 
 import Control.Monad.State.Strict
+import Data.Bifunctor
 import Data.Default.Class
 import Data.Function ((&))
 import Data.HashMap.Strict (HashMap)
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.Ratio ((%))
 import Data.Text (Text)
 import Data.Text.Metrics (damerauLevenshteinNorm)
@@ -54,6 +54,7 @@ import Text.MMark.Parser.Internal.Type
 import Text.Megaparsec hiding (State)
 import Text.URI (URI)
 import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty  as NE
 import qualified Text.Megaparsec     as M
 
 ----------------------------------------------------------------------------
@@ -72,12 +73,14 @@ runBParser
      -- ^ File name (only to be used in error messages), may be empty
   -> Text
      -- ^ Input to parse
-  -> Either (NonEmpty (ParseError Char MMarkErr)) (a, Defs)
+  -> Either (ParseErrorBundle Text MMarkErr) (a, Defs)
      -- ^ Result of parsing
 runBParser p file input =
-  case runState (runParserT p file input) def of
-    (Left err, _) -> Left  (err :| [])
-    (Right x, st) -> Right (x, st ^. bstDefs)
+  case runState (snd <$> runParserT' p st) def of
+    (Left  bundle, _) -> Left bundle
+    (Right x, st') -> Right (x, st' ^. bstDefs)
+  where
+    st = mkInitialState file input 0
 
 -- | Ask whether naked paragraphs are allowed in this context.
 
@@ -141,19 +144,14 @@ runIParser
      -- ^ The parser to run
   -> Isp
      -- ^ Input for the parser
-  -> Either (ParseError Char MMarkErr) a
+  -> Either (ParseError Text MMarkErr) a
      -- ^ Result of parsing
 runIParser _ _ (IspError err) = Left err
-runIParser defs p (IspSpan startPos input) =
-  snd (runParser' (evalStateT p ist) pst)
+runIParser defs p (IspSpan offset input) =
+  first (NE.head . bundleErrors) (snd (runParser' (evalStateT p ist) pst))
   where
     ist = def & istDefs .~ defs
-    pst = M.State
-      { stateInput           = input
-      , statePos             = startPos :| []
-      , stateTokensProcessed = 0
-      , stateTabWidth        = mkPos 4
-      }
+    pst = mkInitialState "" input offset
 
 -- | Disallow parsing of empty inlines.
 
@@ -235,6 +233,25 @@ closeNames r'
 
 ----------------------------------------------------------------------------
 -- Helpers
+
+-- | Setup initial parser state.
+
+mkInitialState
+  :: FilePath          -- ^ File name to use
+  -> Text              -- ^ Input
+  -> Int               -- ^ Starting offset
+  -> M.State Text
+mkInitialState file input offset = M.State
+  { stateInput = input
+  , stateOffset = offset
+  , statePosState = PosState
+    { pstateInput = input
+    , pstateOffset = offset
+    , pstateSourcePos = initialPos file
+    , pstateTabWidth = mkPos 4
+    , pstateLinePrefix = ""
+    }
+  }
 
 -- | Locally change state in a state monad and then restore it back.
 

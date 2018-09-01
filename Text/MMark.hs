@@ -117,7 +117,6 @@ module Text.MMark
     MMark
   , MMarkErr (..)
   , parse
-  , parseErrorsPretty
     -- * Extensions
   , Extension
   , useExtension
@@ -131,29 +130,11 @@ module Text.MMark
 where
 
 import Data.Aeson
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.Semigroup ((<>))
-import Data.Text (Text)
 import Text.MMark.Parser (MMarkErr (..), parse)
 import Text.MMark.Render (render)
 import Text.MMark.Type
-import Text.Megaparsec (ParseError (..), parseErrorPretty_, mkPos)
 import qualified Control.Foldl as L
-
-----------------------------------------------------------------------------
--- Parsing
-
--- | Pretty-print a collection of parse errors returned from 'parse'.
---
--- __Pro tip__: if you would like to pretty-print a single 'ParseError', use
--- @'parseErrorPretty_' ('mkPos' 4)@, because Common Mark suggests that we
--- should assume tab width 4, and that's what we do in the parser.
-
-parseErrorsPretty
-  :: Text              -- ^ Original input for parser
-  -> NonEmpty (ParseError Char MMarkErr) -- ^ Collection of parse errors
-  -> String            -- ^ Result of pretty-printing
-parseErrorsPretty input = concatMap (parseErrorPretty_ (mkPos 4) input)
 
 ----------------------------------------------------------------------------
 -- Extensions
