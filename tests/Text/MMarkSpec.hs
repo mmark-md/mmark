@@ -13,7 +13,7 @@ import Test.Hspec.Megaparsec
 import Text.MMark (MMarkErr (..))
 import Text.MMark.Extension (Inline (..))
 import Text.MMark.TestUtils
-import Text.Megaparsec (ErrorFancy (..))
+import Text.Megaparsec (ErrorFancy (..), Stream)
 import qualified Control.Foldl        as L
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Text            as T
@@ -66,8 +66,8 @@ spec = parallel $ do
       it "CM12" $
         let s = "- `one\n- two`"
         in s ~~->
-           [ err (posN 6 s) (ueib <> etok '`' <> ecsc)
-           , err (posN 13 s) (ueib <> etok '`' <> ecsc) ]
+           [ err 6 (ueib <> etok '`' <> ecsc)
+           , err 13 (ueib <> etok '`' <> ecsc) ]
     context "4.1 Thematic breaks" $ do
       it "CM13" $
         "***\n---\n___" ==-> "<hr>\n<hr>\n<hr>\n"
@@ -77,14 +77,14 @@ spec = parallel $ do
         "===" ==-> "<p>===</p>\n"
       it "CM16" $
         let s = "--\n**\n__\n"
-        in s ~-> errFancy (posN 3 s) (nonFlanking "**")
+        in s ~-> errFancy 3 (nonFlanking "**")
       it "CM17" $
         " ***\n  ***\n   ***" ==-> "<hr>\n<hr>\n<hr>\n"
       it "CM18" $
         "    ***" ==-> "<pre><code>***\n</code></pre>\n"
       it "CM19" $
         let s = "Foo\n    ***\n"
-        in s ~-> errFancy (posN 8 s) (nonFlanking "***")
+        in s ~-> errFancy 8 (nonFlanking "***")
       it "CM20" $
         "_____________________________________" ==->
           "<hr>\n"
@@ -98,7 +98,7 @@ spec = parallel $ do
         "- - - -    " ==-> "<hr>\n"
       it "CM25" $
         let s = "_ _ _ _ a\n\na------\n\n---a---\n"
-        in s ~-> errFancy posI (nonFlanking "_")
+        in s ~-> errFancy 0 (nonFlanking "_")
       it "CM26" $
         " *-*" ==-> "<p><em>-</em></p>\n"
       it "CM27" $
@@ -122,12 +122,12 @@ spec = parallel $ do
           "<h1 id=\"foo\">foo</h1>\n<h2 id=\"foo\">foo</h2>\n<h3 id=\"foo\">foo</h3>\n<h4 id=\"foo\">foo</h4>\n<h5 id=\"foo\">foo</h5>\n<h6 id=\"foo\">foo</h6>\n"
       it "CM33" $
         let s = "####### foo"
-        in s ~-> err (posN 6 s) (utok '#' <> ews)
+        in s ~-> err 6 (utok '#' <> ews)
       it "CM34" $
         let s = "#5 bolt\n\n#hashtag"
         in s ~~->
-             [ err (posN 1 s)  (utok '5' <> etok '#' <> ews)
-             , err (posN 10 s) (utok 'h' <> etok '#' <> ews) ]
+             [ err 1  (utok '5' <> etok '#' <> ews)
+             , err 10 (utok 'h' <> etok '#' <> ews) ]
       it "CM35" $
         "\\## foo" ==-> "<p>## foo</p>\n"
       it "CM36" $
@@ -166,8 +166,8 @@ spec = parallel $ do
       it "CM49" $
         let s = "## \n#\n### ###"
         in s ~~->
-             [ err (posN 3 s) (utok '\n' <> elabel "heading character" <> ews)
-             , err (posN 5 s) (utok '\n' <> etok '#' <> ews) ]
+             [ err 3 (utok '\n' <> elabel "heading character" <> ews)
+             , err 5 (utok '\n' <> etok '#' <> ews) ]
     context "4.3 Setext headings" $ do
       -- NOTE we do not support them, the tests have been adjusted
       -- accordingly.
@@ -204,8 +204,8 @@ spec = parallel $ do
       it "CM60" $
         let s = "`Foo\n----\n`\n\n<a title=\"a lot\n---\nof dashes\"/>\n"
         in s ~~->
-           [ err (posN 4 s) (ueib <> etok '`' <> ecsc)
-           , err (posN 11 s) (ueib <> etok '`' <> ecsc) ]
+           [ err 4 (ueib <> etok '`' <> ecsc)
+           , err 11 (ueib <> etok '`' <> ecsc) ]
       it "CM61" $
         "> Foo\n---" ==->
           "<blockquote>\n<p>Foo</p>\n</blockquote>\n<hr>\n"
@@ -312,15 +312,14 @@ spec = parallel $ do
           "<pre><code>aaa\n~~~\n</code></pre>\n"
       it "CM95" $
         let s = "```"
-        in s ~-> err (posN 3 s)
-           (ueib <> etok '`' <> ecsc)
+        in s ~-> err 3 (ueib <> etok '`' <> ecsc)
       it "CM96" $
         let s = "`````\n\n```\naaa\n"
-        in s ~-> err (posN 15 s)
+        in s ~-> err 15
            (ueof <> elabel "closing code fence" <> elabel "code block content")
       it "CM97" $
         let s = "> ```\n> aaa\n\nbbb\n"
-        in s ~-> err (posN 17 s) (ueof <> elabel "closing code fence" <> elabel "code block content")
+        in s ~-> err 17 (ueof <> elabel "closing code fence" <> elabel "code block content")
       it "CM98" $
         "```\n\n  \n```" ==->
           "<pre><code>\n  \n</code></pre>\n"
@@ -347,14 +346,14 @@ spec = parallel $ do
           "<pre><code>aaa\n</code></pre>\n"
       it "CM106" $
         let s  = "```\naaa\n    ```\n"
-        in s ~-> err (posN 16 s)
+        in s ~-> err 16
            (ueof <> elabel "closing code fence" <> elabel "code block content")
       it "CM107" $
         "``` ```\naaa" ==->
           "<p><code></code>\naaa</p>\n"
       it "CM108" $
         let s = "~~~~~~\naaa\n~~~ ~~\n"
-        in s ~-> err (posN 18 s)
+        in s ~-> err 18
            (ueof <> elabel "closing code fence" <> elabel "code block content")
       it "CM109" $
         "foo\n```\nbar\n```\nbaz" ==->
@@ -390,9 +389,9 @@ spec = parallel $ do
       it "CM161" $
         let s = "[Foo bar\\]]:my_(url) 'title (with parens)'\n\n[Foo bar\\]]"
         in s ~~->
-           [ err (posN 19 s) (utoks ") " <> etok '#' <> etok '/' <> etok '?'
-             <> elabel "newline" <> elabel "the rest of path piece" <> ews )
-           , errFancy (posN 45 s) (couldNotMatchRef "Foo bar]" []) ]
+           [ err 19 (utoks ") " <> euric <> elabel "newline" <> ews)
+           , errFancy 45 (couldNotMatchRef "Foo bar]" [])
+           ]
       it "CM162" $
         "[Foo bar]:\n<my%20url>\n'title'\n\n[Foo bar]" ==->
           "<p><a href=\"my%20url\" title=\"title\">Foo bar</a></p>\n"
@@ -408,18 +407,17 @@ spec = parallel $ do
       it "CM166" $
         let s = "[foo]:\n\n[foo]"
         in s ~~->
-           [ err (posN 7 s) (utok '\n' <> etok '<' <> elabel "URI" <> ews)
-           , errFancy (posN 9 s) (couldNotMatchRef "foo" []) ]
+           [ err 7 (utok '\n' <> etok '<' <> elabel "URI" <> ews)
+           , errFancy 9 (couldNotMatchRef "foo" []) ]
       it "CM167" $
         let s = "[foo]: /url\\bar\\*baz \"foo\\\"bar\\baz\"\n\n[foo]\n"
-        in s ~-> err (posN 11 s) (utok '\\' <> etok '#' <> etok '/'
-             <> etok '?' <> euri <> elabel "the rest of path piece")
+        in s ~-> err 11 (utok '\\' <> euric <> euri)
       it "CM168" $
         "[foo]\n\n[foo]: url" ==->
           "<p><a href=\"url\">foo</a></p>\n"
       it "CM169" $
         let s = "[foo]\n\n[foo]: first\n[foo]: second\n"
-        in s ~-> errFancy (posN 21 s) (duplicateRef "foo")
+        in s ~-> errFancy 21 (duplicateRef "foo")
       it "CM170" $
         "[FOO]: /url\n\n[Foo]" ==->
           "<p><a href=\"/url\">Foo</a></p>\n"
@@ -434,10 +432,10 @@ spec = parallel $ do
           "<p>bar</p>\n"
       it "CM174" $
         let s = "[foo]: /url \"title\" ok"
-        in s ~-> err (posN 20 s) (utoks "ok" <> elabel "newline" <> ews)
+        in s ~-> err 20 (utoks "ok" <> elabel "newline" <> ews)
       it "CM175" $
         let s = "[foo]: /url\n\"title\" ok\n"
-        in s ~-> err (posN 20 s) (utoks "ok" <> elabel "newline" <> ews)
+        in s ~-> err 20 (utoks "ok" <> elabel "newline" <> ews)
       it "CM176" $
         "    [foo]: /url \"title\"" ==->
           "<pre><code>[foo]: /url &quot;title&quot;\n</code></pre>\n"
@@ -447,8 +445,8 @@ spec = parallel $ do
       it "CM178" $
         let s = "Foo\n[bar]: /baz\n\n[bar]\n"
         in s ~~->
-           [ errFancy (posN 5 s) (couldNotMatchRef "bar" [])
-           , errFancy (posN 18 s) (couldNotMatchRef "bar" []) ]
+           [ errFancy 5 (couldNotMatchRef "bar" [])
+           , errFancy 18 (couldNotMatchRef "bar" []) ]
       it "CM179" $
         "# [Foo]\n[foo]: /url\n> bar" ==->
           "<h1 id=\"foo\"><a href=\"/url\">Foo</a></h1>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
@@ -604,7 +602,7 @@ spec = parallel $ do
           "<ol start=\"123456789\">\n<li>\nok\n</li>\n</ol>\n"
       it "CM229" $
         let s = "1234567890. not ok\n"
-        in s ~-> errFancy posI (indexTooBig 1234567890)
+        in s ~-> errFancy 0 (indexTooBig 1234567890)
       it "CM230" $
         "0. ok" ==->
           "<ol start=\"0\">\n<li>\nok\n</li>\n</ol>\n"
@@ -786,7 +784,7 @@ spec = parallel $ do
     context "6 Inlines" $
       it "CM288" $
         let s  = "`hi`lo`\n"
-        in s ~-> err (posN 7 s) (ueib <> etok '`' <> ecsc)
+        in s ~-> err 7 (ueib <> etok '`' <> ecsc)
     context "6.1 Blackslash escapes" $ do
       it "CM289" $
         "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~\n"
@@ -799,7 +797,7 @@ spec = parallel $ do
         "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url &quot;not a reference&quot;</p>\n"
       it "CM292" $
         let s = "\\\\*emphasis*"
-        in s ~-> errFancy (posN 2 s) (nonFlanking "*")
+        in s ~-> errFancy 2 (nonFlanking "*")
       it "CM293" $
         "foo\\\nbar" ==->
           "<p>foo<br>\nbar</p>\n"
@@ -820,14 +818,13 @@ spec = parallel $ do
           "<p>&lt;a href=&quot;/bar/)&quot;&gt;</p>\n"
       it "CM299" $
         let s = "[foo](/bar\\* \"ti\\*tle\")"
-        in s ~-> err (posN 10 s)
-          (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
+        in s ~-> err 10 (utok '\\' <> euric <> euri)
       it "CM300" $
         let s = "[foo]\n\n[foo]: /bar\\* \"ti\\*tle\""
         in s ~~->
-           [ errFancy (posN 1 s) (couldNotMatchRef "foo" [])
-           , err (posN 18 s)
-               (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi) ]
+           [ errFancy 1 (couldNotMatchRef "foo" [])
+           , err 18 (utok '\\' <> euric <> euri)
+           ]
       it "CM301" $
         "``` foo\\+bar\nfoo\n```" ==->
           "<pre><code class=\"language-foo+bar\">foo\n</code></pre>\n"
@@ -839,9 +836,9 @@ spec = parallel $ do
         "&#35; &#1234; &#992;" ==->
           "<p># Ӓ Ϡ</p>\n"
       it "CM303b" $
-        "&#98765432;" ~-> errFancy posI (invalidNumChar 98765432)
+        "&#98765432;" ~-> errFancy 0 (invalidNumChar 98765432)
       it "CM303c" $
-        "&#0;" ~-> errFancy posI (invalidNumChar 0)
+        "&#0;" ~-> errFancy 0 (invalidNumChar 0)
       it "CM304" $
         "&#X22; &#XD06; &#xcab;" ==->
           "<p>&quot; ആ ಫ</p>\n"
@@ -849,16 +846,16 @@ spec = parallel $ do
         "&nbsp" ==-> "<p>&amp;nbsp</p>\n"
       it "CM305b" $
         let s = "&x;"
-        in s ~-> errFancy posI (unknownEntity "x")
+        in s ~-> errFancy 0 (unknownEntity "x")
       it "CM305c" $
         let s = "&#;"
-        in s ~-> err (posN 2 s) (utok ';' <> etok 'x' <> etok 'X' <> elabel "integer")
+        in s ~-> err 2 (utok ';' <> etok 'x' <> etok 'X' <> elabel "integer")
       it "CM305d" $
         let s = "&#x;"
-        in s ~-> err (posN 3 s) (utok ';' <> elabel "hexadecimal integer")
+        in s ~-> err 3 (utok ';' <> elabel "hexadecimal integer")
       it "CM305e" $
         let s = "&ThisIsNotDefined;"
-        in s ~-> errFancy posI (unknownEntity "ThisIsNotDefined")
+        in s ~-> errFancy 0 (unknownEntity "ThisIsNotDefined")
       it "CM305f" $
         "&hi?;" ==-> "<p>&amp;hi?;</p>\n"
       it "CM306" $
@@ -866,7 +863,7 @@ spec = parallel $ do
           "<p>&amp;copy</p>\n"
       it "CM307" $
         let s = "&MadeUpEntity;"
-        in s ~-> errFancy posI (unknownEntity "MadeUpEntity")
+        in s ~-> errFancy 0 (unknownEntity "MadeUpEntity")
       it "CM308" $
         "<a href=\"&ouml;&ouml;.html\">" ==->
           "<p>&lt;a href=&quot;\246\246.html&quot;&gt;</p>\n"
@@ -903,144 +900,144 @@ spec = parallel $ do
         "`foo `` bar`" ==-> "<p><code>foo `` bar</code></p>\n"
       it "CM321" $
         let s  = "`foo\\`bar`\n"
-        in s ~-> err (posN 10 s) (ueib <> etok '`' <> ecsc)
+        in s ~-> err 10 (ueib <> etok '`' <> ecsc)
       it "CM322" $
         let s  = "*foo`*`\n"
-        in s ~-> err (posN 7 s) (ueib <> etok '*' <> eic)
+        in s ~-> err 7 (ueib <> etok '*' <> eic)
       it "CM323" $
         let s = "[not a `link](/foo`)\n"
-        in s ~-> err (posN 20 s) (ueib <> etok ']' <> eic)
+        in s ~-> err 20 (ueib <> etok ']' <> eic)
       it "CM324" $
         let s = "`<a href=\"`\">`\n"
-        in s ~-> err (posN 14 s) (ueib <> etok '`' <> ecsc)
+        in s ~-> err 14 (ueib <> etok '`' <> ecsc)
       it "CM325" $
         "<a href=\"`\">`" ==->
           "<p>&lt;a href=&quot;<code>&quot;&gt;</code></p>\n"
       it "CM326" $
         let s = "`<http://foo.bar.`baz>`\n"
-        in s ~-> err (posN 23 s) (ueib <> etok '`' <> ecsc)
+        in s ~-> err 23 (ueib <> etok '`' <> ecsc)
       it "CM327" $
         "<http://foo.bar.`baz>`" ==->
           "<p>&lt;http://foo.bar.<code>baz&gt;</code></p>\n"
       it "CM328" $
         let s  = "```foo``\n"
-        in s ~-> err (posN 8 s) (ueib <> etok '`' <> ecsc)
+        in s ~-> err 8 (ueib <> etok '`' <> ecsc)
       it "CM329" $
         let s = "`foo\n"
-        in s ~-> err (posN 4 s) (ueib <> etok '`' <> ecsc)
+        in s ~-> err 4 (ueib <> etok '`' <> ecsc)
       it "CM330" $
         let s = "`foo``bar``\n"
-        in s ~-> err (posN 11 s) (ueib <> etok '`' <> ecsc)
+        in s ~-> err 11 (ueib <> etok '`' <> ecsc)
     context "6.4 Emphasis and strong emphasis" $ do
       it "CM331" $
         "*foo bar*" ==-> "<p><em>foo bar</em></p>\n"
       it "CM332" $
         let s = "a * foo bar*\n"
-        in s ~-> errFancy (posN 2 s) (nonFlanking "*")
+        in s ~-> errFancy 2 (nonFlanking "*")
       it "CM333" $
         let s = "a*\"foo\"*\n"
-        in s ~-> errFancy (posN 1 s) (nonFlanking "*")
+        in s ~-> errFancy 1 (nonFlanking "*")
       it "CM334" $
         let s = "* a *\n"
-        in s  ~-> errFancy posI (nonFlanking "*")
+        in s  ~-> errFancy 0 (nonFlanking "*")
       it "CM335" $
         let s = "foo*bar*\n"
-        in s ~-> errFancy (posN 3 s) (nonFlanking "*")
+        in s ~-> errFancy 3 (nonFlanking "*")
       it "CM336" $
         let s = "5*6*78\n"
-        in s ~-> errFancy (posN 1 s) (nonFlanking "*")
+        in s ~-> errFancy 1 (nonFlanking "*")
       it "CM337" $
         "_foo bar_" ==-> "<p><em>foo bar</em></p>\n"
       it "CM338" $
         let s = "_ foo bar_\n"
-        in s ~-> errFancy posI (nonFlanking "_")
+        in s ~-> errFancy 0 (nonFlanking "_")
       it "CM339" $
         let s = "a_\"foo\"_\n"
-        in s ~-> errFancy (posN 1 s) (nonFlanking "_")
+        in s ~-> errFancy 1 (nonFlanking "_")
       it "CM340" $
         let s = "foo_bar_\n"
-        in s  ~-> errFancy (posN 3 s) (nonFlanking "_")
+        in s  ~-> errFancy 3 (nonFlanking "_")
       it "CM341" $
         let s = "5_6_78\n"
-        in s ~-> errFancy (posN 1 s) (nonFlanking "_")
+        in s ~-> errFancy 1 (nonFlanking "_")
       it "CM342" $
         let s = "пристаням_стремятся_\n"
-        in s ~-> errFancy (posN 9 s) (nonFlanking "_")
+        in s ~-> errFancy 9 (nonFlanking "_")
       it "CM343" $
         let s  = "aa_\"bb\"_cc\n"
-        in s ~-> errFancy (posN 2 s) (nonFlanking "_")
+        in s ~-> errFancy 2 (nonFlanking "_")
       it "CM344" $
         let s  = "foo-_(bar)_\n"
-        in s ~-> errFancy (posN 4 s) (nonFlanking "_")
+        in s ~-> errFancy 4 (nonFlanking "_")
       it "CM345" $
         let s = "_foo*\n"
-        in s ~-> err (posN 4 s) (utok '*' <> etok '_' <> eic)
+        in s ~-> err 4 (utok '*' <> etok '_' <> eic)
       it "CM346" $
         let s = "*foo bar *\n"
-        in s ~-> errFancy (posN 9 s) (nonFlanking "*")
+        in s ~-> errFancy 9 (nonFlanking "*")
       it "CM347" $
         let s = "*foo bar\n*\n"
-        in s ~-> err (posN 8 s) (ueib <> etok '*' <> eic)
+        in s ~-> err 8 (ueib <> etok '*' <> eic)
       it "CM348" $
         let s = "*(*foo)\n"
-        in s ~-> err (posN 7 s) (ueib <> etok '*' <> eic)
+        in s ~-> err 7 (ueib <> etok '*' <> eic)
       it "CM349" $
         "*(*foo*)*" ==->
           "<p><em>(<em>foo</em>)</em></p>\n"
       it "CM350" $
         let s = "*foo*bar\n"
-        in s ~-> errFancy (posN 4 s) (nonFlanking "*")
+        in s ~-> errFancy 4 (nonFlanking "*")
       it "CM351" $
         let s = "_foo bar _\n"
-        in s ~-> errFancy (posN 9 s) (nonFlanking "_")
+        in s ~-> errFancy 9 (nonFlanking "_")
       it "CM352" $
         let s = "_(_foo)"
-        in s ~-> err (posN 7 s) (ueib <> etok '_' <> eic)
+        in s ~-> err 7 (ueib <> etok '_' <> eic)
       it "CM353" $
         "_(_foo_)_" ==->
           "<p><em>(<em>foo</em>)</em></p>\n"
       it "CM354" $
         let s = "_foo_bar\n"
-        in s ~-> errFancy (posN 4 s) (nonFlanking "_")
+        in s ~-> errFancy 4 (nonFlanking "_")
       it "CM355" $
         let s = "_пристаням_стремятся\n"
-        in s ~-> errFancy (posN 10 s) (nonFlanking "_")
+        in s ~-> errFancy 10 (nonFlanking "_")
       it "CM356" $
         let s = "_foo_bar_baz_\n"
-        in s ~-> errFancy (posN 4 s) (nonFlanking "_")
+        in s ~-> errFancy 4 (nonFlanking "_")
       it "CM357" $
         "_(bar\\)_.\n" ==-> "<p><em>(bar)</em>.</p>\n"
       it "CM358" $
         "**foo bar**\n" ==-> "<p><strong>foo bar</strong></p>\n"
       it "CM359" $
         let s = "** foo bar**\n"
-        in s ~-> errFancy posI (nonFlanking "**")
+        in s ~-> errFancy 0 (nonFlanking "**")
       it "CM360" $
         let s = "a**\"foo\"**\n"
-        in s ~-> errFancy (posN 1 s) (nonFlanking "**")
+        in s ~-> errFancy 1 (nonFlanking "**")
       it "CM361" $
         let s = "foo**bar**\n"
-        in s ~-> errFancy (posN 3 s) (nonFlanking "**")
+        in s ~-> errFancy 3 (nonFlanking "**")
       it "CM362" $
         "__foo bar__" ==-> "<p><strong>foo bar</strong></p>\n"
       it "CM363" $
         let s = "__ foo bar__\n"
-        in s ~-> errFancy posI (nonFlanking "__")
+        in s ~-> errFancy 0 (nonFlanking "__")
       it "CM364" $
         let s = "__\nfoo bar__\n"
-        in s ~-> errFancy posI (nonFlanking "__")
+        in s ~-> errFancy 0 (nonFlanking "__")
       it "CM365" $
         let s = "a__\"foo\"__\n"
-        in s ~-> errFancy (posN 1 s) (nonFlanking "__")
+        in s ~-> errFancy 1 (nonFlanking "__")
       it "CM366" $
         let s = "foo__bar__\n"
-        in s ~-> errFancy (posN 3 s) (nonFlanking "__")
+        in s ~-> errFancy 3 (nonFlanking "__")
       it "CM367" $
         let s = "5__6__78\n"
-        in s ~-> errFancy (posN 1 s) (nonFlanking "__")
+        in s ~-> errFancy 1 (nonFlanking "__")
       it "CM368" $
         let s = "пристаням__стремятся__\n"
-        in s ~-> errFancy (posN 9 s) (nonFlanking "__")
+        in s ~-> errFancy 9 (nonFlanking "__")
       it "CM369" $
         "__foo, __bar__, baz__" ==->
           "<p><strong>foo, <strong>bar</strong>, baz</strong></p>\n"
@@ -1048,10 +1045,10 @@ spec = parallel $ do
         "foo-__\\(bar)__" ==-> "<p>foo-<strong>(bar)</strong></p>\n"
       it "CM371" $
         let s = "**foo bar **\n"
-        in s ~-> errFancy (posN 10 s) (nonFlanking "**")
+        in s ~-> errFancy 10 (nonFlanking "**")
       it "CM372" $
         let s = "**(**foo)\n"
-        in s ~-> err (posN 9 s) (ueib <> etoks "**" <> eic)
+        in s ~-> err 9 (ueib <> etoks "**" <> eic)
       it "CM373" $
         "*(**foo**)*" ==->
           "<p><em>(<strong>foo</strong>)</em></p>\n"
@@ -1063,22 +1060,22 @@ spec = parallel $ do
           "<p><strong>foo &quot;<em>bar</em>&quot; foo</strong></p>\n"
       it "CM376" $
         let s = "**foo**bar\n"
-        in s ~-> errFancy (posN 5 s) (nonFlanking "**")
+        in s ~-> errFancy 5 (nonFlanking "**")
       it "CM377" $
         let s = "__foo bar __\n"
-        in s ~-> errFancy (posN 10 s) (nonFlanking "__")
+        in s ~-> errFancy 10 (nonFlanking "__")
       it "CM378" $
         let s = "__(__foo)\n"
-        in s ~-> err (posN 9 s) (ueib <> etoks "__" <> eic)
+        in s ~-> err 9 (ueib <> etoks "__" <> eic)
       it "CM379" $
         "_(__foo__)_" ==->
           "<p><em>(<strong>foo</strong>)</em></p>\n"
       it "CM380" $
         let s = "__foo__bar\n"
-        in s ~-> errFancy (posN 5 s) (nonFlanking "__")
+        in s ~-> errFancy 5 (nonFlanking "__")
       it "CM381" $
         let s = "__пристаням__стремятся\n"
-        in s ~-> errFancy (posN 11 s) (nonFlanking "__")
+        in s ~-> errFancy 11 (nonFlanking "__")
       it "CM382" $
         "__foo\\_\\_bar\\_\\_baz__" ==->
           "<p><strong>foo__bar__baz</strong></p>\n"
@@ -1099,7 +1096,7 @@ spec = parallel $ do
           "<p><em>foo <em>bar</em> baz</em></p>\n"
       it "CM388" $
         let s = "__foo_ bar_"
-        in s ~-> err (posN 5 s) (utoks "_ " <> etoks "__" <> eic)
+        in s ~-> err 5 (utoks "_ " <> etoks "__" <> eic)
       it "CM389" $
         "*foo *bar**" ==->
           "<p><em>foo <em>bar</em></em></p>\n"
@@ -1108,14 +1105,14 @@ spec = parallel $ do
           "<p><em>foo <strong>bar</strong> baz</em></p>\n"
       it "CM391" $
         let s = "*foo**bar**baz*\n"
-        in s ~-> errFancy (posN 5 s) (nonFlanking "*")
+        in s ~-> errFancy 5 (nonFlanking "*")
       it "CM392" $
         "***foo** bar*\n" ==-> "<p><em><strong>foo</strong> bar</em></p>\n"
       it "CM393" $
         "*foo **bar***\n" ==-> "<p><em>foo <strong>bar</strong></em></p>\n"
       it "CM394" $
         let s = "*foo**bar***\n"
-        in s ~-> errFancy (posN 5 s) (nonFlanking "*")
+        in s ~-> errFancy 5 (nonFlanking "*")
       it "CM395" $
         "*foo **bar *baz* bim** bop*\n" ==->
           "<p><em>foo <strong>bar <em>baz</em> bim</strong> bop</em></p>\n"
@@ -1124,10 +1121,10 @@ spec = parallel $ do
           "<p><em>foo <a href=\"/url\"><em>bar</em></a></em></p>\n"
       it "CM397" $
         let s = "** is not an empty emphasis\n"
-        in s ~-> errFancy posI (nonFlanking "**")
+        in s ~-> errFancy 0 (nonFlanking "**")
       it "CM398" $
         let s = "**** is not an empty strong emphasis\n"
-        in s ~-> errFancy posI (nonFlanking "****")
+        in s ~-> errFancy 0 (nonFlanking "****")
       it "CM399" $
         "**foo [bar](/url)**" ==->
           "<p><strong>foo <a href=\"/url\">bar</a></strong></p>\n"
@@ -1151,7 +1148,7 @@ spec = parallel $ do
           "<p><strong>foo <em>bar</em> baz</strong></p>\n"
       it "CM406" $
         let s = "**foo*bar*baz**\n"
-        in s ~-> err (posN 5 s) (utoks "*b" <> etoks "**" <> eic)
+        in s ~-> err 5 (utoks "*b" <> etoks "**" <> eic)
       it "CM407" $
         "***foo* bar**" ==->
           "<p><strong><em>foo</em> bar</strong></p>\n"
@@ -1166,74 +1163,74 @@ spec = parallel $ do
           "<p><strong>foo <a href=\"/url\"><em>bar</em></a></strong></p>\n"
       it "CM411" $
         let s = "__ is not an empty emphasis\n"
-        in s ~-> errFancy posI (nonFlanking "__")
+        in s ~-> errFancy 0 (nonFlanking "__")
       it "CM412" $
         let s = "____ is not an empty strong emphasis\n"
-        in s ~-> errFancy posI (nonFlanking "____")
+        in s ~-> errFancy 0 (nonFlanking "____")
       it "CM413" $
         let s = "foo ***\n"
-        in s ~-> errFancy (posN 4 s) (nonFlanking "***")
+        in s ~-> errFancy 4 (nonFlanking "***")
       it "CM414" $
         "foo *\\**" ==-> "<p>foo <em>*</em></p>\n"
       it "CM415" $
         "foo *\\_*\n" ==-> "<p>foo <em>_</em></p>\n"
       it "CM416" $
         let s = "foo *****\n"
-        in s ~-> errFancy (posN 8 s) (nonFlanking "*")
+        in s ~-> errFancy 8 (nonFlanking "*")
       it "CM417" $
         "foo **\\***" ==-> "<p>foo <strong>*</strong></p>\n"
       it "CM418" $
         "foo **\\_**\n" ==-> "<p>foo <strong>_</strong></p>\n"
       it "CM419" $
         let s = "**foo*\n"
-        in s ~-> err (posN 5 s) (utok '*' <> etoks "**" <> eic)
+        in s ~-> err 5 (utok '*' <> etoks "**" <> eic)
       it "CM420" $
         let s = "*foo**\n"
-        in s ~-> errFancy (posN 5 s) (nonFlanking "*")
+        in s ~-> errFancy 5 (nonFlanking "*")
       it "CM421" $
         let s = "***foo**\n"
-        in s ~-> err (posN 8 s) (ueib <> etok '*' <> eic)
+        in s ~-> err 8 (ueib <> etok '*' <> eic)
       it "CM422" $
         let s = "****foo*\n"
-        in s ~-> err (posN 7 s) (utok '*' <> etoks "**" <> eic)
+        in s ~-> err 7 (utok '*' <> etoks "**" <> eic)
       it "CM423" $
         let s = "**foo***\n"
-        in s ~-> errFancy (posN 7 s) (nonFlanking "*")
+        in s ~-> errFancy 7 (nonFlanking "*")
       it "CM424" $
         let s = "*foo****\n"
-        in s ~-> errFancy (posN 5 s) (nonFlanking "***")
+        in s ~-> errFancy 5 (nonFlanking "***")
       it "CM425" $
         let s = "foo ___\n"
-        in s ~-> errFancy (posN 4 s) (nonFlanking "___")
+        in s ~-> errFancy 4 (nonFlanking "___")
       it "CM426" $
         "foo _\\__" ==-> "<p>foo <em>_</em></p>\n"
       it "CM427" $
         "foo _\\*_" ==-> "<p>foo <em>*</em></p>\n"
       it "CM428" $
         let s = "foo _____\n"
-        in s ~-> errFancy (posN 8 s) (nonFlanking "_")
+        in s ~-> errFancy 8 (nonFlanking "_")
       it "CM429" $
         "foo __\\___" ==-> "<p>foo <strong>_</strong></p>\n"
       it "CM430" $
         "foo __\\*__" ==-> "<p>foo <strong>*</strong></p>\n"
       it "CM431" $
         let s = "__foo_\n"
-        in s ~-> err (posN 5 s) (utok '_' <> etoks "__" <> eic)
+        in s ~-> err 5 (utok '_' <> etoks "__" <> eic)
       it "CM432" $
         let s = "_foo__\n"
-        in s ~-> errFancy (posN 5 s) (nonFlanking "_")
+        in s ~-> errFancy 5 (nonFlanking "_")
       it "CM433" $
         let s = "___foo__\n"
-        in s ~-> err (posN 8 s) (ueib <> etok '_' <> eic)
+        in s ~-> err 8 (ueib <> etok '_' <> eic)
       it "CM434" $
         let s = "____foo_\n"
-        in s ~-> err (posN 7 s) (utok '_' <> etoks "__" <> eic)
+        in s ~-> err 7 (utok '_' <> etoks "__" <> eic)
       it "CM435" $
         let s = "__foo___\n"
-        in s ~-> errFancy (posN 7 s) (nonFlanking "_")
+        in s ~-> errFancy 7 (nonFlanking "_")
       it "CM436" $
         let s = "_foo____\n"
-        in s ~-> errFancy (posN 5 s) (nonFlanking "___")
+        in s ~-> errFancy 5 (nonFlanking "___")
       it "CM437" $
         "**foo**" ==-> "<p><strong>foo</strong></p>\n"
       it "CM438" $
@@ -1256,41 +1253,41 @@ spec = parallel $ do
           "<p><strong><strong><em>foo</em></strong></strong></p>\n"
       it "CM446" $
         let s = "*foo _bar* baz_\n"
-        in s ~-> err (posN 9 s) (utok '*' <> etok '_' <> eic)
+        in s ~-> err 9 (utok '*' <> etok '_' <> eic)
       it "CM447" $
         let s = "*foo __bar *baz bim__ bam*\n"
-        in s ~-> err (posN 19 s) (utok '_' <> etok '*' <> eic)
+        in s ~-> err 19 (utok '_' <> etok '*' <> eic)
       it "CM448" $
         let s = "**foo **bar baz**\n"
-        in s ~-> err (posN 17 s) (ueib <> etoks "**" <> eic)
+        in s ~-> err 17 (ueib <> etoks "**" <> eic)
       it "CM449" $
         let s = "*foo *bar baz*\n"
-        in s ~-> err (posN 14 s) (ueib <> etok '*' <> eic)
+        in s ~-> err 14 (ueib <> etok '*' <> eic)
       it "CM450" $
         let s = "*[bar*](/url)\n"
-        in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eic)
+        in s ~-> err 5 (utok '*' <> etok ']' <> eic)
       it "CM451" $
         let s = "_foo [bar_](/url)\n"
-        in s ~-> err (posN 9 s) (utok '_' <> etok ']' <> eic)
+        in s ~-> err 9 (utok '_' <> etok ']' <> eic)
       it "CM452" $
         let s = "*<img src=\"foo\" title=\"*\"/>\n"
-        in s ~-> errFancy (posN 23 s) (nonFlanking "*")
+        in s ~-> errFancy 23 (nonFlanking "*")
       it "CM453" $
         let s = "**<a href=\"**\">"
-        in s ~-> errFancy (posN 11 s) (nonFlanking "**")
+        in s ~-> errFancy 11 (nonFlanking "**")
       it "CM454" $
         let s = "__<a href=\"__\">\n"
-        in s ~-> errFancy (posN 11 s) (nonFlanking "__")
+        in s ~-> errFancy 11 (nonFlanking "__")
       it "CM455" $
         "*a `*`*" ==-> "<p><em>a <code>*</code></em></p>\n"
       it "CM456" $
         "_a `_`_" ==-> "<p><em>a <code>_</code></em></p>\n"
       it "CM457" $
         let s = "**a<http://foo.bar/?q=**>"
-        in s ~-> err (posN 25 s) (ueib <> etoks "**" <> eic)
+        in s ~-> err 25 (ueib <> etoks "**" <> eic)
       it "CM458" $
         let s = "__a<http://foo.bar/?q=__>"
-        in s ~-> err (posN 26 s) (ueib <> etoks "__" <> eic)
+        in s ~-> err 25 (ueib <> etoks "__" <> eic)
     context "6.5 Links" $ do
       it "CM459" $
         "[link](/uri \"title\")" ==->
@@ -1300,30 +1297,28 @@ spec = parallel $ do
           "<p><a href=\"/uri\">link</a></p>\n"
       it "CM461" $
         let s = "[link]()"
-        in s ~-> err (posN 7 s)
+        in s ~-> err 7
            (utok ')' <> etok '<' <> elabel "URI" <> ews)
       it "CM462" $
         "[link](<>)" ==->
           "<p><a href>link</a></p>\n"
       it "CM463" $
         let s = "[link](/my uri)\n"
-        in s ~-> err (posN 11 s)
+        in s ~-> err 11
            (utok 'u' <> etok '"' <> etok '\'' <> etok '(' <> etok ')' <> ews)
       it "CM464" $
         let s = "[link](</my uri>)\n"
-        in s ~-> err (posN 11 s)
-           (utok ' ' <> etok '#' <> etok '/' <> etok '>' <> etok '?' <> eppi)
+        in s ~-> err 11 (utok ' ' <> euric <> etok '>')
       it "CM465" $
         let s = "[link](foo\nbar)\n"
-        in s ~-> err (posN 11 s)
+        in s ~-> err 11
            (utok 'b' <> etok '"' <> etok '\'' <> etok '(' <> etok ')' <> ews)
       it "CM466" $
         let s = "[link](<foo\nbar>)\n"
-        in s ~-> err (posN 11 s)
-           (utok '\n' <> etok '#' <> etok '/' <> etok '>' <> etok '?' <> eppi)
+        in s ~-> err 11 (utok '\n' <> euric <> etok '>')
       it "CM467" $
         let s = "[link](\\(foo\\))"
-        in s ~-> err (posN 7 s)
+        in s ~-> err 7
              (utok '\\' <> etoks "//" <> etok '#' <> etok '/' <> etok '<' <>
               etok '?' <> elabel "ASCII alpha character" <> euri <>
               elabel "path piece" <> ews)
@@ -1332,25 +1327,25 @@ spec = parallel $ do
           "<p><a href=\"foo(and(bar\">link</a>))</p>\n"
       it "CM469" $
         let s = "[link](foo\\(and\\(bar\\))"
-        in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
+        in s ~-> err 10 (utok '\\' <> euric <> euri)
       it "CM470" $
         "[link](<foo(and(bar)>)" ==->
           "<p><a href=\"foo(and(bar)\">link</a></p>\n"
       it "CM471" $
         let s = "[link](foo\\)\\:)"
-        in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
+        in s ~-> err 10 (utok '\\' <> euric <> euri)
       it "CM472" $
         "[link](#fragment)\n\n[link](http://example.com#fragment)\n\n[link](http://example.com?foo=3#frag)\n"
           ==-> "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"http://example.com/#fragment\">link</a></p>\n<p><a href=\"http://example.com/?foo=3#frag\">link</a></p>\n"
       it "CM473" $
         let s = "[link](foo\\bar)"
-        in s ~-> err (posN 10 s) (utok '\\' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
+        in s ~-> err 10 (utok '\\' <> euric <> euri)
       it "CM474" $
         "[link](foo%20b&auml;)"
           ==-> "<p><a href=\"foo%20b&amp;auml;\">link</a></p>\n"
       it "CM475" $
         let s = "[link](\"title\")"
-        in s ~-> err (posN 7 s)
+        in s ~-> err 7
              (utok '"' <> etoks "//" <> etok '#' <> etok '/' <> etok '<' <>
               etok '?' <> elabel "ASCII alpha character" <> euri <>
               elabel "path piece" <> ews)
@@ -1362,11 +1357,10 @@ spec = parallel $ do
           "<p><a href=\"/url\" title=\"title &quot;&quot;\">link</a></p>\n"
       it "CM478" $
         let s = "[link](/url \"title\")"
-        in s ~-> err (posN 11 s)
-             (utok ' ' <> etok '#' <> etok '/' <> etok '?' <> euri <> eppi)
+        in s ~-> err 11 (utok ' ' <> euric <> euri)
       it "CM479" $
         let s = "[link](/url \"title \"and\" title\")\n"
-        in s ~-> err (posN 20 s) (utok 'a' <> etok ')' <> ews)
+        in s ~-> err 20 (utok 'a' <> etok ')' <> ews)
       it "CM480" $
         "[link](/url 'title \"and\" title')" ==->
           "<p><a href=\"/url\" title=\"title &quot;and&quot; title\">link</a></p>\n"
@@ -1375,16 +1369,16 @@ spec = parallel $ do
           "<p><a href=\"/uri\" title=\"title\">link</a></p>\n"
       it "CM482" $
         let s = "[link] (/uri)\n"
-        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "link" [])
+        in s ~-> errFancy 1 (couldNotMatchRef "link" [])
       it "CM483" $
         let s = "[link [foo [bar]]](/uri)\n"
-        in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic)
+        in s ~-> err 6 (utok '[' <> etok ']' <> eic)
       it "CM484" $
         let s = "[link] bar](/uri)\n"
-        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "link" [])
+        in s ~-> errFancy 1 (couldNotMatchRef "link" [])
       it "CM485" $
         let s = "[link [bar](/uri)\n"
-        in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic)
+        in s ~-> err 6 (utok '[' <> etok ']' <> eic)
       it "CM486" $
         "[link \\[bar](/uri)\n" ==->
           "<p><a href=\"/uri\">link [bar</a></p>\n"
@@ -1396,28 +1390,28 @@ spec = parallel $ do
           "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\"></a></p>\n"
       it "CM489" $
         let s = "[foo [bar](/uri)](/uri)\n"
-        in s ~-> err (posN 5 s) (utok '[' <> etok ']' <> eic)
+        in s ~-> err 5 (utok '[' <> etok ']' <> eic)
       it "CM490" $
         let s = "[foo *[bar [baz](/uri)](/uri)*](/uri)\n"
-        in s ~-> err (posN 6 s) (utok '[' <> eic)
+        in s ~-> err 6 (utok '[' <> eic)
       it "CM491" $
         let s = "![[[foo](uri1)](uri2)](uri3)"
-        in s ~-> err (posN 3 s) (utok '[' <> eic)
+        in s ~-> err 3 (utok '[' <> eic)
       it "CM492" $
         let s = "*[foo*](/uri)\n"
-        in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eic)
+        in s ~-> err 5 (utok '*' <> etok ']' <> eic)
       it "CM493" $
         let s = "[foo *bar](baz*)\n"
-        in s ~-> err (posN 9 s) (utok ']' <> etok '*' <> eic)
+        in s ~-> err 9 (utok ']' <> etok '*' <> eic)
       it "CM494" $
         let s = "*foo [bar* baz]\n"
-        in s ~-> err (posN 9 s) (utok '*' <> etok ']' <> eic)
+        in s ~-> err 9 (utok '*' <> etok ']' <> eic)
       it "CM495" $
         "[foo <bar attr=\"](baz)\">" ==->
           "<p><a href=\"baz\">foo &lt;bar attr=&quot;</a>&quot;&gt;</p>\n"
       it "CM496" $
         let s = "[foo`](/uri)`\n"
-        in s ~-> err (posN 13 s) (ueib <> etok ']' <> eic)
+        in s ~-> err 13 (ueib <> etok ']' <> eic)
       it "CM497" $
         "[foo<http://example.com/?search=](uri)>" ==->
           "<p><a href=\"uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
@@ -1426,7 +1420,7 @@ spec = parallel $ do
           "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
       it "CM499" $
         let s = "[link [foo [bar]]][ref]\n\n[ref]: /uri"
-        in s ~-> err (posN 6 s) (utok '[' <> etok ']' <> eic)
+        in s ~-> err 6 (utok '[' <> etok ']' <> eic)
       it "CM500" $
         "[link \\[bar][ref]\n\n[ref]: /uri" ==->
           "<p><a href=\"/uri\">link [bar</a></p>\n"
@@ -1438,22 +1432,22 @@ spec = parallel $ do
           "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\"></a></p>\n"
       it "CM503" $
         let s = "[foo [bar](/uri)][ref]\n\n[ref]: /uri"
-        in s ~-> err (posN 5 s) (utok '[' <> etok ']' <> eic)
+        in s ~-> err 5 (utok '[' <> etok ']' <> eic)
       it "CM504" $
         let s = "[foo *bar [baz][ref]*][ref]\n\n[ref]: /uri"
-        in s ~-> err (posN 10 s) (utok '[' <> etok '*' <> eic)
+        in s ~-> err 10 (utok '[' <> etok '*' <> eic)
       it "CM505" $
         let s = "*[foo*][ref]\n\n[ref]: /uri"
-        in s ~-> err (posN 5 s) (utok '*' <> etok ']' <> eic)
+        in s ~-> err 5 (utok '*' <> etok ']' <> eic)
       it "CM506" $
         let s = "[foo *bar][ref]\n\n[ref]: /uri"
-        in s ~-> err (posN 9 s) (utok ']' <> etok '*' <> eic)
+        in s ~-> err 9 (utok ']' <> etok '*' <> eic)
       it "CM507" $
         "[foo <bar attr=\"][ref]\">\n\n[ref]: /uri" ==->
           "<p><a href=\"/uri\">foo &lt;bar attr=&quot;</a>&quot;&gt;</p>\n"
       it "CM508" $
         let s = "[foo`][ref]`\n\n[ref]: /uri"
-        in s ~-> err (posN 12 s) (ueib <> etok ']' <> eic)
+        in s ~-> err 12 (ueib <> etok ']' <> eic)
       it "CM509" $
         "[foo<http://example.com/?search=][ref]>\n\n[ref]: /uri" ==->
           "<p><a href=\"/uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
@@ -1468,31 +1462,33 @@ spec = parallel $ do
           "<p><a href=\"/url\">Baz</a></p>\n"
       it "CM513" $
         let s = "[foo] [bar]\n\n[bar]: /url \"title\""
-        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo" [])
+        in s ~-> errFancy 1 (couldNotMatchRef "foo" [])
       it "CM514" $
         let s = "[foo]\n[bar]\n\n[bar]: /url \"title\""
-        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo" [])
+        in s ~-> errFancy 1 (couldNotMatchRef "foo" [])
       it "CM515" $
         let s = "[foo]: /url1\n\n[foo]: /url2\n\n[bar][foo]"
-        in s ~-> errFancy (posN 15 s) (duplicateRef "foo")
+        in s ~-> errFancy 15 (duplicateRef "foo")
       it "CM516" $
         "[bar][foo\\!]\n\n[foo!]: /url" ==->
           "<p><a href=\"/url\">bar</a></p>\n"
       it "CM517" $
         let s = "[foo][ref[]\n\n[ref[]: /uri"
         in s ~~->
-           [ err (posN 9 s) (utok '[' <> etok ']' <> elabel "the rest of reference label")
-           , err (posN 17 s) (utok '[' <> etok ']' <> eic) ]
+           [ err 9 (utok '[' <> etoks "&#" <> etok '&' <> etok ']'
+               <> elabel "escaped character")
+           , err 17 (utok '[' <> etok ']' <> eic) ]
       it "CM518" $
         let s = "[foo][ref[bar]]\n\n[ref[bar]]: /uri"
         in s ~~->
-           [ err (posN 9 s) (utok '[' <> etok ']' <> elabel "the rest of reference label")
-           , err (posN 21 s) (utok '[' <> etok ']' <> eic) ]
+           [ err 9 (utok '[' <> etoks "&#" <> etok '&' <> etok ']'
+               <> elabel "escaped character")
+           , err 21 (utok '[' <> etok ']' <> eic) ]
       it "CM519" $
         let s = "[[[foo]]]\n\n[[[foo]]]: /url"
         in s ~~->
-           [ err (posN 1 s) (utok '[' <> eic)
-           , err (posN 12 s) (utok '[' <> eic) ]
+           [ err 1 (utok '[' <> eic)
+           , err 12 (utok '[' <> eic) ]
       it "CM520" $
         "[foo][ref\\[]\n\n[ref\\[]: /uri" ==->
           "<p><a href=\"/uri\">foo</a></p>\n"
@@ -1502,37 +1498,37 @@ spec = parallel $ do
       it "CM522" $
         let s = "[]\n\n[]: /uri"
         in s ~~->
-           [ err (posN 1 s) (utok ']' <> eic)
-           , err (posN 5 s) (utok ']' <> eic) ]
+           [ err 1 (utok ']' <> eic)
+           , err 5 (utok ']' <> eic) ]
       it "CM523" $
         let s = "[\n ]\n\n[\n ]: /uri"
         in s ~~->
-          [ errFancy (posN 1 s) (couldNotMatchRef "" [])
-          , errFancy (posN 7 s) (couldNotMatchRef "" []) ]
+          [ errFancy 1 (couldNotMatchRef "" [])
+          , errFancy 7 (couldNotMatchRef "" []) ]
       it "CM524" $
         "[foo][]\n\n[foo]: /url \"title\"" ==->
           "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
       it "CM525" $
         let s = "[*foo* bar][]\n\n[*foo* bar]: /url \"title\""
-        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo bar" ["*foo* bar"])
+        in s ~-> errFancy 1 (couldNotMatchRef "foo bar" ["*foo* bar"])
       it "CM526" $
         "[Foo][]\n\n[foo]: /url \"title\"" ==->
           "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n"
       it "CM527" $
         let s = "[foo] \n[]\n\n[foo]: /url \"title\""
-        in s ~-> err (posN 8 s) (utok ']' <> eic)
+        in s ~-> err 8 (utok ']' <> eic)
       it "CM528" $
         "[foo]\n\n[foo]: /url \"title\"" ==->
           "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
       it "CM529" $
         let s = "[*foo* bar]\n\n[*foo* bar]: /url \"title\""
-        in s ~-> errFancy (posN 1 s) (couldNotMatchRef "foo bar" ["*foo* bar"])
+        in s ~-> errFancy 1 (couldNotMatchRef "foo bar" ["*foo* bar"])
       it "CM530" $
         let s = "[[*foo* bar]]\n\n[*foo* bar]: /url \"title\""
-        in s ~-> err (posN 1 s) (utok '[' <> eic)
+        in s ~-> err 1 (utok '[' <> eic)
       it "CM531" $
         let s = "[[bar [foo]\n\n[foo]: /url"
-        in s ~-> err (posN 1 s) (utok '[' <> eic)
+        in s ~-> err 1 (utok '[' <> eic)
       it "CM532" $
         "[Foo]\n\n[foo]: /url \"title\"" ==->
           "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n"
@@ -1541,10 +1537,10 @@ spec = parallel $ do
           "<p><a href=\"/url\">foo</a> bar</p>\n"
       it "CM534" $
         let s = "\\[foo]\n\n[foo]: /url \"title\""
-        in s ~-> err (posN 5 s) (utok ']' <> eeib <> eic)
+        in s ~-> err 5 (utok ']' <> eeib <> eic)
       it "CM535" $
         let s = "[foo*]: /url\n\n*[foo*]"
-        in s ~-> err (posN 19 s) (utok '*' <> etok ']' <> eic)
+        in s ~-> err 19 (utok '*' <> etok ']' <> eic)
       it "CM536" $
         "[foo][bar]\n\n[foo]: /url1\n[bar]: /url2" ==->
           "<p><a href=\"/url2\">foo</a></p>\n"
@@ -1553,20 +1549,20 @@ spec = parallel $ do
           "<p><a href=\"/url1\">foo</a></p>\n"
       it "CM538" $
         let s = "[foo]()\n\n[foo]: /url1"
-        in s ~-> err (posN 6 s) (utok ')' <> etok '<' <> elabel "URI" <> ews)
+        in s ~-> err 6 (utok ')' <> etok '<' <> elabel "URI" <> ews)
       it "CM539" $
         let s = "[foo](not a link)\n\n[foo]: /url1"
-        in s ~-> err (posN 10 s)
+        in s ~-> err 10
            (utok 'a' <> etok '"' <> etok '\'' <> etok '(' <> etok ')' <> ews)
       it "CM540" $
         let s = "[foo][bar][baz]\n\n[baz]: /url"
-        in s ~-> errFancy (posN 6 s) (couldNotMatchRef "bar" ["baz"])
+        in s ~-> errFancy 6 (couldNotMatchRef "bar" ["baz"])
       it "CM541" $
         "[foo][bar][baz]\n\n[baz]: /url1\n[bar]: /url2" ==->
           "<p><a href=\"/url2\">foo</a><a href=\"/url1\">baz</a></p>\n"
       it "CM542" $
         let s = "[foo][bar][baz]\n\n[baz]: /url1\n[foo]: /url2"
-        in s ~-> errFancy (posN 6 s) (couldNotMatchRef "bar" ["baz"])
+        in s ~-> errFancy 6 (couldNotMatchRef "bar" ["baz"])
     context "6.6 Images" $ do
       it "CM543" $
         "![foo](/url \"title\")" ==->
@@ -1576,13 +1572,13 @@ spec = parallel $ do
           "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo bar\"></p>\n"
       it "CM545" $
         let s = "![foo ![bar](/url)](/url2)\n"
-        in s ~-> err (posN 6 s) (utok '!' <> etok ']' <> eic)
+        in s ~-> err 6 (utok '!' <> etok ']' <> eic)
       it "CM546" $
         "![foo [bar](/url)](/url2)" ==->
           "<p><img src=\"/url2\" alt=\"foo bar\"></p>\n"
       it "CM547" $
         let s = "![foo *bar*][]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n"
-        in s ~-> errFancy (posN 2 s) (couldNotMatchRef "foo bar" ["foo *bar*"])
+        in s ~-> errFancy 2 (couldNotMatchRef "foo bar" ["foo *bar*"])
       it "CM548" $
         "![foo *bar*][foobar]\n\n[FOOBAR]: train.jpg \"train & tracks\"" ==->
           "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo bar\"></p>\n"
@@ -1614,7 +1610,7 @@ spec = parallel $ do
           "<p><img src=\"/url\" title=\"title\" alt=\"Foo\"></p>\n"
       it "CM558" $
         let s = "![foo] \n[]\n\n[foo]: /url \"title\""
-        in s ~-> err (posN 9 s) (utok ']' <> eic)
+        in s ~-> err 9 (utok ']' <> eic)
       it "CM559" $
         "![foo]\n\n[foo]: /url \"title\"" ==->
           "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
@@ -1624,8 +1620,8 @@ spec = parallel $ do
       it "CM561" $
         let s = "![[foo]]\n\n[[foo]]: /url \"title\""
         in s ~~->
-           [ errFancy (posN 3 s) (couldNotMatchRef "foo" [])
-           , err (posN 11 s) (utok '[' <> eic) ]
+           [ errFancy 3 (couldNotMatchRef "foo" [])
+           , err 11 (utok '[' <> eic) ]
       it "CM562" $
         "![Foo]\n\n[foo]: /url \"title\"" ==->
           "<p><img src=\"/url\" title=\"title\" alt=\"Foo\"></p>\n"
@@ -1797,7 +1793,7 @@ spec = parallel $ do
     context "title parse errors" $
       it "parse error is OK in reference definitions" $
         let s = "[something]: something something"
-        in s ~-> err (posN 23 s)
+        in s ~-> err 23
            (utoks "so" <> etok '\'' <> etok '\"' <> etok '(' <>
             elabel "white space" <> elabel "newline")
     context "tables" $ do
@@ -1809,25 +1805,25 @@ spec = parallel $ do
         "| Foo |\n| --- |\n| foo |" ==-> o
       it "reports correct parse errors when parsing the header line" $
         (let s = "Foo | Bar\na-- | ---"
-         in s ~-> err (posN 10 s) (utok 'a' <> etok '-' <> etok ':' <> etok '|' <> elabel "white space"))
+         in s ~-> err 10 (utok 'a' <> etok '-' <> etok ':' <> etok '|' <> elabel "white space"))
         >>
         (let s = "Foo | Bar\n-a- | ---"
-         in s ~-> err (posN 11 s) (utok 'a' <> etok '-'))
+         in s ~-> err 11 (utok 'a' <> etok '-'))
         >>
         (let s = "Foo | Bar\n--a | ---"
-         in s ~-> err (posN 12 s) (utok 'a' <> etok '-'))
+         in s ~-> err 12 (utok 'a' <> etok '-'))
         >>
         (let s = "Foo | Bar\n---a | ---"
-         in s ~-> err (posN 13 s) (utok 'a' <> etok '-' <> etok ':' <> etok '|' <> elabel "white space"))
+         in s ~-> err 13 (utok 'a' <> etok '-' <> etok ':' <> etok '|' <> elabel "white space"))
       it "falls back to paragraph when header line is weird enough" $
         "Foo | Bar\nab- | ---" ==->
           "<p>Foo | Bar\nab- | ---</p>\n"
       it "demands that number of columns in rows match number of columns in header" $
         (let s = "Foo | Bar | Baz\n--- | --- | ---\nfoo | bar"
-         in s ~-> err (posN 41 s) (ulabel "end of table block" <> etok '|' <> eic))
+         in s ~-> err 41 (ulabel "end of table block" <> etok '|' <> eic))
         >>
         (let s = "Foo | Bar | Baz\n--- | --- | ---\nfoo | bar\n\nHere it goes."
-         in s ~-> err (posN 41 s) (utok '\n' <> etok '|' <> eic))
+         in s ~-> err 41 (utok '\n' <> etok '|' <> eic))
       it "recognizes escaped pipes" $
         "Foo \\| | Bar\n--- | ---\nfoo | \\|" ==->
           "<table>\n<thead>\n<tr><th>Foo |</th><th>Bar</th></tr>\n</thead>\n<tbody>\n<tr><td>foo</td><td>|</td></tr>\n</tbody>\n</table>\n"
@@ -1836,7 +1832,7 @@ spec = parallel $ do
           "<table>\n<thead>\n<tr><th>Foo</th><th>Bar</th></tr>\n</thead>\n<tbody>\n<tr><td>*foo*</td><td>bar</td></tr>\n</tbody>\n</table>\n"
       it "escaped pipes do not fool position tracking" $
         let s = "Foo | Bar\n--- | ---\n\\| *fo | bar"
-        in s ~-> err (posN 26 s) (ueib <> etok '*' <> elabel "inline content")
+        in s ~-> err 26 (ueib <> etok '*' <> elabel "inline content")
       it "pipes in code spans in headers do not fool the parser" $
         "`|Foo|` | `|Bar|`\n--- | ---\nfoo | bar" ==->
           "<table>\n<thead>\n<tr><th><code>|Foo|</code></th><th><code>|Bar|</code></th></tr>\n</thead>\n<tbody>\n<tr><td>foo</td><td>bar</td></tr>\n</tbody>\n</table>\n"
@@ -1849,8 +1845,8 @@ spec = parallel $ do
       it "multi-line code spans are disallowed in table cells" $
         let s = "Foo | Bar\n--- | ---\n`foo\nbar` | bar"
         in s ~~->
-           [ err (posN 24 s) (utok '\n' <> etok '`' <> ecsc)
-           , err (posN 35 s) (ueib <> etok '`' <> ecsc)
+           [ err 24 (utok '\n' <> etok '`' <> ecsc)
+           , err 35 (ueib <> etok '`' <> ecsc)
            ]
       it "parses tables with just header row" $
         "Foo | Bar\n--- | ---" ==->
@@ -1861,9 +1857,9 @@ spec = parallel $ do
       it "is capable of reporting a parse error per cell" $
         let s = "Foo | *Bar\n--- | ----\n_foo | bar_"
         in s ~~->
-           [ err (posN 10 s) (ueib <> etok '*' <> eic)
-           , err (posN 26 s) (ueib <> etok '_' <> eic)
-           , errFancy (posN 32 s) (nonFlanking "_") ]
+           [ err 10 (ueib <> etok '*' <> eic)
+           , err 26 (ueib <> etok '_' <> eic)
+           , errFancy 32 (nonFlanking "_") ]
       it "tables have higher precedence than unordered lists" $ do
         "+ foo | bar\n------|----\n" ==->
           "<table>\n<thead>\n<tr><th>+ foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n"
@@ -1887,58 +1883,50 @@ spec = parallel $ do
         let s = "Foo `\n\nBar `.\n"
             pe = ueib <> etok '`' <> ecsc
         s ~~->
-          [ err (posN 5  s) pe
-          , err (posN 13 s) pe ]
+          [ err 5 pe
+          , err 13 pe ]
       it "invalid headers are skipped properly" $ do
         let s = "#My header\n\nSomething goes __here __.\n"
         s ~~->
-          [ err (posN 1 s) (utok 'M' <> etok '#' <> ews)
-          , err (posN 37 s) (ueib <> etoks "__" <> eic) ]
+          [ err 1 (utok 'M' <> etok '#' <> ews)
+          , err 37 (ueib <> etoks "__" <> eic) ]
       describe "every block in a list gets its parse error propagated" $ do
         context "with unordered list" $
           it "works" $ do
             let s = "- *foo\n\n  *bar\n- *baz\n\n  *quux\n"
                 e = ueib <> etok '*' <> eic
             s ~~->
-              [ err (posN 6  s) e
-              , err (posN 14 s) e
-              , err (posN 21 s) e
-              , err (posN 30 s) e ]
+              [ err 6 e
+              , err 14 e
+              , err 21 e
+              , err 30 e ]
         context "with ordered list" $
           it "works" $ do
             let s = "1. *foo\n\n   *bar\n2. *baz\n\n   *quux\n"
                 e = ueib <> etok '*' <> eic
             s ~~->
-              [ err (posN 7  s) e
-              , err (posN 16 s) e
-              , err (posN 24 s) e
-              , err (posN 34 s) e ]
+              [ err 7 e
+              , err 16 e
+              , err 24 e
+              , err 34 e ]
       it "too big start index of ordered list does not prevent validation of inner inlines" $ do
         let s = "1234567890. *something\n1234567891. [\n"
         s ~~->
-          [ errFancy posI (indexTooBig 1234567890)
-          , err (posN 22 s) (ueib <> etok '*' <> eic)
-          , err (posN 36 s) (ueib <> eic) ]
+          [ errFancy 0 (indexTooBig 1234567890)
+          , err 22 (ueib <> etok '*' <> eic)
+          , err 36 (ueib <> eic) ]
       it "non-consecutive indices in ordered list do not prevent further validation" $ do
         let s = "1. *foo\n3. *bar\n4. *baz\n"
             e = ueib <> etok '*' <> eic
         s ~~->
-          [ err (posN 7 s) e
-          , errFancy (posN 8 s) (indexNonCons 3 2)
-          , err (posN 15 s) e
-          , errFancy (posN 16 s) (indexNonCons 4 3)
-          , err (posN 23 s) e ]
+          [ err 7 e
+          , errFancy 8 (indexNonCons 3 2)
+          , err 15 e
+          , errFancy 16 (indexNonCons 4 3)
+          , err 23 e ]
     context "given a complete, comprehensive document" $
       it "outputs expected the HTML fragment" $
         withFiles "data/comprehensive.md" "data/comprehensive.html"
-  describe "parseErrorsPretty" $
-    it "renders parse errors correctly" $ do
-      let s = "Foo\nBar\nBaz\n"
-          e0 = err posI       (utok 'F' <> etok 'Z')
-          e1 = err (posN 4 s) (utok 'B' <> etok 'Z')
-          e2 = err (posN 8 s) (utok 'B' <> etok 'Z')
-      MMark.parseErrorsPretty s (e0:|[e1,e2]) `shouldBe`
-        "1:1:\n  |\n1 | Foo\n  | ^\nunexpected 'F'\nexpecting 'Z'\n2:1:\n  |\n2 | Bar\n  | ^\nunexpected 'B'\nexpecting 'Z'\n3:1:\n  |\n3 | Baz\n  | ^\nunexpected 'B'\nexpecting 'Z'\n"
   describe "useExtension" $
     it "applies given extension" $ do
       doc <- mkDoc "Here we go."
@@ -1988,12 +1976,12 @@ spec = parallel $ do
               "mapping values are not allowed in this context"
         it "signal correct parse error" $
           let s = "---\nx: 100\ny: x:\n---\nHere we go."
-          in s ~-> errFancy (posN 15 s) mappingErr
+          in s ~-> errFancy 15 mappingErr
         it "does not choke and can report more parse errors" $
           let s = "---\nx: 100\ny: x:\n---\nHere we *go."
           in s ~~->
-              [ errFancy (posN 15 s) mappingErr
-              , err (posN 33 s) (ueib <> etok '*' <> eic)
+              [ errFancy 15 mappingErr
+              , err 33 (ueib <> etok '*' <> eic)
               ]
 
 ----------------------------------------------------------------------------
@@ -2039,38 +2027,47 @@ withFiles input output = do
 
 -- | Unexpected end of inline block.
 
-ueib :: Ord t => ET t
+ueib :: Stream s => ET s
 ueib = ulabel "end of inline block"
 
 -- | Expecting end of inline block.
 
-eeib :: Ord t => ET t
+eeib :: Stream s => ET s
 eeib = elabel "end of inline block"
 
 -- | Expecting end of URI.
 
-euri :: Ord t => ET t
+euri :: Stream s => ET s
 euri = elabel "end of URI"
-
--- | Expecting the rest of path piece.
-
-eppi :: Ord t => ET t
-eppi = elabel "the rest of path piece"
 
 -- | Expecting inline content.
 
-eic :: Ord t => ET t
+eic :: Stream s => ET s
 eic = elabel "inline content"
 
 -- | Expecting white space.
 
-ews :: Ord t => ET t
+ews :: Stream s => ET s
 ews = elabel "white space"
 
 -- | Expecting code span content.
 
-ecsc :: Ord t => ET t
+ecsc :: Stream s => ET s
 ecsc = elabel "code span content"
+
+-- | Expecting common URI components.
+
+euric :: ET Text
+euric = mconcat
+  [ etok '#'
+  , etok '%'
+  , etok '/'
+  , etok ':'
+  , etok '?'
+  , etok '@'
+  , elabel "sub-delimiter"
+  , elabel "unreserved character"
+  ]
 
 -- | Error component complaining that the given 'Text' is not in left- or
 -- right- flanking position.
