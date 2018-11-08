@@ -58,10 +58,9 @@
 -- Another limitation by design is that extensions cannot change how the
 -- parser works. I find endless syntax-changing (or syntax-augmenting, if
 -- you will) extensions (as implemented by Pandoc for example) ugly, because
--- they erode the core familiar markdown syntax and turn it into a
--- monstrosity. In MMark we choose a different path of re-purposing existing
--- markdown constructs, adding a special meaning to them in certain
--- situations.
+-- they erode the familiar markdown syntax and turn it into a monstrosity.
+-- In MMark we choose a different path of re-purposing existing markdown
+-- constructs, adding special meaning to them in certain situations.
 --
 -- === Room for improvement
 --

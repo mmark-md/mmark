@@ -9,9 +9,9 @@
 --
 -- MMark (read “em-mark”) is a strict markdown processor for writers.
 -- “Strict” means that not every input is considered valid markdown document
--- and parse errors are possible and even desirable, because they allow to
--- spot markup issues without searching for them in rendered document. If a
--- markdown document passes MMark parser, then it'll likely produce HTML
+-- and parse errors are possible and even desirable, because they allow us
+-- to spot markup issues without searching for them in rendered document. If
+-- a markdown document passes MMark parser, then it'll likely produce HTML
 -- without quirks. This feature makes it a good choice for writers and
 -- bloggers.
 --
@@ -19,7 +19,7 @@
 --
 -- MMark mostly tries to follow the Common Mark specification as given here:
 --
--- <http://spec.commonmark.org/0.28/>
+-- <https://spec.commonmark.org/0.28/>
 --
 -- However, due to the fact that we do not allow inputs that do not make
 -- sense, and also try to guard against common mistakes (like writing @##My
@@ -75,13 +75,14 @@
 -- > import qualified Data.Text.Lazy.IO as TL
 -- > import qualified Lucid             as L
 -- > import qualified Text.MMark        as MMark
+-- > import qualified Text.Megaparsec   as M
 -- >
 -- > main :: IO ()
 -- > main = do
 -- >   let input = "input.md"
 -- >   txt <- T.readFile input -- (1)
 -- >   case MMark.parse input txt of -- (2)
--- >     Left errs -> putStrLn (MMark.parseErrorsPretty txt errs) -- (3)
+-- >     Left bundle -> putStrLn (M.errorBundlePretty bundle) -- (3)
 -- >     Right r -> TL.writeFile "output.html" -- (6)
 -- >       . L.renderText -- (5)
 -- >       . MMark.render -- (4)
@@ -94,8 +95,8 @@
 --        parsing. It can either fail with a collection of parse errors
 --        or succeed returning a value of the opaque 'MMark' type.
 --     3. If parsing fails, we pretty-print the parse errors with
---     'parseErrorsPretty'.
---     4. Then we just render the document with `render` first to Lucid's
+--        'Text.Megaparsec.errorBundlePretty'.
+--     4. Then we just render the document with 'render' first to Lucid's
 --        @'Lucid.Html' ()@.
 --     5. …and then to lazy 'Data.Text.Lazy.Text' with 'Lucid.renderText'.
 --     6. Finally we write the result as @\"output.html\"@.

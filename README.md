@@ -18,7 +18,7 @@
 
 MMark (read “em-mark”) is a strict markdown processor for writers. “Strict”
 means that not every input is considered valid markdown document and parse
-errors are possible and even desirable, because they allow to spot markup
+errors are possible and even desirable, because they allow us to spot markup
 issues without searching for them in rendered document. If a markdown
 document passes MMark parser, then it'll likely produce HTML without quirks.
 This feature makes it a good choice for writers and bloggers.
@@ -71,7 +71,7 @@ There are four main differences:
 
 MMark mostly tries to follow the Common Mark specification as given here:
 
-http://spec.commonmark.org/0.28/
+https://spec.commonmark.org/0.28/
 
 However, due to the fact that we do not allow inputs that do not make sense,
 and also try to guard against common mistakes (like writing `##My header`
@@ -298,7 +298,7 @@ valid markdown implementation.
 Issues, bugs, and questions may be reported in [the GitHub issue tracker for
 this project](https://github.com/mmark-md/mmark/issues).
 
-Pull requests are also welcome and will be reviewed quickly.
+Pull requests are also welcome.
 
 ## License
 

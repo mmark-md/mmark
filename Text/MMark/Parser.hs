@@ -82,8 +82,7 @@ data InlineState
 -- Top-level API
 
 -- | Parse a markdown document in the form of a strict 'Text' value and
--- either report parse errors or return an 'MMark' document. Note that the
--- parser has the ability to report multiple parse errors at once.
+-- either report parse errors or return an 'MMark' document.
 
 parse
   :: FilePath
