@@ -42,7 +42,6 @@ where
 
 import Control.Monad.State.Strict
 import Data.Bifunctor
-import Data.Default.Class
 import Data.Function ((&))
 import Data.HashMap.Strict (HashMap)
 import Data.Ratio ((%))
@@ -76,7 +75,7 @@ runBParser
   -> Either (ParseErrorBundle Text MMarkErr) (a, Defs)
      -- ^ Result of parsing
 runBParser p file input =
-  case runState (snd <$> runParserT' p st) def of
+  case runState (snd <$> runParserT' p st) initialBlockState of
     (Left  bundle, _) -> Left bundle
     (Right x, st') -> Right (x, st' ^. bstDefs)
   where
@@ -150,7 +149,7 @@ runIParser _ _ (IspError err) = Left err
 runIParser defs p (IspSpan offset input) =
   first (NE.head . bundleErrors) (snd (runParser' (evalStateT p ist) pst))
   where
-    ist = def & istDefs .~ defs
+    ist = initialInlineState & istDefs .~ defs
     pst = mkInitialState "" input offset
 
 -- | Disallow parsing of empty inlines.

@@ -1,3 +1,7 @@
+## MMark 0.0.6.1
+
+* Dropped `data-default-class` dependency.
+
 ## MMark 0.0.6.0
 
 * Uses Megaparsec 7. The `parse` function now returns `ParseErrorBundle` on
