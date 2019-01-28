@@ -18,11 +18,13 @@
 module Text.MMark.Parser.Internal.Type
   ( -- * Block-level parser state
     BlockState
+  , initialBlockState
   , bstAllowNaked
   , bstRefLevel
   , bstDefs
     -- * Inline-level parser state
   , InlineState
+  , initialInlineState
   , istLastChar
   , istAllowEmpty
   , istAllowLinks
@@ -43,7 +45,6 @@ where
 import Control.DeepSeq
 import Data.CaseInsensitive (CI)
 import Data.Data (Data)
-import Data.Default.Class
 import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
 import Data.List (intercalate)
@@ -78,12 +79,14 @@ data BlockState = BlockState
     -- ^ Reference and footnote definitions
   }
 
-instance Default BlockState where
-  def = BlockState
-    { _bstAllowNaked = False
-    , _bstRefLevel   = pos1
-    , _bstDefs       = def
-    }
+-- | Initial value for 'BlockState'.
+
+initialBlockState :: BlockState
+initialBlockState = BlockState
+  { _bstAllowNaked = False
+  , _bstRefLevel   = pos1
+  , _bstDefs       = emptyDefs
+  }
 
 ----------------------------------------------------------------------------
 -- Inline-level parser state
@@ -103,14 +106,16 @@ data InlineState = InlineState
     -- ^ Reference link definitions
   }
 
-instance Default InlineState where
-  def = InlineState
-    { _istLastChar    = SpaceChar
-    , _istAllowEmpty  = True
-    , _istAllowLinks  = True
-    , _istAllowImages = True
-    , _istDefs        = def
-    }
+-- | Initial value for 'InlineState'.
+
+initialInlineState :: InlineState
+initialInlineState = InlineState
+  { _istLastChar    = SpaceChar
+  , _istAllowEmpty  = True
+  , _istAllowLinks  = True
+  , _istAllowImages = True
+  , _istDefs        = emptyDefs
+  }
 
 -- | 'Inline' source pending parsing.
 
@@ -139,10 +144,12 @@ newtype Defs = Defs
     -- ^ Reference definitions containing a 'URI' and optionally title
   }
 
-instance Default Defs where
-  def = Defs
-    { _referenceDefs = HM.empty
-    }
+-- | Empty 'Defs'.
+
+emptyDefs :: Defs
+emptyDefs = Defs
+  { _referenceDefs = HM.empty
+  }
 
 -- | An opaque type for definition label.
 
