@@ -1,3 +1,10 @@
+## MMark 0.0.6.2
+
+* Fixed setting offset after parsing of collapsed reference links.
+  Previously offset in parser state was restored incorrectly and errors that
+  would happen after such links would be reported two characters before
+  their real position.
+
 ## MMark 0.0.6.1
 
 * Dropped `data-default-class` dependency.

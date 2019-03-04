@@ -780,11 +780,11 @@ pLocation innerOffset inner = do
       pRefLabel >>= uncurry lookupRef
     collapsed o inlines = do
       -- NOTE We need to do these manipulations so the failure caused by
-      -- 'string' "" does not overwrite our custom failures.
+      -- @'string' "[]"@ does not overwrite our custom failures.
       o' <- getOffset
       setOffset o
       (void . hidden . string) "[]"
-      setOffset o'
+      setOffset (o' + 2)
       lookupRef o (mkLabel inlines)
     shortcut o inlines =
       lookupRef o (mkLabel inlines)

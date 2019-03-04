@@ -1790,6 +1790,10 @@ spec = parallel $ do
       it "a composite, complex example" $
         "***Something ~~~is not~~ going~ ^so well^** today*." ==->
           "<p><em><strong>Something <sub><del>is not</del> going</sub> <sup>so well</sup></strong> today</em>.</p>\n"
+    context "collapsed reference links (special cases)" $
+      it "offsets after such links are still correct" $
+        "[foo][] *foo\n\n[foo]: https://example.org" ~-> err 12
+           (ueib <> etok '*' <> eic)
     context "title parse errors" $
       it "parse error is OK in reference definitions" $
         let s = "[something]: something something"
