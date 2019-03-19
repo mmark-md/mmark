@@ -1,1 +1,7 @@
-{-# OPTIONS_GHC -F -pgmF hspec-discover #-}
+module Main (main) where
+
+import Test.Hspec
+import Text.MMarkSpec (spec)
+
+main :: IO ()
+main = hspec spec

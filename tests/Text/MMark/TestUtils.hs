@@ -8,10 +8,13 @@ module Text.MMark.TestUtils
   , (~~->)
   , (~->)
   , (=->)
-  , (==->) )
+  , (==->)
+  , (##->)
+  )
 where
 
 import Control.Monad
+import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Test.Hspec
 import Text.MMark (MMark, MMarkErr)
@@ -117,3 +120,15 @@ infix ==->
 input ==-> expected = do
   input              =-> expected
   mappend input "\n" =-> expected
+
+-- | Just like @('==->')@, but the expectation is set with a 'Lucid.Html'
+-- instead. This is useful when there are multiple attributes in the
+-- outputted HTML, which can cause GHCJs and GHC to output different strings
+-- (as Lucid uses an unordered map underneath for the attributes and GHCJs
+-- and GHC have different hashing functions).
+
+(##->)
+  :: Text              -- ^ Input for MMark parser
+  -> L.Html ()         -- ^ Lucid builder to match against
+  -> Expectation
+input ##-> expected = input ==-> (TL.toStrict (L.renderText expected) <> "\n")

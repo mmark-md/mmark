@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -8,6 +9,7 @@ import Data.Char
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid
 import Data.Text (Text)
+import Lucid
 import Test.Hspec
 import Test.Hspec.Megaparsec
 import Text.MMark (MMarkErr (..))
@@ -381,11 +383,10 @@ spec = parallel $ do
       return ()
     context "4.7 Link reference definitions" $ do
       it "CM159" $
-        "[foo]: /url \"title\"\n\n[foo]" ==->
-          "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
+        "[foo]: /url \"title\"\n\n[foo]" ##-> p_ (a_ [href_ "/url", title_ "title"] "foo")
       it "CM160" $
-        "   [foo]: \n      /url  \n           'the title'  \n\n[foo]" ==->
-          "<p><a href=\"/url\" title=\"the title\">foo</a></p>\n"
+        "   [foo]: \n      /url  \n           'the title'  \n\n[foo]" ##->
+          p_ (a_ [href_ "/url", title_ "the title"] "foo")
       it "CM161" $
         let s = "[Foo bar\\]]:my_(url) 'title (with parens)'\n\n[Foo bar\\]]"
         in s ~~->
@@ -393,14 +394,14 @@ spec = parallel $ do
            , errFancy 45 (couldNotMatchRef "Foo bar]" [])
            ]
       it "CM162" $
-        "[Foo bar]:\n<my%20url>\n'title'\n\n[Foo bar]" ==->
-          "<p><a href=\"my%20url\" title=\"title\">Foo bar</a></p>\n"
+        "[Foo bar]:\n<my%20url>\n'title'\n\n[Foo bar]" ##->
+          p_ (a_ [href_ "my%20url", title_ "title"] "Foo bar")
       it "CM163" $
-        "[foo]: /url '\ntitle\nline1\nline2\n'\n\n[foo]" ==->
-          "<p><a href=\"/url\" title=\"\ntitle\nline1\nline2\n\">foo</a></p>\n"
+        "[foo]: /url '\ntitle\nline1\nline2\n'\n\n[foo]" ##->
+          p_ (a_ [href_ "/url", title_ "\ntitle\nline1\nline2\n"] "foo")
       it "CM164" $
-        "[foo]: /url 'title\n\nwith blank line'\n\n[foo]" ==->
-          "<p><a href=\"/url\" title=\"title\n\nwith blank line\">foo</a></p>\n"
+        "[foo]: /url 'title\n\nwith blank line'\n\n[foo]" ##->
+          p_ (a_ [href_ "/url", title_ "title\n\nwith blank line"] "foo")
       it "CM165" $
         "[foo]:\n/url\n\n[foo]" ==->
           "<p><a href=\"/url\">foo</a></p>\n"
@@ -451,8 +452,13 @@ spec = parallel $ do
         "# [Foo]\n[foo]: /url\n> bar" ==->
           "<h1 id=\"foo\"><a href=\"/url\">Foo</a></h1>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
       it "CM180" $
-        "[foo]: /foo-url \"foo\"\n[bar]: /bar-url\n  \"bar\"\n[baz]: /baz-url\n\n[foo],\n[bar],\n[baz]" ==->
-          "<p><a href=\"/foo-url\" title=\"foo\">foo</a>,\n<a href=\"/bar-url\" title=\"bar\">bar</a>,\n<a href=\"/baz-url\">baz</a></p>\n"
+        "[foo]: /foo-url \"foo\"\n[bar]: /bar-url\n  \"bar\"\n[baz]: /baz-url\n\n[foo],\n[bar],\n[baz]" ##->
+          p_ (do
+            a_ [href_ "/foo-url", title_ "foo"] "foo"
+            ",\n"
+            a_ [href_ "/bar-url", title_ "bar"] "bar"
+            ",\n"
+            a_ [href_ "/baz-url"] "baz")
       it "CM181" $
         "[foo]\n\n> [foo]: /url" ==->
           "<p><a href=\"/url\">foo</a></p>\n<blockquote>\n</blockquote>\n"
@@ -868,11 +874,11 @@ spec = parallel $ do
         "<a href=\"&ouml;&ouml;.html\">" ==->
           "<p>&lt;a href=&quot;\246\246.html&quot;&gt;</p>\n"
       it "CM309" $
-        "[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")" ==->
-          "<p><a href=\"/f&amp;ouml;&amp;ouml;\" title=\"f\246\246\">foo</a></p>\n"
+        "[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")" ##->
+          p_ (a_ [href_ "/f&ouml;&ouml;",title_ "f\246\246"] "foo")
       it "CM310" $
-        "[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\"" ==->
-          "<p><a href=\"/f&amp;ouml;&amp;ouml;\" title=\"f\246\246\">foo</a></p>\n"
+        "[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\"" ##->
+          p_ (a_ [href_ "/f&ouml;&ouml;",title_ "f\246\246"] "foo")
       it "CM311" $
         "``` f&ouml;&ouml;\nfoo\n```" ==->
           "<pre><code class=\"language-f\246\246\">foo\n</code></pre>\n"
@@ -1290,8 +1296,8 @@ spec = parallel $ do
         in s ~-> err 25 (ueib <> etoks "__" <> eic)
     context "6.5 Links" $ do
       it "CM459" $
-        "[link](/uri \"title\")" ==->
-          "<p><a href=\"/uri\" title=\"title\">link</a></p>\n"
+        "[link](/uri \"title\")" ##->
+          p_ (a_ [href_ "/uri",title_ "title"] "link")
       it "CM460" $
         "[link](/uri)" ==->
           "<p><a href=\"/uri\">link</a></p>\n"
@@ -1350,11 +1356,17 @@ spec = parallel $ do
               etok '?' <> elabel "ASCII alpha character" <> euri <>
               elabel "path piece" <> ews)
       it "CM476" $
-        "[link](/url \"title\")\n[link](/url 'title')\n[link](/url (title))" ==->
-          "<p><a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a></p>\n"
+        "[link](/url \"title\")\n[link](/url 'title')\n[link](/url (title))" ##->
+          p_ (do
+            a_ [href_ "/url",title_ "title"] "link"
+            "\n"
+            a_ [href_ "/url",title_ "title"] "link"
+            "\n"
+            a_ [href_ "/url",title_ "title"] "link"
+            )
       it "CM477" $
-        "[link](/url \"title \\\"&quot;\")\n" ==->
-          "<p><a href=\"/url\" title=\"title &quot;&quot;\">link</a></p>\n"
+        "[link](/url \"title \\\"&quot;\")\n" ##->
+          p_ (a_ [href_ "/url",title_ "title \"\""] "link")
       it "CM478" $
         let s = "[link](/url \"title\")"
         in s ~-> err 11 (utok ' ' <> euric <> euri)
@@ -1362,11 +1374,11 @@ spec = parallel $ do
         let s = "[link](/url \"title \"and\" title\")\n"
         in s ~-> err 20 (utok 'a' <> etok ')' <> ews)
       it "CM480" $
-        "[link](/url 'title \"and\" title')" ==->
-          "<p><a href=\"/url\" title=\"title &quot;and&quot; title\">link</a></p>\n"
+        "[link](/url 'title \"and\" title')" ##->
+          p_ (a_ [href_ "/url",title_ "title \"and\" title"] "link")
       it "CM481" $
-        "[link](   /uri\n  \"title\"  )" ==->
-          "<p><a href=\"/uri\" title=\"title\">link</a></p>\n"
+        "[link](   /uri\n  \"title\"  )" ##->
+          p_ (a_ [href_ "/uri",title_ "title"] "link")
       it "CM482" $
         let s = "[link] (/uri)\n"
         in s ~-> errFancy 1 (couldNotMatchRef "link" [])
@@ -1416,8 +1428,8 @@ spec = parallel $ do
         "[foo<http://example.com/?search=](uri)>" ==->
           "<p><a href=\"uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
       it "CM498" $
-        "[foo][bar]\n\n[bar]: /url \"title\"" ==->
-          "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
+        "[foo][bar]\n\n[bar]: /url \"title\"" ##->
+          p_ (a_ [href_ "/url",title_ "title"] "foo")
       it "CM499" $
         let s = "[link [foo [bar]]][ref]\n\n[ref]: /uri"
         in s ~-> err 6 (utok '[' <> etok ']' <> eic)
@@ -1452,8 +1464,8 @@ spec = parallel $ do
         "[foo<http://example.com/?search=][ref]>\n\n[ref]: /uri" ==->
           "<p><a href=\"/uri\">foo&lt;http://example.com/?search=</a>&gt;</p>\n"
       it "CM510" $
-        "[foo][BaR]\n\n[bar]: /url \"title\"" ==->
-          "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
+        "[foo][BaR]\n\n[bar]: /url \"title\"" ##->
+          p_ (a_ [href_ "/url",title_ "title"] "foo")
       it "CM511" $
         "[Толпой][Толпой] is a Russian word.\n\n[ТОЛПОЙ]: /url" ==->
           "<p><a href=\"/url\">Толпой</a> is a Russian word.</p>\n"
@@ -1506,20 +1518,20 @@ spec = parallel $ do
           [ errFancy 1 (couldNotMatchRef "" [])
           , errFancy 7 (couldNotMatchRef "" []) ]
       it "CM524" $
-        "[foo][]\n\n[foo]: /url \"title\"" ==->
-          "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
+        "[foo][]\n\n[foo]: /url \"title\"" ##->
+          p_ (a_ [href_ "/url",title_ "title"] "foo")
       it "CM525" $
         let s = "[*foo* bar][]\n\n[*foo* bar]: /url \"title\""
         in s ~-> errFancy 1 (couldNotMatchRef "foo bar" ["*foo* bar"])
       it "CM526" $
-        "[Foo][]\n\n[foo]: /url \"title\"" ==->
-          "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n"
+        "[Foo][]\n\n[foo]: /url \"title\"" ##->
+          p_ (a_ [href_ "/url",title_ "title"] "Foo")
       it "CM527" $
         let s = "[foo] \n[]\n\n[foo]: /url \"title\""
         in s ~-> err 8 (utok ']' <> eic)
       it "CM528" $
-        "[foo]\n\n[foo]: /url \"title\"" ==->
-          "<p><a href=\"/url\" title=\"title\">foo</a></p>\n"
+        "[foo]\n\n[foo]: /url \"title\"" ##->
+          p_ (a_ [href_ "/url",title_ "title"] "foo")
       it "CM529" $
         let s = "[*foo* bar]\n\n[*foo* bar]: /url \"title\""
         in s ~-> errFancy 1 (couldNotMatchRef "foo bar" ["*foo* bar"])
@@ -1530,8 +1542,8 @@ spec = parallel $ do
         let s = "[[bar [foo]\n\n[foo]: /url"
         in s ~-> err 1 (utok '[' <> eic)
       it "CM532" $
-        "[Foo]\n\n[foo]: /url \"title\"" ==->
-          "<p><a href=\"/url\" title=\"title\">Foo</a></p>\n"
+        "[Foo]\n\n[foo]: /url \"title\"" ##->
+          p_ (a_ [href_ "/url", title_ "title"] "Foo")
       it "CM533" $
         "[foo] bar\n\n[foo]: /url" ==->
           "<p><a href=\"/url\">foo</a> bar</p>\n"
@@ -1629,8 +1641,10 @@ spec = parallel $ do
         "!\\[foo\\]\n\n[foo]: /url \"title\"" ==->
           "<p>![foo]</p>\n"
       it "CM564" $
-        "\\![foo]\n\n[foo]: /url \"title\"" ==->
-          "<p>!<a href=\"/url\" title=\"title\">foo</a></p>\n"
+        "\\![foo]\n\n[foo]: /url \"title\"" ##->
+          p_ (do
+            "!"
+            a_ [href_ "/url",title_ "title"] "foo")
     context "6.7 Autolinks" $ do
       it "CM565" $
         "<http://foo.bar.baz>" ==->
@@ -1966,15 +1980,20 @@ spec = parallel $ do
         MMark.projectYaml doc `shouldBe` Nothing
     context "when document contains a YAML section" $ do
       context "when it is valid" $ do
+#ifdef ghcjs_HOST_OS
+        let r = object []
+#else
         let r = object
               [ "x" .= Number 100
               , "y" .= Number 200 ]
+#endif
         it "returns the YAML section (1)" $ do
           doc <- mkDoc "---\nx: 100\ny: 200\n---\nHere we go."
           MMark.projectYaml doc `shouldBe` Just r
         it "returns the YAML section (2)" $ do
           doc <- mkDoc "---\nx: 100\ny: 200\n---\n\n"
           MMark.projectYaml doc `shouldBe` Just r
+#ifndef ghcjs_HOST_OS
       context "when it is invalid" $ do
         let mappingErr = fancy . ErrorCustom . YamlParseError $
               "mapping values are not allowed in this context"
@@ -1987,6 +2006,7 @@ spec = parallel $ do
               [ errFancy 15 mappingErr
               , err 33 (ueib <> etok '*' <> eic)
               ]
+#endif
 
 ----------------------------------------------------------------------------
 -- Testing extensions

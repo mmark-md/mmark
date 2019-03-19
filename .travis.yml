@@ -9,28 +9,39 @@ cache:
 
 matrix:
   include:
-    - env: CABALVER=2.4 GHCVER=7.10.3
+    - env: CABALVER=2.4 GHCVER=7.10.3 COMPILER=ghc BENCHMARKS=--enable-benchmarks
       addons: {apt: {packages: [cabal-install-2.4,ghc-7.10.3],sources: [hvr-ghc]}}
-    - env: CABALVER=2.4 GHCVER=8.0.2
+    - env: CABALVER=2.4 GHCVER=8.0.2 COMPILER=ghc BENCHMARKS=--enable-benchmarks
       addons: {apt: {packages: [cabal-install-2.4,ghc-8.0.2], sources: [hvr-ghc]}}
-    - env: CABALVER=2.4 GHCVER=8.2.2
+    - env: CABALVER=2.4 GHCVER=8.2.2 COMPILER=ghc BENCHMARKS=--enable-benchmarks
       addons: {apt: {packages: [cabal-install-2.4,ghc-8.2.2], sources: [hvr-ghc]}}
-    - env: CABALVER=2.4 GHCVER=8.4.4
+    - env: CABALVER=2.4 GHCVER=8.4.4 COMPILER=ghc BENCHMARKS=--enable-benchmarks
       addons: {apt: {packages: [cabal-install-2.4,ghc-8.4.4], sources: [hvr-ghc]}}
-    - env: CABALVER=2.4 GHCVER=8.6.4
+    - env: CABALVER=2.4 GHCVER=8.6.4 COMPILER=ghc BENCHMARKS=--enable-benchmarks
       addons: {apt: {packages: [cabal-install-2.4,ghc-8.6.4], sources: [hvr-ghc]}}
+    - env: CABALVER=2.4 GHCVER=8.4 COMPILER=ghcjs BENCHMARKS=--disable-benchmarks
+      addons: 
+        apt: 
+          sources: 
+            - hvr-ghc
+            - sourceline: 'ppa:hvr/ghcjs'
+            - ubuntu-toolchain-r-test
+            - sourceline: 'deb https://deb.nodesource.com/node_6.x trusty main'
+              key_url: 'https://deb.nodesource.com/gpgkey/nodesource.gpg.key'
+          packages: [cabal-install-2.4, ghcjs-8.4, alex, happy]
 
 before_install:
-  - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
+  - export PATH=/opt/$COMPILER/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH
 
 install:
   - cabal --version
-  - ghc --version
+  - $COMPILER --version
   - travis_retry cabal update
 
 script:
-  - cabal new-build --enable-tests --enable-benchmarks --flags=dev
-  - cabal new-test --flags=dev
+  - cabal --$COMPILER new-configure --enable-tests $BENCHMARKS --flags=dev
+  - cabal new-build 
+  - cabal new-test
   - cabal new-haddock
   - cabal sdist
 
