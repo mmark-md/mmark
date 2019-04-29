@@ -17,12 +17,12 @@ matrix:
       addons: {apt: {packages: [cabal-install-2.4,ghc-8.2.2], sources: [hvr-ghc]}}
     - env: CABALVER=2.4 GHCVER=8.4.4 COMPILER=ghc BENCHMARKS=--enable-benchmarks
       addons: {apt: {packages: [cabal-install-2.4,ghc-8.4.4], sources: [hvr-ghc]}}
-    - env: CABALVER=2.4 GHCVER=8.6.4 COMPILER=ghc BENCHMARKS=--enable-benchmarks
-      addons: {apt: {packages: [cabal-install-2.4,ghc-8.6.4], sources: [hvr-ghc]}}
+    - env: CABALVER=2.4 GHCVER=8.6.5 COMPILER=ghc BENCHMARKS=--enable-benchmarks
+      addons: {apt: {packages: [cabal-install-2.4,ghc-8.6.5], sources: [hvr-ghc]}}
     - env: CABALVER=2.4 GHCVER=8.4 COMPILER=ghcjs BENCHMARKS=--disable-benchmarks
-      addons: 
-        apt: 
-          sources: 
+      addons:
+        apt:
+          sources:
             - hvr-ghc
             - sourceline: 'ppa:hvr/ghcjs'
             - ubuntu-toolchain-r-test
@@ -40,7 +40,7 @@ install:
 
 script:
   - cabal --$COMPILER new-configure --enable-tests $BENCHMARKS --flags=dev
-  - cabal new-build 
+  - cabal new-build
   - cabal new-test
   - cabal new-haddock
   - cabal sdist
