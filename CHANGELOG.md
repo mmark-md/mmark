@@ -1,7 +1,7 @@
 ## MMark 0.0.7.0
 
 * Added GHCJS support by making `yaml` dependency optional. With GHCJS a
-  yaml block simply always returns empty object.
+  yaml block simply always returns the empty object.
 
 ## MMark 0.0.6.2
 
