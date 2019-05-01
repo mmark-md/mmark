@@ -1,3 +1,7 @@
+## Unreleased
+
+* Dropped support for GHC 7.10.
+
 ## MMark 0.0.7.0
 
 * Added GHCJS support by making `yaml` dependency optional. With GHCJS a
