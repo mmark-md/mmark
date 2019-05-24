@@ -34,7 +34,7 @@ before_install:
 install:
   - cabal --version
   - $COMPILER --version
-  - travis_retry cabal update
+  - travis_retry cabal new-update
 
 script:
   - cabal --$COMPILER new-configure --enable-tests $BENCHMARKS --flags=dev
