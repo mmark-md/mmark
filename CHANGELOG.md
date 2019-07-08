@@ -1,5 +1,7 @@
 ## Unreleased
 
+* Builds with `yaml-0.11.1.0`.
+
 * Dropped support for GHC 8.0 and older.
 
 ## MMark 0.0.7.0
