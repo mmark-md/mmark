@@ -1,6 +1,6 @@
 ## Unreleased
 
-* Dropped support for GHC 7.10.
+* Dropped support for GHC 8.0 and older.
 
 ## MMark 0.0.7.0
 
