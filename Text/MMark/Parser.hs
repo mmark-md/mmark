@@ -1188,6 +1188,9 @@ splitYamlError = \case
       ++ ", value: " ++ show value
     )
   Yaml.CyclicIncludes -> (Nothing, "cyclic includes")
+#if MIN_VERSION_yaml(0,11,1)
+  Yaml.LoadSettingsException _ _ -> (Nothing, "loading settings exception")
+#endif
 #endif
 
 emptyIspSpan :: Isp
