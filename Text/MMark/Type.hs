@@ -10,7 +10,6 @@
 -- Internal type definitions. Some of these are re-exported in the public
 -- modules.
 
-{-# LANGUAGE CPP                #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFoldable     #-}
 {-# LANGUAGE DeriveFunctor      #-}
@@ -41,10 +40,6 @@ import Data.Typeable (Typeable)
 import GHC.Generics
 import Lucid
 import Text.URI (URI (..))
-
-#if !MIN_VERSION_base(4,11,0)
-import Data.Semigroup
-#endif
 
 -- | Representation of complete markdown document. You can't look inside of
 -- 'MMark' on purpose. The only way to influence an 'MMark' document you

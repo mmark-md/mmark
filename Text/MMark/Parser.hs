@@ -33,7 +33,6 @@ import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.Maybe (isNothing, fromJust, catMaybes, isJust)
 import Data.Monoid (Any (..))
 import Data.Ratio ((%))
-import Data.Semigroup (Semigroup (..))
 import Data.Text (Text)
 import Lens.Micro ((^.))
 import Text.MMark.Parser.Internal
@@ -55,6 +54,10 @@ import qualified Data.Text.Encoding         as TE
 import qualified Text.Email.Validate        as Email
 import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Text.URI                   as URI
+
+#if !MIN_VERSION_base(4,13,0)
+import Data.Semigroup (Semigroup (..))
+#endif
 
 #if !defined(ghcjs_HOST_OS)
 import qualified Data.Yaml                  as Yaml

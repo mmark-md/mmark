@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Text.MMark.TestUtils
@@ -14,7 +15,6 @@ module Text.MMark.TestUtils
 where
 
 import Control.Monad
-import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Test.Hspec
 import Text.MMark (MMark, MMarkErr)
@@ -23,6 +23,10 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Lazy     as TL
 import qualified Lucid              as L
 import qualified Text.MMark         as MMark
+
+#if !MIN_VERSION_base(4,13,0)
+import Data.Semigroup ((<>))
+#endif
 
 ----------------------------------------------------------------------------
 -- Document creation and rendering

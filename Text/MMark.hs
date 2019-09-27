@@ -111,6 +111,7 @@
 -- "Text.MMark.Extension" module, which has some documentation focusing on
 -- extension writing.
 
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Text.MMark
@@ -131,11 +132,14 @@ module Text.MMark
 where
 
 import Data.Aeson
-import Data.Semigroup ((<>))
 import Text.MMark.Parser (MMarkErr (..), parse)
 import Text.MMark.Render (render)
 import Text.MMark.Type
 import qualified Control.Foldl as L
+
+#if !MIN_VERSION_base(4,13,0)
+import Data.Semigroup ((<>))
+#endif
 
 ----------------------------------------------------------------------------
 -- Extensions
