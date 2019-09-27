@@ -9,6 +9,7 @@
 --
 -- Types for the internal helper definitions for the parser.
 
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -50,7 +51,6 @@ import Data.Hashable (Hashable)
 import Data.List (intercalate)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Proxy
-import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
@@ -61,6 +61,10 @@ import qualified Data.CaseInsensitive as CI
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Text            as T
+
+#if !MIN_VERSION_base(4,13,0)
+import Data.Semigroup ((<>))
+#endif
 
 ----------------------------------------------------------------------------
 -- Block-level parser state
