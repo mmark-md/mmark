@@ -239,7 +239,7 @@ mkInitialState
   :: FilePath          -- ^ File name to use
   -> Text              -- ^ Input
   -> Int               -- ^ Starting offset
-  -> M.State Text
+  -> M.State Text e
 mkInitialState file input offset = M.State
   { stateInput = input
   , stateOffset = offset
@@ -250,6 +250,7 @@ mkInitialState file input offset = M.State
     , pstateTabWidth = mkPos 4
     , pstateLinePrefix = ""
     }
+  , stateParseErrors = []
   }
 
 -- | Locally change state in a state monad and then restore it back.
