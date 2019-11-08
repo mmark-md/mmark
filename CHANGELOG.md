@@ -1,4 +1,6 @@
-## Unreleased
+## MMark 0.0.7.2
+
+* Uses Megaparsec 8.0.0.
 
 * Dropped suppot for GHC 8.2.
 
