@@ -13,8 +13,8 @@ matrix:
       addons: {apt: {packages: [cabal-install-3.0,ghc-8.4.4], sources: [hvr-ghc]}}
     - env: CABALVER=3.0 GHCVER=8.6.5 COMPILER=ghc BENCHMARKS=--enable-benchmarks
       addons: {apt: {packages: [cabal-install-3.0,ghc-8.6.5], sources: [hvr-ghc]}}
-    - env: CABALVER=3.0 GHCVER=8.8.2 COMPILER=ghc BENCHMARKS=--enable-benchmarks
-      addons: {apt: {packages: [cabal-install-3.0,ghc-8.8.2], sources: [hvr-ghc]}}
+    - env: CABALVER=3.0 GHCVER=8.8.3 COMPILER=ghc BENCHMARKS=--enable-benchmarks
+      addons: {apt: {packages: [cabal-install-3.0,ghc-8.8.3], sources: [hvr-ghc]}}
     # - env: CABALVER=2.4 GHCVER=8.4 COMPILER=ghcjs BENCHMARKS=--disable-benchmarks
     #   addons:
     #     apt:
