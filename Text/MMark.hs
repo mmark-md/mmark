@@ -1,3 +1,6 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE RecordWildCards #-}
+
 -- |
 -- Module      :  Text.MMark
 -- Copyright   :  © 2017–present Mark Karpov
@@ -110,32 +113,32 @@
 -- and encouraged. To write an extension of your own import the
 -- "Text.MMark.Extension" module, which has some documentation focusing on
 -- extension writing.
-
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE RecordWildCards #-}
-
 module Text.MMark
   ( -- * Parsing
-    MMark
-  , MMarkErr (..)
-  , parse
+    MMark,
+    MMarkErr (..),
+    parse,
+
     -- * Extensions
-  , Extension
-  , useExtension
-  , useExtensions
+    Extension,
+    useExtension,
+    useExtensions,
+
     -- * Scanning
-  , runScanner
-  , runScannerM
-  , projectYaml
+    runScanner,
+    runScannerM,
+    projectYaml,
+
     -- * Rendering
-  , render )
+    render,
+  )
 where
 
+import qualified Control.Foldl as L
 import Data.Aeson
 import Text.MMark.Parser (MMarkErr (..), parse)
 import Text.MMark.Render (render)
 import Text.MMark.Type
-import qualified Control.Foldl as L
 
 #if !MIN_VERSION_base(4,13,0)
 import Data.Semigroup ((<>))
@@ -148,10 +151,9 @@ import Data.Semigroup ((<>))
 -- apply 'Extension's /does matter/. Extensions you apply first take effect
 -- first. The extension system is designed in such a way that in many cases
 -- the order doesn't matter, but sometimes the difference is important.
-
 useExtension :: Extension -> MMark -> MMark
 useExtension ext mmark =
-  mmark { mmarkExtension = ext <> mmarkExtension mmark }
+  mmark {mmarkExtension = ext <> mmarkExtension mmark}
 
 -- | Apply several 'Extension's to an 'MMark' document.
 --
@@ -162,7 +164,6 @@ useExtension ext mmark =
 -- As mentioned in the docs for 'useExtension', the order in which you apply
 -- extensions matters. Extensions closer to beginning of the list are
 -- applied later, i.e. the last extension in the list is applied first.
-
 useExtensions :: [Extension] -> MMark -> MMark
 useExtensions exts = useExtension (mconcat exts)
 
@@ -174,11 +175,13 @@ useExtensions exts = useExtension (mconcat exts)
 --
 -- Take a look at the "Text.MMark.Extension" module if you want to create
 -- scanners of your own.
-
-runScanner
-  :: MMark             -- ^ Document to scan
-  -> L.Fold Bni a      -- ^ 'L.Fold' to use
-  -> a                 -- ^ Result of scanning
+runScanner ::
+  -- | Document to scan
+  MMark ->
+  -- | 'L.Fold' to use
+  L.Fold Bni a ->
+  -- | Result of scanning
+  a
 runScanner MMark {..} f = L.fold f mmarkBlocks
 
 -- | Like 'runScanner', but allows to run scanners with monadic context.
@@ -187,15 +190,16 @@ runScanner MMark {..} f = L.fold f mmarkBlocks
 -- use 'L.generalize' and 'L.simplify'.
 --
 -- @since 0.0.2.0
-
-runScannerM
-  :: Monad m
-  => MMark             -- ^ Document to scan
-  -> L.FoldM m Bni a   -- ^ 'L.FoldM' to use
-  -> m a               -- ^ Result of scanning
+runScannerM ::
+  Monad m =>
+  -- | Document to scan
+  MMark ->
+  -- | 'L.FoldM' to use
+  L.FoldM m Bni a ->
+  -- | Result of scanning
+  m a
 runScannerM MMark {..} f = L.foldM f mmarkBlocks
 
 -- | Extract contents of an optional YAML block that may have been parsed.
-
 projectYaml :: MMark -> Maybe Value
 projectYaml = mmarkYaml

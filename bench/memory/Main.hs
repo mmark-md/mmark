@@ -1,8 +1,8 @@
 module Main (main) where
 
-import Weigh
 import qualified Data.Text.IO as T
-import qualified Text.MMark   as MMark
+import qualified Text.MMark as MMark
+import Weigh
 
 main :: IO ()
 main = mainWith $ do
@@ -23,10 +23,11 @@ main = mainWith $ do
 ----------------------------------------------------------------------------
 -- Helpers
 
-bparser
-  :: FilePath          -- ^ File from which the input has been loaded
-  -> Weigh ()
+bparser ::
+  -- | File from which the input has been loaded
+  FilePath ->
+  Weigh ()
 bparser path = action name (p <$> T.readFile path)
   where
     name = "with file: " ++ path
-    p    = MMark.parse path
+    p = MMark.parse path

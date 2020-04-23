@@ -1,3 +1,7 @@
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+
 -- |
 -- Module      :  Text.MMark.Render
 -- Copyright   :  © 2017–present Mark Karpov
@@ -8,13 +12,9 @@
 -- Portability :  portable
 --
 -- MMark rendering machinery.
-
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-
 module Text.MMark.Render
-  ( render )
+  ( render,
+  )
 where
 
 import Control.Arrow
@@ -22,13 +22,13 @@ import Control.Monad
 import Data.Char (isSpace)
 import Data.Function (fix)
 import Data.List.NonEmpty (NonEmpty (..))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Text as T
 import Lucid
 import Text.MMark.Trans
 import Text.MMark.Type
 import Text.MMark.Util
-import qualified Data.List.NonEmpty as NE
-import qualified Data.Text          as T
-import qualified Text.URI           as URI
+import qualified Text.URI as URI
 
 -- | Render a 'MMark' markdown document. You can then render @'Html' ()@ to
 -- various things:
@@ -36,59 +36,57 @@ import qualified Text.URI           as URI
 --     * to lazy 'Data.Taxt.Lazy.Text' with 'renderText'
 --     * to lazy 'Data.ByteString.Lazy.ByteString' with 'renderBS'
 --     * directly to file with 'renderToFile'
-
 render :: MMark -> Html ()
 render MMark {..} =
   mapM_ rBlock mmarkBlocks
   where
     Extension {..} = mmarkExtension
-    rBlock
-      = applyBlockRender extBlockRender
-      . fmap rInlines
-      . applyBlockTrans extBlockTrans
-    rInlines
-      = (mkOisInternal &&& mapM_ (applyInlineRender extInlineRender))
-      . fmap (applyInlineTrans extInlineTrans)
+    rBlock =
+      applyBlockRender extBlockRender
+        . fmap rInlines
+        . applyBlockTrans extBlockTrans
+    rInlines =
+      (mkOisInternal &&& mapM_ (applyInlineRender extInlineRender))
+        . fmap (applyInlineTrans extInlineTrans)
 
 -- | Apply a 'Render' to a given @'Block' 'Html' ()@.
-
-applyBlockRender
-  :: Render (Block (Ois, Html ()))
-  -> Block (Ois, Html ())
-  -> Html ()
+applyBlockRender ::
+  Render (Block (Ois, Html ())) ->
+  Block (Ois, Html ()) ->
+  Html ()
 applyBlockRender r = fix (runRender r . defaultBlockRender)
 
 -- | The default 'Block' render. Note that it does not care about what we
 -- have rendered so far because it always starts rendering. Thus it's OK to
 -- just pass it something dummy as the second argument of the inner
 -- function.
-
-defaultBlockRender
-  :: (Block (Ois, Html ()) -> Html ())
-     -- ^ Rendering function to use to render sub-blocks
-  -> Block (Ois, Html ()) -> Html ()
+defaultBlockRender ::
+  -- | Rendering function to use to render sub-blocks
+  (Block (Ois, Html ()) -> Html ()) ->
+  Block (Ois, Html ()) ->
+  Html ()
 defaultBlockRender blockRender = \case
   ThematicBreak ->
     hr_ [] >> newline
-  Heading1 (h,html) ->
+  Heading1 (h, html) ->
     h1_ (mkId h) html >> newline
-  Heading2 (h,html) ->
+  Heading2 (h, html) ->
     h2_ (mkId h) html >> newline
-  Heading3 (h,html) ->
+  Heading3 (h, html) ->
     h3_ (mkId h) html >> newline
-  Heading4 (h,html) ->
+  Heading4 (h, html) ->
     h4_ (mkId h) html >> newline
-  Heading5 (h,html) ->
+  Heading5 (h, html) ->
     h5_ (mkId h) html >> newline
-  Heading6 (h,html) ->
+  Heading6 (h, html) ->
     h6_ (mkId h) html >> newline
   CodeBlock infoString txt -> do
     let f x = class_ $ "language-" <> T.takeWhile (not . isSpace) x
     pre_ $ code_ (maybe [] (pure . f) infoString) (toHtml txt)
     newline
-  Naked (_,html) ->
+  Naked (_, html) ->
     html >> newline
-  Paragraph (_,html) ->
+  Paragraph (_, html) ->
     p_ html >> newline
   Blockquote blocks -> do
     blockquote_ (newline <* mapM_ blockRender blocks)
@@ -113,16 +111,18 @@ defaultBlockRender blockRender = \case
       newline
       thead_ $ do
         newline
-        tr_ $
-          forM_ (NE.zip calign hs) $ \(a, h) ->
+        tr_
+          $ forM_ (NE.zip calign hs)
+          $ \(a, h) ->
             th_ (alignStyle a) (snd h)
         newline
       newline
       tbody_ $ do
         newline
         forM_ rows $ \row -> do
-          tr_ $
-            forM_ (NE.zip calign row) $ \(a, h) ->
+          tr_
+            $ forM_ (NE.zip calign row)
+            $ \(a, h) ->
               td_ (alignStyle a) (snd h)
           newline
       newline
@@ -131,22 +131,21 @@ defaultBlockRender blockRender = \case
     mkId ois = [(id_ . headerId . getOis) ois]
     alignStyle = \case
       CellAlignDefault -> []
-      CellAlignLeft    -> [style_ "text-align:left"]
-      CellAlignRight   -> [style_ "text-align:right"]
-      CellAlignCenter  -> [style_ "text-align:center"]
+      CellAlignLeft -> [style_ "text-align:left"]
+      CellAlignRight -> [style_ "text-align:right"]
+      CellAlignCenter -> [style_ "text-align:center"]
 
 -- | Apply a render to a given 'Inline'.
-
 applyInlineRender :: Render Inline -> Inline -> Html ()
 applyInlineRender r = fix (runRender r . defaultInlineRender)
 
 -- | The default render for 'Inline' elements. Comments about
 -- 'defaultBlockRender' apply here just as well.
-
-defaultInlineRender
-  :: (Inline -> Html ())
-     -- ^ Rendering function to use to render sub-inlines
-  -> Inline -> Html ()
+defaultInlineRender ::
+  -- | Rendering function to use to render sub-inlines
+  (Inline -> Html ()) ->
+  Inline ->
+  Html ()
 defaultInlineRender inlineRender = \case
   Plain txt ->
     toHtml txt
@@ -166,12 +165,11 @@ defaultInlineRender inlineRender = \case
     code_ (toHtml txt)
   Link inner dest mtitle ->
     let title = maybe [] (pure . title_) mtitle
-    in a_ (href_ (URI.render dest) : title) (mapM_ inlineRender inner)
+     in a_ (href_ (URI.render dest) : title) (mapM_ inlineRender inner)
   Image desc src mtitle ->
     let title = maybe [] (pure . title_) mtitle
-    in img_ (alt_ (asPlainText desc) : src_ (URI.render src) : title)
+     in img_ (alt_ (asPlainText desc) : src_ (URI.render src) : title)
 
 -- | HTML containing a newline.
-
 newline :: Html ()
 newline = "\n"

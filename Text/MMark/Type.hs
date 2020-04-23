@@ -1,3 +1,9 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RecordWildCards #-}
+
 -- |
 -- Module      :  Text.MMark.Type
 -- Copyright   :  © 2017–present Mark Karpov
@@ -9,24 +15,18 @@
 --
 -- Internal type definitions. Some of these are re-exported in the public
 -- modules.
-
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveFoldable     #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE RecordWildCards    #-}
-
 module Text.MMark.Type
-  ( MMark (..)
-  , Extension (..)
-  , Render (..)
-  , Bni
-  , Block (..)
-  , CellAlign (..)
-  , Inline (..)
-  , Ois
-  , mkOisInternal
-  , getOis )
+  ( MMark (..),
+    Extension (..),
+    Render (..),
+    Bni,
+    Block (..),
+    CellAlign (..),
+    Inline (..),
+    Ois,
+    mkOisInternal,
+    getOis,
+  )
 where
 
 import Control.DeepSeq
@@ -44,14 +44,13 @@ import Text.URI (URI (..))
 -- | Representation of complete markdown document. You can't look inside of
 -- 'MMark' on purpose. The only way to influence an 'MMark' document you
 -- obtain as a result of parsing is via the extension mechanism.
-
 data MMark = MMark
-  { mmarkYaml :: Maybe Value
-    -- ^ Parsed YAML document at the beginning (optional)
-  , mmarkBlocks :: [Bni]
-    -- ^ Actual contents of the document
-  , mmarkExtension :: Extension
-    -- ^ Extension specifying how to process and render the blocks
+  { -- | Parsed YAML document at the beginning (optional)
+    mmarkYaml :: Maybe Value,
+    -- | Actual contents of the document
+    mmarkBlocks :: [Bni],
+    -- | Extension specifying how to process and render the blocks
+    mmarkExtension :: Extension
   }
 
 instance NFData MMark where
@@ -60,7 +59,6 @@ instance NFData MMark where
 -- | Dummy instance.
 --
 -- @since 0.0.5.0
-
 instance Show MMark where
   show = const "MMark {..}"
 
@@ -85,50 +83,51 @@ instance Show MMark where
 -- Here, @e0@ will be applied first, then @e1@, then @e2@. The same applies
 -- to expressions involving 'mconcat'—extensions closer to beginning of the
 -- list passed to 'mconcat' will be applied later.
-
 data Extension = Extension
-  { extBlockTrans :: Endo Bni
-    -- ^ Block transformation
-  , extBlockRender :: Render (Block (Ois, Html ()))
-    -- ^ Block render
-  , extInlineTrans :: Endo Inline
-    -- ^ Inline transformation
-  , extInlineRender :: Render Inline
-    -- ^ Inline render
+  { -- | Block transformation
+    extBlockTrans :: Endo Bni,
+    -- | Block render
+    extBlockRender :: Render (Block (Ois, Html ())),
+    -- | Inline transformation
+    extInlineTrans :: Endo Inline,
+    -- | Inline render
+    extInlineRender :: Render Inline
   }
 
 instance Semigroup Extension where
-  x <> y = Extension
-    { extBlockTrans   = on (<>) extBlockTrans   x y
-    , extBlockRender  = on (<>) extBlockRender  x y
-    , extInlineTrans  = on (<>) extInlineTrans  x y
-    , extInlineRender = on (<>) extInlineRender x y }
+  x <> y =
+    Extension
+      { extBlockTrans = on (<>) extBlockTrans x y,
+        extBlockRender = on (<>) extBlockRender x y,
+        extInlineTrans = on (<>) extInlineTrans x y,
+        extInlineRender = on (<>) extInlineRender x y
+      }
 
 instance Monoid Extension where
-  mempty = Extension
-    { extBlockTrans   = mempty
-    , extBlockRender  = mempty
-    , extInlineTrans  = mempty
-    , extInlineRender = mempty }
+  mempty =
+    Extension
+      { extBlockTrans = mempty,
+        extBlockRender = mempty,
+        extInlineTrans = mempty,
+        extInlineRender = mempty
+      }
   mappend = (<>)
 
 -- | An internal type that captures the extensible rendering process we use.
 -- 'Render' has a function inside which transforms a rendering function of
 -- the type @a -> Html ()@.
-
 newtype Render a = Render
-  { runRender :: (a -> Html ()) -> a -> Html () }
+  {runRender :: (a -> Html ()) -> a -> Html ()}
 
 instance Semigroup (Render a) where
   Render f <> Render g = Render (f . g)
 
 instance Monoid (Render a) where
-  mempty  = Render id
+  mempty = Render id
   mappend = (<>)
 
 -- | A shortcut for the frequently used type @'Block' ('NonEmpty'
 -- 'Inline')@.
-
 type Bni = Block (NonEmpty Inline)
 
 -- | We can think of a markdown document as a collection of
@@ -139,36 +138,34 @@ type Bni = Block (NonEmpty Inline)
 --
 -- We can divide blocks into two types: container blocks, which can contain
 -- other blocks, and leaf blocks, which cannot.
-
 data Block a
-  = ThematicBreak
-    -- ^ Thematic break, leaf block
-  | Heading1 a
-    -- ^ Heading (level 1), leaf block
-  | Heading2 a
-    -- ^ Heading (level 2), leaf block
-  | Heading3 a
-    -- ^ Heading (level 3), leaf block
-  | Heading4 a
-    -- ^ Heading (level 4), leaf block
-  | Heading5 a
-    -- ^ Heading (level 5), leaf block
-  | Heading6 a
-    -- ^ Heading (level 6), leaf block
-  | CodeBlock (Maybe Text) Text
-    -- ^ Code block, leaf block with info string and contents
-  | Naked a
-    -- ^ Naked content, without an enclosing tag
-  | Paragraph a
-    -- ^ Paragraph, leaf block
-  | Blockquote [Block a]
-    -- ^ Blockquote container block
-  | OrderedList Word (NonEmpty [Block a])
-    -- ^ Ordered list ('Word' is the start index), container block
-  | UnorderedList (NonEmpty [Block a])
-    -- ^ Unordered list, container block
-  | Table (NonEmpty CellAlign) (NonEmpty (NonEmpty a))
-    -- ^ Table, first argument is the alignment options, then we have a
+  = -- | Thematic break, leaf block
+    ThematicBreak
+  | -- | Heading (level 1), leaf block
+    Heading1 a
+  | -- | Heading (level 2), leaf block
+    Heading2 a
+  | -- | Heading (level 3), leaf block
+    Heading3 a
+  | -- | Heading (level 4), leaf block
+    Heading4 a
+  | -- | Heading (level 5), leaf block
+    Heading5 a
+  | -- | Heading (level 6), leaf block
+    Heading6 a
+  | -- | Code block, leaf block with info string and contents
+    CodeBlock (Maybe Text) Text
+  | -- | Naked content, without an enclosing tag
+    Naked a
+  | -- | Paragraph, leaf block
+    Paragraph a
+  | -- | Blockquote container block
+    Blockquote [Block a]
+  | -- | Ordered list ('Word' is the start index), container block
+    OrderedList Word (NonEmpty [Block a])
+  | -- | Unordered list, container block
+    UnorderedList (NonEmpty [Block a])
+  | -- | Table, first argument is the alignment options, then we have a
     -- 'NonEmpty' list of rows, where every row is a 'NonEmpty' list of
     -- cells, where every cell is an @a@ thing.
     --
@@ -176,6 +173,7 @@ data Block a
     -- support cannot lack a header row.
     --
     -- @since 0.0.4.0
+    Table (NonEmpty CellAlign) (NonEmpty (NonEmpty a))
   deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor, Foldable)
 
 instance NFData a => NFData (Block a)
@@ -183,39 +181,41 @@ instance NFData a => NFData (Block a)
 -- | Options for cell alignment in tables.
 --
 -- @since 0.0.4.0
-
 data CellAlign
-  = CellAlignDefault   -- ^ No specific alignment specified
-  | CellAlignLeft      -- ^ Left-alignment
-  | CellAlignRight     -- ^ Right-alignment
-  | CellAlignCenter    -- ^ Center-alignment
+  = -- | No specific alignment specified
+    CellAlignDefault
+  | -- | Left-alignment
+    CellAlignLeft
+  | -- | Right-alignment
+    CellAlignRight
+  | -- | Center-alignment
+    CellAlignCenter
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 instance NFData CellAlign
 
 -- | Inline markdown content.
-
 data Inline
-  = Plain Text
-    -- ^ Plain text
-  | LineBreak
-    -- ^ Line break (hard)
-  | Emphasis (NonEmpty Inline)
-    -- ^ Emphasis
-  | Strong (NonEmpty Inline)
-    -- ^ Strong emphasis
-  | Strikeout (NonEmpty Inline)
-    -- ^ Strikeout
-  | Subscript (NonEmpty Inline)
-    -- ^ Subscript
-  | Superscript (NonEmpty Inline)
-    -- ^ Superscript
-  | CodeSpan Text
-    -- ^ Code span
-  | Link (NonEmpty Inline) URI (Maybe Text)
-    -- ^ Link with text, destination, and optionally title
-  | Image (NonEmpty Inline) URI (Maybe Text)
-    -- ^ Image with description, URL, and optionally title
+  = -- | Plain text
+    Plain Text
+  | -- | Line break (hard)
+    LineBreak
+  | -- | Emphasis
+    Emphasis (NonEmpty Inline)
+  | -- | Strong emphasis
+    Strong (NonEmpty Inline)
+  | -- | Strikeout
+    Strikeout (NonEmpty Inline)
+  | -- | Subscript
+    Subscript (NonEmpty Inline)
+  | -- | Superscript
+    Superscript (NonEmpty Inline)
+  | -- | Code span
+    CodeSpan Text
+  | -- | Link with text, destination, and optionally title
+    Link (NonEmpty Inline) URI (Maybe Text)
+  | -- | Image with description, URL, and optionally title
+    Image (NonEmpty Inline) URI (Maybe Text)
   deriving (Show, Eq, Ord, Data, Typeable, Generic)
 
 instance NFData Inline
@@ -225,16 +225,13 @@ instance NFData Inline
 -- render, but only for inspection. Altering of 'Ois' is not possible
 -- because the user cannot construct a value of the 'Ois' type, he\/she can
 -- only inspect it with 'getOis'.
-
 newtype Ois = Ois (NonEmpty Inline)
 
 -- | Make an 'Ois' value. This is an internal constructor that should not be
 -- exposed!
-
 mkOisInternal :: NonEmpty Inline -> Ois
 mkOisInternal = Ois
 
 -- | Project @'NonEmpty' 'Inline'@ from 'Ois'.
-
 getOis :: Ois -> NonEmpty Inline
 getOis (Ois inlines) = inlines

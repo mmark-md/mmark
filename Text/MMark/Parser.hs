@@ -1,3 +1,13 @@
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
 -- |
 -- Module      :  Text.MMark.Parser
 -- Copyright   :  © 2017–present Mark Karpov
@@ -8,52 +18,42 @@
 -- Portability :  portable
 --
 -- MMark markdown parser.
-
-{-# LANGUAGE CPP                       #-}
-{-# LANGUAGE BangPatterns              #-}
-{-# LANGUAGE DataKinds                 #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE LambdaCase                #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE RankNTypes                #-}
-{-# LANGUAGE TypeFamilies              #-}
-
 module Text.MMark.Parser
-  ( MMarkErr (..)
-  , parse )
+  ( MMarkErr (..),
+    parse,
+  )
 where
 
 import Control.Applicative (Alternative, liftA2)
 import Control.Monad
+import qualified Control.Monad.Combinators.NonEmpty as NE
+import qualified Data.Aeson as Aeson
 import Data.Bifunctor (Bifunctor (..))
 import Data.Bool (bool)
+import qualified Data.Char as Char
+import qualified Data.DList as DList
 import Data.HTML.Entities (htmlEntityMap)
-import Data.List.NonEmpty (NonEmpty (..), (<|))
-import Data.Maybe (isNothing, fromJust, catMaybes, isJust)
+import qualified Data.HashMap.Strict as HM
+import Data.List.NonEmpty ((<|), NonEmpty (..))
+import qualified Data.List.NonEmpty as NE
+import Data.Maybe (catMaybes, fromJust, isJust, isNothing)
 import Data.Monoid (Any (..))
 import Data.Ratio ((%))
+import qualified Data.Set as E
 import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import Lens.Micro ((^.))
+import qualified Text.Email.Validate as Email
 import Text.MMark.Parser.Internal
 import Text.MMark.Type
 import Text.MMark.Util
-import Text.Megaparsec hiding (parse, State (..))
+import Text.Megaparsec hiding (State (..), parse)
 import Text.Megaparsec.Char hiding (eol)
-import Text.URI (URI)
-import Text.URI.Lens (uriPath)
-import qualified Control.Monad.Combinators.NonEmpty as NE
-import qualified Data.Aeson                 as Aeson
-import qualified Data.Char                  as Char
-import qualified Data.DList                 as DList
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.List.NonEmpty         as NE
-import qualified Data.Set                   as E
-import qualified Data.Text                  as T
-import qualified Data.Text.Encoding         as TE
-import qualified Text.Email.Validate        as Email
 import qualified Text.Megaparsec.Char.Lexer as L
-import qualified Text.URI                   as URI
+import Text.URI (URI)
+import qualified Text.URI as URI
+import Text.URI.Lens (uriPath)
 
 #if !MIN_VERSION_base(4,13,0)
 import Data.Semigroup (Semigroup (..))
@@ -67,23 +67,30 @@ import qualified Data.Yaml                  as Yaml
 -- Auxiliary data types
 
 -- | Frame that describes where we are in parsing inlines.
-
 data InlineFrame
-  = EmphasisFrame      -- ^ Emphasis with asterisk @*@
-  | EmphasisFrame_     -- ^ Emphasis with underscore @_@
-  | StrongFrame        -- ^ Strong emphasis with asterisk @**@
-  | StrongFrame_       -- ^ Strong emphasis with underscore @__@
-  | StrikeoutFrame     -- ^ Strikeout
-  | SubscriptFrame     -- ^ Subscript
-  | SuperscriptFrame   -- ^ Superscript
+  = -- | Emphasis with asterisk @*@
+    EmphasisFrame
+  | -- | Emphasis with underscore @_@
+    EmphasisFrame_
+  | -- | Strong emphasis with asterisk @**@
+    StrongFrame
+  | -- | Strong emphasis with underscore @__@
+    StrongFrame_
+  | -- | Strikeout
+    StrikeoutFrame
+  | -- | Subscript
+    SubscriptFrame
+  | -- | Superscript
+    SuperscriptFrame
   deriving (Eq, Ord, Show)
 
 -- | State of inline parsing that specifies whether we expect to close one
 -- frame or there is a possibility to close one of two alternatives.
-
 data InlineState
-  = SingleFrame InlineFrame             -- ^ One frame to be closed
-  | DoubleFrame InlineFrame InlineFrame -- ^ Two frames to be closed
+  = -- | One frame to be closed
+    SingleFrame InlineFrame
+  | -- | Two frames to be closed
+    DoubleFrame InlineFrame InlineFrame
   deriving (Eq, Ord, Show)
 
 ----------------------------------------------------------------------------
@@ -91,44 +98,49 @@ data InlineState
 
 -- | Parse a markdown document in the form of a strict 'Text' value and
 -- either report parse errors or return an 'MMark' document.
-
-parse
-  :: FilePath
-     -- ^ File name (only to be used in error messages), may be empty
-  -> Text
-     -- ^ Input to parse
-  -> Either (ParseErrorBundle Text MMarkErr) MMark
-     -- ^ Parse errors or parsed document
+parse ::
+  -- | File name (only to be used in error messages), may be empty
+  FilePath ->
+  -- | Input to parse
+  Text ->
+  -- | Parse errors or parsed document
+  Either (ParseErrorBundle Text MMarkErr) MMark
 parse file input =
   case runBParser pMMark file input of
     Left bundle -> Left bundle
     Right ((myaml, rawBlocks), defs) ->
       let parsed = doInline <$> rawBlocks
-          doInline = fmap
-            $ first (replaceEof "end of inline block")
-            . runIParser defs pInlinesTop
+          doInline =
+            fmap $
+              first (replaceEof "end of inline block")
+                . runIParser defs pInlinesTop
           e2p = either DList.singleton (const DList.empty)
-      in case NE.nonEmpty . DList.toList $ foldMap (foldMap e2p) parsed of
-           Nothing -> Right MMark
-             { mmarkYaml      = myaml
-             , mmarkBlocks    = fmap fromRight <$> parsed
-             , mmarkExtension = mempty }
-           Just errs -> Left ParseErrorBundle
-             { bundleErrors = errs
-             , bundlePosState = PosState
-               { pstateInput = input
-               , pstateOffset = 0
-               , pstateSourcePos = initialPos file
-               , pstateTabWidth = mkPos 4
-               , pstateLinePrefix = ""
-               }
-             }
+       in case NE.nonEmpty . DList.toList $ foldMap (foldMap e2p) parsed of
+            Nothing ->
+              Right
+                MMark
+                  { mmarkYaml = myaml,
+                    mmarkBlocks = fmap fromRight <$> parsed,
+                    mmarkExtension = mempty
+                  }
+            Just errs ->
+              Left
+                ParseErrorBundle
+                  { bundleErrors = errs,
+                    bundlePosState =
+                      PosState
+                        { pstateInput = input,
+                          pstateOffset = 0,
+                          pstateSourcePos = initialPos file,
+                          pstateTabWidth = mkPos 4,
+                          pstateLinePrefix = ""
+                        }
+                  }
 
 ----------------------------------------------------------------------------
 -- Block parser
 
 -- | Parse an MMark document on block level.
-
 pMMark :: BParser (Maybe Aeson.Value, [Block Isp])
 pMMark = do
   meyaml <- optional pYamlBlock
@@ -145,7 +157,6 @@ pMMark = do
 -- | Parse a YAML block. On success return the actual parsed 'Aeson.Value' in
 -- 'Right', otherwise return 'SourcePos' of parse error and 'String'
 -- describing the error as generated by the @yaml@ package in 'Left'.
-
 pYamlBlock :: BParser (Either (Int, String) Aeson.Value)
 pYamlBlock = do
   string "---" *> sc' *> eol
@@ -155,54 +166,54 @@ pYamlBlock = do
         e <- atEnd
         if e || T.stripEnd l == "---"
           then return acc
-          else go (acc . (l:))
+          else go (acc . (l :))
   doffset <- getOffset
   ls <- go id <*> ([] <$ sc)
   return $ decodeYaml ls doffset
 
 -- | Parse several (possibly zero) blocks in a row.
-
 pBlocks :: BParser [Block Isp]
 pBlocks = catMaybes <$> many pBlock
 
 -- | Parse a single block of markdown document.
-
 pBlock :: BParser (Maybe (Block Isp))
 pBlock = do
   sc
   rlevel <- refLevel
   alevel <- L.indentLevel
-  done   <- atEnd
-  if done || alevel < rlevel then empty else
-    case compare alevel (ilevel rlevel) of
-      LT -> choice
-        [ Just <$> pThematicBreak
-        , Just <$> pAtxHeading
-        , Just <$> pFencedCodeBlock
-        , Just <$> pTable
-        , Just <$> pUnorderedList
-        , Just <$> pOrderedList
-        , Just <$> pBlockquote
-        , pReferenceDef
-        , Just <$> pParagraph ]
-      _  ->
-          Just <$> pIndentedCodeBlock
+  done <- atEnd
+  if done || alevel < rlevel
+    then empty
+    else case compare alevel (ilevel rlevel) of
+      LT ->
+        choice
+          [ Just <$> pThematicBreak,
+            Just <$> pAtxHeading,
+            Just <$> pFencedCodeBlock,
+            Just <$> pTable,
+            Just <$> pUnorderedList,
+            Just <$> pOrderedList,
+            Just <$> pBlockquote,
+            pReferenceDef,
+            Just <$> pParagraph
+          ]
+      _ ->
+        Just <$> pIndentedCodeBlock
 
 -- | Parse a thematic break.
-
 pThematicBreak :: BParser (Block Isp)
 pThematicBreak = do
   l' <- lookAhead nonEmptyLine
   let l = T.filter (not . isSpace) l'
-  if T.length l >= 3   &&
-     (T.all (== '*') l ||
-      T.all (== '-') l ||
-      T.all (== '_') l)
+  if T.length l >= 3
+    && ( T.all (== '*') l
+           || T.all (== '-') l
+           || T.all (== '_') l
+       )
     then ThematicBreak <$ nonEmptyLine <* sc
     else empty
 
 -- | Parse an ATX heading.
-
 pAtxHeading :: BParser (Block Isp)
 pAtxHeading = do
   (void . lookAhead . try) hashIntro
@@ -210,8 +221,9 @@ pAtxHeading = do
     hlevel <- length <$> hashIntro
     sc1'
     ispOffset <- getOffset
-    r <- someTill (satisfy notNewline <?> "heading character") . try $
-      optional (sc1' *> some (char '#') *> sc') *> (eof <|> eol)
+    r <-
+      someTill (satisfy notNewline <?> "heading character") . try $
+        optional (sc1' *> some (char '#') *> sc') *> (eof <|> eol)
     let toBlock = case hlevel of
           1 -> Heading1
           2 -> Heading2
@@ -226,7 +238,6 @@ pAtxHeading = do
       Heading1 (IspError err) <$ takeWhileP Nothing notNewline <* sc
 
 -- | Parse a fenced code block.
-
 pFencedCodeBlock :: BParser (Block Isp)
 pFencedCodeBlock = do
   alevel <- L.indentLevel
@@ -236,28 +247,30 @@ pFencedCodeBlock = do
   CodeBlock infoString (assembleCodeBlock alevel ls) <$ sc
 
 -- | Parse the opening fence of a fenced code block.
-
 pOpeningFence :: BParser (Char, Int, Maybe Text)
 pOpeningFence = p '`' <|> p '~'
   where
     p ch = try $ do
       void $ count 3 (char ch)
-      n  <- (+ 3) . length <$> many (char ch)
-      ml <- optional
-        (T.strip <$> someEscapedWith notNewline <?> "info string")
+      n <- (+ 3) . length <$> many (char ch)
+      ml <-
+        optional
+          (T.strip <$> someEscapedWith notNewline <?> "info string")
       guard (maybe True (not . T.any (== '`')) ml)
-      (ch, n,
-         case ml of
-           Nothing -> Nothing
-           Just l  ->
-             if T.null l
-               then Nothing
-               else Just l) <$ eol
+      ( ch,
+        n,
+        case ml of
+          Nothing -> Nothing
+          Just l ->
+            if T.null l
+              then Nothing
+              else Just l
+        )
+        <$ eol
 
 -- | Parse the closing fence of a fenced code block.
-
 pClosingFence :: Char -> Int -> BParser ()
-pClosingFence ch n =  try . label "closing code fence" $ do
+pClosingFence ch n = try . label "closing code fence" $ do
   clevel <- ilevel <$> refLevel
   void $ L.indentGuard sc' LT clevel
   void $ count n (char ch)
@@ -266,19 +279,19 @@ pClosingFence ch n =  try . label "closing code fence" $ do
   eof <|> eol
 
 -- | Parse an indented code block.
-
 pIndentedCodeBlock :: BParser (Block Isp)
 pIndentedCodeBlock = do
   alevel <- L.indentLevel
   clevel <- ilevel <$> refLevel
   let go ls = do
-        indented <- lookAhead $
-          (>= clevel) <$> (sc *> L.indentLevel)
+        indented <-
+          lookAhead $
+            (>= clevel) <$> (sc *> L.indentLevel)
         if indented
           then do
-            l        <- option "" nonEmptyLine
+            l <- option "" nonEmptyLine
             continue <- eol'
-            let ls' = ls . (l:)
+            let ls' = ls . (l :)
             if continue
               then go ls'
               else return ls'
@@ -287,24 +300,23 @@ pIndentedCodeBlock = do
       -- that preceding space is not yet consumed when we get to
       -- interpreting input as an indented code block, so we need to restore
       -- the space this way.
-      f x      = T.replicate (unPos alevel - 1) " " <> x
-      g []     = []
-      g (x:xs) = f x : xs
+      f x = T.replicate (unPos alevel - 1) " " <> x
+      g [] = []
+      g (x : xs) = f x : xs
   ls <- g . ($ []) <$> go id
   CodeBlock Nothing (assembleCodeBlock clevel ls) <$ sc
 
 -- | Parse an unorederd list.
-
 pUnorderedList :: BParser (Block Isp)
 pUnorderedList = do
   (bullet, bulletPos, minLevel, indLevel) <-
     pListBullet Nothing
-  x  <- innerBlocks bulletPos minLevel indLevel
+  x <- innerBlocks bulletPos minLevel indLevel
   xs <- many $ do
     (_, bulletPos', minLevel', indLevel') <-
       pListBullet (Just (bullet, bulletPos))
     innerBlocks bulletPos' minLevel' indLevel'
-  return (UnorderedList (normalizeListItems (x:|xs)))
+  return (UnorderedList (normalizeListItems (x :| xs)))
   where
     innerBlocks bulletPos minLevel indLevel = do
       p <- getSourcePos
@@ -321,14 +333,13 @@ pUnorderedList = do
 --     * 'SourcePos' at which the bullet was located
 --     * the closest column position where content could start
 --     * the indentation level after the bullet
-
-pListBullet
-  :: Maybe (Char, SourcePos)
-     -- ^ Bullet 'Char' and start position of the first bullet in a list
-  -> BParser (Char, SourcePos, Pos, Pos)
+pListBullet ::
+  -- | Bullet 'Char' and start position of the first bullet in a list
+  Maybe (Char, SourcePos) ->
+  BParser (Char, SourcePos, Pos, Pos)
 pListBullet mbullet = try $ do
-  pos    <- getSourcePos
-  l      <- (<> mkPos 2) <$> L.indentLevel
+  pos <- getSourcePos
+  l <- (<> mkPos 2) <$> L.indentLevel
   bullet <-
     case mbullet of
       Nothing -> char '-' <|> char '+' <|> char '*'
@@ -336,17 +347,16 @@ pListBullet mbullet = try $ do
         guard (sourceColumn pos >= sourceColumn bulletPos)
         char bullet
   eof <|> sc1
-  l'     <- L.indentLevel
+  l' <- L.indentLevel
   return (bullet, pos, l, l')
 
 -- | Parse an ordered list.
-
 pOrderedList :: BParser (Block Isp)
 pOrderedList = do
   startOffset <- getOffset
   (startIx, del, startPos, minLevel, indLevel) <-
     pListIndex Nothing
-  x  <- innerBlocks startPos minLevel indLevel
+  x <- innerBlocks startPos minLevel indLevel
   xs <- manyIndexed (startIx + 1) $ \expectedIx -> do
     startOffset' <- getOffset
     (actualIx, _, startPos', minLevel', indLevel') <-
@@ -354,16 +364,18 @@ pOrderedList = do
     let f blocks =
           if actualIx == expectedIx
             then blocks
-            else prependErr
-                   startOffset'
-                   (ListIndexOutOfOrder actualIx expectedIx)
-                   blocks
+            else
+              prependErr
+                startOffset'
+                (ListIndexOutOfOrder actualIx expectedIx)
+                blocks
     f <$> innerBlocks startPos' minLevel' indLevel'
   return . OrderedList startIx . normalizeListItems $
-    (if startIx <= 999999999
-       then x
-       else prependErr startOffset (ListStartIndexTooBig startIx) x)
-    :| xs
+    ( if startIx <= 999999999
+        then x
+        else prependErr startOffset (ListStartIndexTooBig startIx) x
+    )
+      :| xs
   where
     innerBlocks indexPos minLevel indLevel = do
       p <- getSourcePos
@@ -381,26 +393,24 @@ pOrderedList = do
 --     * 'SourcePos' at which the index was located
 --     * the closest column position where content could start
 --     * the indentation level after the index
-
-pListIndex
-  :: Maybe (Char, SourcePos)
-     -- ^ Delimiter 'Char' and start position of the first index in a list
-  -> BParser (Word, Char, SourcePos, Pos, Pos)
+pListIndex ::
+  -- | Delimiter 'Char' and start position of the first index in a list
+  Maybe (Char, SourcePos) ->
+  BParser (Word, Char, SourcePos, Pos, Pos)
 pListIndex mstart = try $ do
   pos <- getSourcePos
-  i   <- L.decimal
+  i <- L.decimal
   del <- case mstart of
     Nothing -> char '.' <|> char ')'
     Just (del, startPos) -> do
       guard (sourceColumn pos >= sourceColumn startPos)
       char del
-  l   <- (<> pos1) <$> L.indentLevel
+  l <- (<> pos1) <$> L.indentLevel
   eof <|> sc1
-  l'  <- L.indentLevel
+  l' <- L.indentLevel
   return (i, del, pos, l, l')
 
 -- | Parse a block quote.
-
 pBlockquote :: BParser (Block Isp)
 pBlockquote = do
   minLevel <- try $ do
@@ -421,23 +431,23 @@ pBlockquote = do
     else return (Blockquote [])
 
 -- | Parse a link\/image reference definition and register it.
-
 pReferenceDef :: BParser (Maybe (Block Isp))
 pReferenceDef = do
   (o, dlabel) <- try (pRefLabel <* char ':')
   withRecovery recover $ do
     sc' <* optional eol <* sc'
     uri <- pUri
-    hadSpN <- optional $
-      (sc1' *> option False (True <$ eol)) <|> (True <$ (sc' <* eol))
+    hadSpN <-
+      optional $
+        (sc1' *> option False (True <$ eol)) <|> (True <$ (sc' <* eol))
     sc'
     mtitle <-
       if isJust hadSpN
         then optional pTitle <* sc'
         else return Nothing
     case (hadSpN, mtitle) of
-      (Just True,  Nothing) -> return ()
-      _                     -> hidden eof <|> eol
+      (Just True, Nothing) -> return ()
+      _ -> hidden eof <|> eol
     conflict <- registerReference dlabel (uri, mtitle)
     when conflict $
       customFailure' o (DuplicateReferenceDefinition dlabel)
@@ -447,7 +457,6 @@ pReferenceDef = do
       Just (Naked (IspError err)) <$ takeWhileP Nothing notNewline <* sc
 
 -- | Parse a pipe table.
-
 pTable :: BParser (Block Isp)
 pTable = do
   (n, headerRow) <- try $ do
@@ -473,10 +482,12 @@ pTable = do
   where
     cell = do
       o <- getOffset
-      txt      <- fmap (T.stripEnd . T.pack) . foldMany' . choice $
-        [ (++) . T.unpack <$> hidden (string "\\|")
-        , (++) . T.unpack <$> pCodeSpanB
-        , (:) <$> label "inline content" (satisfy cellChar) ]
+      txt <-
+        fmap (T.stripEnd . T.pack) . foldMany' . choice $
+          [ (++) . T.unpack <$> hidden (string "\\|"),
+            (++) . T.unpack <$> pCodeSpanB,
+            (:) <$> label "inline content" (satisfy cellChar)
+          ]
       return (IspSpan o txt)
     cellChar x = x /= '|' && notNewline x
     rowWrapper p = do
@@ -496,29 +507,29 @@ pTable = do
       return $
         case (l, r) of
           (False, False) -> CellAlignDefault
-          (True,  False) -> CellAlignLeft
-          (False, True)  -> CellAlignRight
-          (True,  True)  -> CellAlignCenter
+          (True, False) -> CellAlignLeft
+          (False, True) -> CellAlignRight
+          (True, True) -> CellAlignCenter
     isHeaderLike txt =
-      T.length (T.filter isHeaderConstituent txt) % T.length txt >
-      8 % 10
+      T.length (T.filter isHeaderConstituent txt) % T.length txt
+        > 8 % 10
     isHeaderConstituent x =
       isSpace x || x == '|' || x == '-' || x == ':'
     endOfTable =
       lookAhead (option True (isBlank <$> nonEmptyLine))
     recover err =
-      Naked (IspError (replaceEof "end of table block" err)) <$
-        manyTill
+      Naked (IspError (replaceEof "end of table block" err))
+        <$ manyTill
           (optional nonEmptyLine)
-          (endOfTable >>= guard) <* sc
+          (endOfTable >>= guard)
+          <* sc
 
 -- | Parse a paragraph or naked text (is some cases).
-
 pParagraph :: BParser (Block Isp)
 pParagraph = do
   startOffset <- getOffset
   allowNaked <- isNakedAllowed
-  rlevel     <- refLevel
+  rlevel <- refLevel
   let go ls = do
         l <- lookAhead (option "" nonEmptyLine)
         broken <- succeeds . lookAhead . try $ do
@@ -526,54 +537,57 @@ pParagraph = do
           alevel <- L.indentLevel
           guard (alevel < ilevel rlevel)
           unless (alevel < rlevel) . choice $
-            [ void (char '>')
-            , void pThematicBreak
-            , void pAtxHeading
-            , void pOpeningFence
-            , void (pListBullet Nothing)
-            , void (pListIndex  Nothing) ]
+            [ void (char '>'),
+              void pThematicBreak,
+              void pAtxHeading,
+              void pOpeningFence,
+              void (pListBullet Nothing),
+              void (pListIndex Nothing)
+            ]
         if isBlank l
           then return (ls, Paragraph)
-          else if broken
-                 then return (ls, Naked)
-                 else do
-                   void nonEmptyLine
-                   continue <- eol'
-                   let ls' = ls . (l:)
-                   if continue
-                     then go ls'
-                     else return (ls', Naked)
-  l        <- nonEmptyLine
+          else
+            if broken
+              then return (ls, Naked)
+              else do
+                void nonEmptyLine
+                continue <- eol'
+                let ls' = ls . (l :)
+                if continue
+                  then go ls'
+                  else return (ls', Naked)
+  l <- nonEmptyLine
   continue <- eol'
   (ls, toBlock) <-
     if continue
       then go id
       else return (id, Naked)
   (if allowNaked then toBlock else Paragraph)
-    (IspSpan startOffset (assembleParagraph (l:ls []))) <$ sc
+    (IspSpan startOffset (assembleParagraph (l : ls [])))
+    <$ sc
 
 ----------------------------------------------------------------------------
 -- Auxiliary block-level parsers
 
 -- | 'match' a code span, this is a specialised and adjusted version of
 -- 'pCodeSpan'.
-
 pCodeSpanB :: BParser Text
 pCodeSpanB = fmap fst . match . hidden $ do
   n <- try (length <$> some (char '`'))
   let finalizer = try $ do
         void $ count n (char '`')
         notFollowedBy (char '`')
-  skipManyTill (label "code span content" $
-                  takeWhile1P Nothing (== '`') <|>
-                  takeWhile1P Nothing (\x -> x /= '`' && notNewline x))
+  skipManyTill
+    ( label "code span content" $
+        takeWhile1P Nothing (== '`')
+          <|> takeWhile1P Nothing (\x -> x /= '`' && notNewline x)
+    )
     finalizer
 
 ----------------------------------------------------------------------------
 -- Inline parser
 
 -- | The top level inline parser.
-
 pInlinesTop :: IParser (NonEmpty Inline)
 pInlinesTop = do
   inlines <- pInlines
@@ -581,10 +595,9 @@ pInlinesTop = do
   return inlines
 
 -- | Parse inlines using settings from given 'InlineConfig'.
-
 pInlines :: IParser (NonEmpty Inline)
 pInlines = do
-  done        <- atEnd
+  done <- atEnd
   allowsEmpty <- isEmptyAllowed
   if done
     then
@@ -604,9 +617,10 @@ pInlines = do
           gotImage <- (succeeds . void . lookAhead . string) "!["
           allowsImages <- isImagesAllowed
           if gotImage
-            then if allowsImages
-                   then pImage
-                   else unexpEic (Tokens . NE.fromList $ "![")
+            then
+              if allowsImages
+                then pImage
+                else unexpEic (Tokens . NE.fromList $ "![")
             else pPlain
         '<' -> do
           allowsLinks <- isLinksAllowed
@@ -623,22 +637,23 @@ pInlines = do
 -- | Parse a code span.
 --
 -- See also: 'pCodeSpanB'.
-
 pCodeSpan :: IParser Inline
 pCodeSpan = do
   n <- try (length <$> some (char '`'))
   let finalizer = try $ do
         void $ count n (char '`')
         notFollowedBy (char '`')
-  r <- CodeSpan . collapseWhiteSpace . T.concat <$>
-    manyTill (label "code span content" $
-               takeWhile1P Nothing (== '`') <|>
-               takeWhile1P Nothing (/= '`'))
-      finalizer
+  r <-
+    CodeSpan . collapseWhiteSpace . T.concat
+      <$> manyTill
+        ( label "code span content" $
+            takeWhile1P Nothing (== '`')
+              <|> takeWhile1P Nothing (/= '`')
+        )
+        finalizer
   r <$ lastChar OtherChar
 
 -- | Parse a link.
-
 pLink :: IParser Inline
 pLink = do
   void (char '[')
@@ -649,10 +664,9 @@ pLink = do
   Link txt dest mtitle <$ lastChar OtherChar
 
 -- | Parse an image.
-
 pImage :: IParser Inline
 pImage = do
-  (pos, alt)    <- emptyAlt <|> nonEmptyAlt
+  (pos, alt) <- emptyAlt <|> nonEmptyAlt
   (src, mtitle) <- pLocation pos alt
   Image alt src mtitle <$ lastChar OtherChar
   where
@@ -668,7 +682,6 @@ pImage = do
       return (o, alt)
 
 -- | Parse an autolink.
-
 pAutolink :: IParser Inline
 pAutolink = between (char '<') (char '>') $ do
   notFollowedBy (char '>')
@@ -676,35 +689,36 @@ pAutolink = between (char '<') (char '>') $ do
   let (txt, uri) =
         case isEmailUri uri' of
           Nothing ->
-            ( (nes . Plain . URI.render) uri'
-            , uri' )
+            ( (nes . Plain . URI.render) uri',
+              uri'
+            )
           Just email ->
-            ( nes (Plain email)
-            , URI.makeAbsolute mailtoScheme uri' )
+            ( nes (Plain email),
+              URI.makeAbsolute mailtoScheme uri'
+            )
   Link txt uri Nothing <$ lastChar OtherChar
 
 -- | Parse inline content inside an enclosing construction such as emphasis,
 -- strikeout, superscript, and\/or subscript markup.
-
 pEnclosedInline :: IParser Inline
-pEnclosedInline = disallowEmpty $ pLfdr >>= \case
-  SingleFrame x ->
-    liftFrame x <$> pInlines <* pRfdr x
-  DoubleFrame x y -> do
-    inlines0  <- pInlines
-    thisFrame <- pRfdr x <|> pRfdr y
-    let thatFrame = if thisFrame == x then y else x
-    minlines1 <- optional pInlines
-    void (pRfdr thatFrame)
-    return . liftFrame thatFrame $
-      case minlines1 of
-        Nothing ->
-          nes (liftFrame thisFrame inlines0)
-        Just inlines1 ->
-          liftFrame thisFrame inlines0 <| inlines1
+pEnclosedInline = disallowEmpty $
+  pLfdr >>= \case
+    SingleFrame x ->
+      liftFrame x <$> pInlines <* pRfdr x
+    DoubleFrame x y -> do
+      inlines0 <- pInlines
+      thisFrame <- pRfdr x <|> pRfdr y
+      let thatFrame = if thisFrame == x then y else x
+      minlines1 <- optional pInlines
+      void (pRfdr thatFrame)
+      return . liftFrame thatFrame $
+        case minlines1 of
+          Nothing ->
+            nes (liftFrame thisFrame inlines0)
+          Just inlines1 ->
+            liftFrame thisFrame inlines0 <| inlines1
 
 -- | Parse a hard line break.
-
 pHardLineBreak :: IParser Inline
 pHardLineBreak = do
   void (char '\\')
@@ -715,16 +729,17 @@ pHardLineBreak = do
   return LineBreak
 
 -- | Parse plain text.
-
 pPlain :: IParser Inline
 pPlain = fmap (Plain . bakeText) . foldSome $ do
   ch <- lookAhead (anySingle <?> "inline content")
   let newline' =
-        (('\n':) . dropWhile isSpace) <$ eol <* sc' <* lastChar SpaceChar
+        (('\n' :) . dropWhile isSpace) <$ eol <* sc' <* lastChar SpaceChar
   case ch of
-    '\\' -> (:) <$>
-      ((escapedChar <* lastChar OtherChar) <|>
-        try (char '\\' <* notFollowedBy eol <* lastChar OtherChar))
+    '\\' ->
+      (:)
+        <$> ( (escapedChar <* lastChar OtherChar)
+                <|> try (char '\\' <* notFollowedBy eol <* lastChar OtherChar)
+            )
     '\n' ->
       newline'
     '\r' ->
@@ -735,31 +750,39 @@ pPlain = fmap (Plain . bakeText) . foldSome $ do
     '<' -> do
       notFollowedBy pAutolink
       (:) <$> char '<' <* lastChar PunctChar
-    '&' -> choice
-      [ (:) <$> numRef
-      , (++) . reverse <$> entityRef
-      , (:) <$> char '&' ] <* lastChar PunctChar
+    '&' ->
+      choice
+        [ (:) <$> numRef,
+          (++) . reverse <$> entityRef,
+          (:) <$> char '&'
+        ]
+        <* lastChar PunctChar
     _ ->
-      (:) <$>
-        if Char.isSpace ch
+      (:)
+        <$> if Char.isSpace ch
           then char ch <* lastChar SpaceChar
-          else if isSpecialChar ch
-                 then failure
-                   (Just . Tokens . nes $ ch)
-                   (E.singleton . Label . NE.fromList $ "inline content")
-                 else if Char.isPunctuation ch
-                        then char ch <* lastChar PunctChar
-                        else char ch <* lastChar OtherChar
+          else
+            if isSpecialChar ch
+              then
+                failure
+                  (Just . Tokens . nes $ ch)
+                  (E.singleton . Label . NE.fromList $ "inline content")
+              else
+                if Char.isPunctuation ch
+                  then char ch <* lastChar PunctChar
+                  else char ch <* lastChar OtherChar
 
 ----------------------------------------------------------------------------
 -- Auxiliary inline-level parsers
 
 -- | Parse an inline and reference-style link\/image location.
-
-pLocation
-  :: Int               -- ^ Offset where the content inlines start
-  -> NonEmpty Inline   -- ^ The inner content inlines
-  -> IParser (URI, Maybe Text) -- ^ URI and optionally title
+pLocation ::
+  -- | Offset where the content inlines start
+  Int ->
+  -- | The inner content inlines
+  NonEmpty Inline ->
+  -- | URI and optionally title
+  IParser (URI, Maybe Text)
 pLocation innerOffset inner = do
   mr <- optional (inplace <|> withRef)
   case mr of
@@ -771,11 +794,12 @@ pLocation innerOffset inner = do
     inplace = do
       void (char '(')
       sc'
-      dest     <- pUri
+      dest <- pUri
       hadSpace <- option False (True <$ sc1)
-      mtitle   <- if hadSpace
-        then optional pTitle <* sc'
-        else return Nothing
+      mtitle <-
+        if hadSpace
+          then optional pTitle <* sc'
+          else return Nothing
       void (char ')')
       return (dest, mtitle)
     withRef =
@@ -795,13 +819,12 @@ pLocation innerOffset inner = do
     mkLabel = T.unwords . T.words . asPlainText
 
 -- | Parse a URI.
-
 pUri :: (Ord e, Show e, MonadParsec e Text m) => m URI
 pUri = between (char '<') (char '>') URI.parser <|> naked
   where
     naked = do
       let f x = not (isSpaceN x || x == ')')
-          l   = "end of URI"
+          l = "end of URI"
       (s, s') <- T.span f <$> getInput
       when (T.null s) . void $
         (satisfy f <?> "URI") -- this will now fail
@@ -811,19 +834,20 @@ pUri = between (char '<') (char '>') URI.parser <|> naked
       return r
 
 -- | Parse a title of a link or an image.
-
 pTitle :: MonadParsec MMarkErr Text m => m Text
-pTitle = choice
-  [ p '\"' '\"'
-  , p '\'' '\''
-  , p '('  ')' ]
+pTitle =
+  choice
+    [ p '\"' '\"',
+      p '\'' '\'',
+      p '(' ')'
+    ]
   where
-    p start end = between (char start) (char end) $
-      let f x = x /= end
-      in manyEscapedWith f "unescaped character"
+    p start end =
+      between (char start) (char end) $
+        let f x = x /= end
+         in manyEscapedWith f "unescaped character"
 
 -- | Parse label of a reference link.
-
 pRefLabel :: MonadParsec MMarkErr Text m => m (Int, Text)
 pRefLabel = do
   try $ do
@@ -837,25 +861,27 @@ pRefLabel = do
   return (o, dlabel)
 
 -- | Parse an opening markup sequence corresponding to given 'InlineState'.
-
 pLfdr :: IParser InlineState
 pLfdr = try $ do
   o <- getOffset
   let r st = st <$ string (inlineStateDel st)
-  st <- hidden $ choice
-    [ r (DoubleFrame StrongFrame StrongFrame)
-    , r (DoubleFrame StrongFrame EmphasisFrame)
-    , r (SingleFrame StrongFrame)
-    , r (SingleFrame EmphasisFrame)
-    , r (DoubleFrame StrongFrame_ StrongFrame_)
-    , r (DoubleFrame StrongFrame_ EmphasisFrame_)
-    , r (SingleFrame StrongFrame_)
-    , r (SingleFrame EmphasisFrame_)
-    , r (DoubleFrame StrikeoutFrame StrikeoutFrame)
-    , r (DoubleFrame StrikeoutFrame SubscriptFrame)
-    , r (SingleFrame StrikeoutFrame)
-    , r (SingleFrame SubscriptFrame)
-    , r (SingleFrame SuperscriptFrame) ]
+  st <-
+    hidden $
+      choice
+        [ r (DoubleFrame StrongFrame StrongFrame),
+          r (DoubleFrame StrongFrame EmphasisFrame),
+          r (SingleFrame StrongFrame),
+          r (SingleFrame EmphasisFrame),
+          r (DoubleFrame StrongFrame_ StrongFrame_),
+          r (DoubleFrame StrongFrame_ EmphasisFrame_),
+          r (SingleFrame StrongFrame_),
+          r (SingleFrame EmphasisFrame_),
+          r (DoubleFrame StrikeoutFrame StrikeoutFrame),
+          r (DoubleFrame StrikeoutFrame SubscriptFrame),
+          r (SingleFrame StrikeoutFrame),
+          r (SingleFrame SubscriptFrame),
+          r (SingleFrame SuperscriptFrame)
+        ]
   let dels = inlineStateDel st
       failNow =
         customFailure' o (NonFlankingDelimiterRun (toNesTokens dels))
@@ -865,13 +891,13 @@ pLfdr = try $ do
   return st
 
 -- | Parse a closing markup sequence corresponding to given 'InlineFrame'.
-
 pRfdr :: InlineFrame -> IParser InlineFrame
 pRfdr frame = try $ do
   let dels = inlineFrameDel frame
       expectingInlineContent = region $ \case
-        TrivialError pos us es -> TrivialError pos us $
-          E.insert (Label $ NE.fromList "inline content") es
+        TrivialError pos us es ->
+          TrivialError pos us $
+            E.insert (Label $ NE.fromList "inline content") es
         other -> other
   o <- getOffset
   (void . expectingInlineContent . string) dels
@@ -883,18 +909,18 @@ pRfdr frame = try $ do
   return frame
 
 -- | Get 'CharType' of the next char in the input stream.
-
-getNextChar
-  :: CharType          -- ^ What we should consider frame constituent characters
-  -> IParser CharType
+getNextChar ::
+  -- | What we should consider frame constituent characters
+  CharType ->
+  IParser CharType
 getNextChar frameType = lookAhead (option SpaceChar (charType <$> anySingle))
   where
     charType ch
       | isFrameConstituent ch = frameType
-      | Char.isSpace       ch = SpaceChar
-      | ch == '\\'            = OtherChar
+      | Char.isSpace ch = SpaceChar
+      | ch == '\\' = OtherChar
       | Char.isPunctuation ch = PunctChar
-      | otherwise             = OtherChar
+      | otherwise = OtherChar
 
 ----------------------------------------------------------------------------
 -- Parsing helpers
@@ -910,7 +936,7 @@ foldMany f = go id
     go g =
       optional f >>= \case
         Nothing -> pure g
-        Just h  -> go (h . g)
+        Just h -> go (h . g)
 
 foldMany' :: MonadPlus m => m ([a] -> [a]) -> m [a]
 foldMany' f = ($ []) <$> go id
@@ -918,7 +944,7 @@ foldMany' f = ($ []) <$> go id
     go g =
       optional f >>= \case
         Nothing -> pure g
-        Just h  -> go (g . h)
+        Just h -> go (g . h)
 
 foldSome :: MonadPlus m => m (a -> a) -> m (a -> a)
 foldSome f = liftA2 (flip (.)) f (foldMany f)
@@ -927,56 +953,65 @@ foldSome' :: MonadPlus m => m ([a] -> [a]) -> m [a]
 foldSome' f = liftA2 ($) f (foldMany' f)
 
 sepByCount :: MonadPlus m => Int -> m a -> m sep -> m [a]
-sepByCount 0 _ _   = pure []
+sepByCount 0 _ _ = pure []
 sepByCount n p sep = liftA2 (:) p (count (n - 1) (sep *> p))
 
 nonEmptyLine :: BParser Text
 nonEmptyLine = takeWhile1P Nothing notNewline
 
-manyEscapedWith :: MonadParsec MMarkErr Text m
-  => (Char -> Bool)
-  -> String
-  -> m Text
-manyEscapedWith f l = fmap T.pack . foldMany' . choice $
-  [ (:) <$> escapedChar
-  , (:) <$> numRef
-  , (++) . reverse <$> entityRef
-  , (:) <$> satisfy f <?> l ]
+manyEscapedWith ::
+  MonadParsec MMarkErr Text m =>
+  (Char -> Bool) ->
+  String ->
+  m Text
+manyEscapedWith f l =
+  fmap T.pack . foldMany' . choice $
+    [ (:) <$> escapedChar,
+      (:) <$> numRef,
+      (++) . reverse <$> entityRef,
+      (:) <$> satisfy f <?> l
+    ]
 
-someEscapedWith :: MonadParsec MMarkErr Text m
-  => (Char -> Bool)
-  -> m Text
-someEscapedWith f = fmap T.pack . foldSome' . choice $
-  [ (:) <$> escapedChar
-  , (:) <$> numRef
-  , (++) . reverse <$> entityRef
-  , (:) <$> satisfy f ]
+someEscapedWith ::
+  MonadParsec MMarkErr Text m =>
+  (Char -> Bool) ->
+  m Text
+someEscapedWith f =
+  fmap T.pack . foldSome' . choice $
+    [ (:) <$> escapedChar,
+      (:) <$> numRef,
+      (++) . reverse <$> entityRef,
+      (:) <$> satisfy f
+    ]
 
 escapedChar :: MonadParsec e Text m => m Char
-escapedChar = label "escaped character" $
-  try (char '\\' *> satisfy isAsciiPunctuation)
+escapedChar =
+  label "escaped character" $
+    try (char '\\' *> satisfy isAsciiPunctuation)
 
 -- | Parse an HTML5 entity reference.
-
 entityRef :: MonadParsec MMarkErr Text m => m String
 entityRef = do
-  o  <- getOffset
+  o <- getOffset
   let f (TrivialError _ us es) = TrivialError o us es
-      f (FancyError   _ xs)    = FancyError   o xs
-  name <- try . region f $ between (char '&') (char ';')
-    (takeWhile1P Nothing Char.isAlphaNum <?> "HTML5 entity name")
+      f (FancyError _ xs) = FancyError o xs
+  name <-
+    try . region f $
+      between
+        (char '&')
+        (char ';')
+        (takeWhile1P Nothing Char.isAlphaNum <?> "HTML5 entity name")
   case HM.lookup name htmlEntityMap of
     Nothing ->
       customFailure' o (UnknownHtmlEntityName name)
     Just txt -> return (T.unpack txt)
 
 -- | Parse a numeric character using the given numeric parser.
-
 numRef :: MonadParsec MMarkErr Text m => m Char
 numRef = do
   o <- getOffset
   let f = between (string "&#") (char ';')
-  n   <- try (f (char' 'x' *> L.hexadecimal)) <|> f L.decimal
+  n <- try (f (char' 'x' *> L.hexadecimal)) <|> f L.decimal
   if n == 0 || n > fromEnum (maxBound :: Char)
     then customFailure' o (InvalidNumericCharacter n)
     else return (Char.chr n)
@@ -994,10 +1029,13 @@ sc1' :: MonadParsec e Text m => m ()
 sc1' = void $ takeWhile1P (Just "white space") isSpace
 
 eol :: MonadParsec e Text m => m ()
-eol = void . label "newline" $ choice
-  [ string "\n"
-  , string "\r\n"
-  , string "\r" ]
+eol =
+  void . label "newline" $
+    choice
+      [ string "\n",
+        string "\r\n",
+        string "\r"
+      ]
 
 eol' :: MonadParsec e Text m => m Bool
 eol' = option False (True <$ eol)
@@ -1023,7 +1061,7 @@ isFrameConstituent = \case
   '^' -> True
   '_' -> True
   '~' -> True
-  _   -> False
+  _ -> False
 
 isMarkupChar :: Char -> Bool
 isMarkupChar x = isFrameConstituent x || f x
@@ -1032,17 +1070,17 @@ isMarkupChar x = isFrameConstituent x || f x
       '[' -> True
       ']' -> True
       '`' -> True
-      _   -> False
+      _ -> False
 
 isSpecialChar :: Char -> Bool
 isSpecialChar x = isMarkupChar x || x == '\\' || x == '!' || x == '<'
 
 isAsciiPunctuation :: Char -> Bool
 isAsciiPunctuation x =
-  (x >= '!' && x <= '/') ||
-  (x >= ':' && x <= '@') ||
-  (x >= '[' && x <= '`') ||
-  (x >= '{' && x <= '~')
+  (x >= '!' && x <= '/')
+    || (x >= ':' && x <= '@')
+    || (x >= '[' && x <= '`')
+    || (x >= '{' && x <= '~')
 
 ----------------------------------------------------------------------------
 -- Other helpers
@@ -1064,18 +1102,18 @@ stripIndent indent txt = T.drop m txt
   where
     m = snd $ T.foldl' f (0, 0) (T.takeWhile isSpace txt)
     f (!j, !n) ch
-      | j  >= i    = (j, n)
-      | ch == ' '  = (j + 1, n + 1)
+      | j >= i = (j, n)
+      | ch == ' ' = (j + 1, n + 1)
       | ch == '\t' = (j + 4, n + 1)
-      | otherwise  = (j, n)
+      | otherwise = (j, n)
     i = unPos indent - 1
 
 assembleParagraph :: [Text] -> Text
 assembleParagraph = go
   where
-    go []     = ""
-    go [x]    = T.dropWhileEnd isSpace x
-    go (x:xs) = x <> "\n" <> go xs
+    go [] = ""
+    go [x] = T.dropWhileEnd isSpace x
+    go (x : xs) = x <> "\n" <> go xs
 
 collapseWhiteSpace :: Text -> Text
 collapseWhiteSpace =
@@ -1084,54 +1122,55 @@ collapseWhiteSpace =
     f seenSpace ch =
       case (seenSpace, g ch) of
         (False, False) -> (False, ch)
-        (True,  False) -> (False, ch)
-        (False, True)  -> (True,  ' ')
-        (True,  True)  -> (True,  '\0')
-    g ' '  = True
+        (True, False) -> (False, ch)
+        (False, True) -> (True, ' ')
+        (True, True) -> (True, '\0')
+    g ' ' = True
     g '\t' = True
     g '\n' = True
-    g _    = False
+    g _ = False
 
 inlineStateDel :: InlineState -> Text
 inlineStateDel = \case
-  SingleFrame x   -> inlineFrameDel x
+  SingleFrame x -> inlineFrameDel x
   DoubleFrame x y -> inlineFrameDel x <> inlineFrameDel y
 
 liftFrame :: InlineFrame -> NonEmpty Inline -> Inline
 liftFrame = \case
-  StrongFrame      -> Strong
-  EmphasisFrame    -> Emphasis
-  StrongFrame_     -> Strong
-  EmphasisFrame_   -> Emphasis
-  StrikeoutFrame   -> Strikeout
-  SubscriptFrame   -> Subscript
+  StrongFrame -> Strong
+  EmphasisFrame -> Emphasis
+  StrongFrame_ -> Strong
+  EmphasisFrame_ -> Emphasis
+  StrikeoutFrame -> Strikeout
+  SubscriptFrame -> Subscript
   SuperscriptFrame -> Superscript
 
 inlineFrameDel :: InlineFrame -> Text
 inlineFrameDel = \case
-  EmphasisFrame    -> "*"
-  EmphasisFrame_   -> "_"
-  StrongFrame      -> "**"
-  StrongFrame_     -> "__"
-  StrikeoutFrame   -> "~~"
-  SubscriptFrame   -> "~"
+  EmphasisFrame -> "*"
+  EmphasisFrame_ -> "_"
+  StrongFrame -> "**"
+  StrongFrame_ -> "__"
+  StrikeoutFrame -> "~~"
+  SubscriptFrame -> "~"
   SuperscriptFrame -> "^"
 
 replaceEof :: forall e. Show e => String -> ParseError Text e -> ParseError Text e
 replaceEof altLabel = \case
   TrivialError pos us es -> TrivialError pos (f <$> us) (E.map f es)
-  FancyError   pos xs    -> FancyError pos xs
+  FancyError pos xs -> FancyError pos xs
   where
     f EndOfInput = Label (NE.fromList altLabel)
-    f x          = x
+    f x = x
 
 isEmailUri :: URI -> Maybe Text
 isEmailUri uri =
   case URI.unRText <$> uri ^. uriPath of
     [x] ->
-      if Email.isValid (TE.encodeUtf8 x) &&
-          (isNothing (URI.uriScheme uri) ||
-           URI.uriScheme uri == Just mailtoScheme)
+      if Email.isValid (TE.encodeUtf8 x)
+        && ( isNothing (URI.uriScheme uri)
+               || URI.uriScheme uri == Just mailtoScheme
+           )
         then Just x
         else Nothing
     _ -> Nothing
@@ -1139,8 +1178,8 @@ isEmailUri uri =
 -- | Decode the yaml block to a 'Aeson.Value'. On GHCJs, without access to
 -- libyaml we just return an empty object. It's worth using a pure haskell
 -- parser later if this is unacceptable for someone's needs.
+decodeYaml :: [T.Text] -> Int -> (Either (Int, String) Aeson.Value)
 
-decodeYaml :: [T.Text] -> Int -> (Either (Int,String) Aeson.Value)
 #ifdef ghcjs_HOST_OS
 decodeYaml _ _ = pure $ Aeson.object []
 #else
@@ -1148,36 +1187,38 @@ decodeYaml ls doffset =
   case (Yaml.decodeEither' . TE.encodeUtf8 . T.intercalate "\n") ls of
     Left err' ->
       let (moffset, err) = splitYamlError err'
-      in Left (maybe doffset (+ doffset) moffset, err)
+       in Left (maybe doffset (+ doffset) moffset, err)
     Right v -> Right v
 
-splitYamlError
-  :: Yaml.ParseException
-  -> (Maybe Int, String)
+splitYamlError ::
+  Yaml.ParseException ->
+  (Maybe Int, String)
 splitYamlError = \case
   Yaml.NonScalarKey -> (Nothing, "non scalar key")
   Yaml.UnknownAlias anchor -> (Nothing, "unknown alias \"" ++ anchor ++ "\"")
   Yaml.UnexpectedEvent exptd unexptd ->
-    ( Nothing
-    , "unexpected event: expected " ++ show exptd
-      ++ ", but received " ++ show unexptd
+    ( Nothing,
+      "unexpected event: expected " ++ show exptd
+        ++ ", but received "
+        ++ show unexptd
     )
   Yaml.InvalidYaml myerror -> case myerror of
     Nothing -> (Nothing, "unspecified error")
     Just yerror -> case yerror of
       Yaml.YamlException s -> (Nothing, s)
       Yaml.YamlParseException problem context mark ->
-        ( Just (Yaml.yamlIndex mark)
-        , case context of
+        ( Just (Yaml.yamlIndex mark),
+          case context of
             "" -> problem
-            _  -> context ++ ", " ++ problem
+            _ -> context ++ ", " ++ problem
         )
   Yaml.AesonException s -> (Nothing, s)
   Yaml.OtherParseException exc -> (Nothing, show exc)
   Yaml.NonStringKeyAlias anchor value ->
-    ( Nothing
-    , "non-string key alias; anchor name: " ++ anchor
-      ++ ", value: " ++ show value
+    ( Nothing,
+      "non-string key alias; anchor name: " ++ anchor
+        ++ ", value: "
+        ++ show value
     )
   Yaml.CyclicIncludes -> (Nothing, "cyclic includes")
 #if MIN_VERSION_yaml(0,11,1)
@@ -1196,20 +1237,20 @@ normalizeListItems xs' =
   if getAny $ foldMap (foldMap (Any . isParagraph)) (drop 1 x :| xs)
     then fmap toParagraph <$> xs'
     else case x of
-           [] -> xs'
-           (y:ys) -> r $ (toNaked y : ys) :| xs
+      [] -> xs'
+      (y : ys) -> r $ (toNaked y : ys) :| xs
   where
-    (x:|xs) = r xs'
+    (x :| xs) = r xs'
     r = NE.reverse . fmap reverse
     isParagraph = \case
       OrderedList _ _ -> False
       UnorderedList _ -> False
-      Naked         _ -> False
-      _               -> True
+      Naked _ -> False
+      _ -> True
     toParagraph (Naked inner) = Paragraph inner
-    toParagraph other         = other
+    toParagraph other = other
     toNaked (Paragraph inner) = Naked inner
-    toNaked other             = other
+    toNaked other = other
 
 succeeds :: Alternative m => m () -> m Bool
 succeeds m = True <$ m <|> pure False
@@ -1226,29 +1267,30 @@ toNesTokens :: Text -> NonEmpty Char
 toNesTokens = NE.fromList . T.unpack
 
 unexpEic :: MonadParsec e Text m => ErrorItem Char -> m a
-unexpEic x = failure
-  (Just x)
-  (E.singleton . Label . NE.fromList $ "inline content")
+unexpEic x =
+  failure
+    (Just x)
+    (E.singleton . Label . NE.fromList $ "inline content")
 
 nes :: a -> NonEmpty a
 nes a = a :| []
 
 fromRight :: Either a b -> b
 fromRight (Right x) = x
-fromRight _         =
+fromRight _ =
   error "Text.MMark.Parser.fromRight: the impossible happened"
 
 bakeText :: (String -> String) -> Text
 bakeText = T.pack . reverse . ($ [])
 
 -- | Report custom failure at specified location.
-
-customFailure'
-  :: MonadParsec MMarkErr Text m
-  => Int
-  -> MMarkErr
-  -> m a
+customFailure' ::
+  MonadParsec MMarkErr Text m =>
+  Int ->
+  MMarkErr ->
+  m a
 customFailure' o e =
-  parseError $ FancyError
-    o
-    (E.singleton (ErrorCustom e))
+  parseError $
+    FancyError
+      o
+      (E.singleton (ErrorCustom e))

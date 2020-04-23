@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 -- |
 -- Module      :  Text.MMark.Extension
 -- Copyright   :  © 2017–present Mark Karpov
@@ -71,38 +73,40 @@
 -- input, which would require us storing this information in AST in some
 -- way. I'm not sure if the additional complexity (and possible performance
 -- trade-offs) is really worth it, so it hasn't been implemented so far.
-
-{-# LANGUAGE RankNTypes #-}
-
 module Text.MMark.Extension
   ( -- * Extension construction
-    Extension
+    Extension,
+
     -- ** Block-level manipulation
-  , Bni
-  , Block (..)
-  , CellAlign (..)
-  , blockTrans
-  , blockRender
-  , Ois
-  , getOis
+    Bni,
+    Block (..),
+    CellAlign (..),
+    blockTrans,
+    blockRender,
+    Ois,
+    getOis,
+
     -- ** Inline-level manipulation
-  , Inline (..)
-  , inlineTrans
-  , inlineRender
+    Inline (..),
+    inlineTrans,
+    inlineRender,
+
     -- * Scanner construction
-  , scanner
-  , scannerM
+    scanner,
+    scannerM,
+
     -- * Utils
-  , asPlainText
-  , headerId
-  , headerFragment )
+    asPlainText,
+    headerId,
+    headerFragment,
+  )
 where
 
+import qualified Control.Foldl as L
 import Data.Monoid hiding ((<>))
 import Lucid
 import Text.MMark.Type
 import Text.MMark.Util
-import qualified Control.Foldl as L
 
 -- | Create an extension that performs a transformation on 'Block's of
 -- markdown document. Since a block may contain other blocks we choose to
@@ -110,9 +114,8 @@ import qualified Control.Foldl as L
 -- upwards. This has the benefit that the result of any transformation is
 -- final in the sense that sub-elements of resulting block won't be
 -- traversed again.
-
 blockTrans :: (Bni -> Bni) -> Extension
-blockTrans f = mempty { extBlockTrans = Endo f }
+blockTrans f = mempty {extBlockTrans = Endo f}
 
 -- | Create an extension that replaces or augments rendering of 'Block's of
 -- markdown document. The argument of 'blockRender' will be given the
@@ -127,44 +130,45 @@ blockTrans f = mempty { extBlockTrans = Endo f }
 -- > (Block (Ois, Html ()) -> Html ()) -> (Block (Ois, Html ()) -> Html ())
 --
 -- See also: 'Ois' and 'getOis'.
-
-blockRender
-  :: ((Block (Ois, Html ()) -> Html ()) -> Block (Ois, Html ()) -> Html ())
-  -> Extension
-blockRender f = mempty { extBlockRender = Render f }
+blockRender ::
+  ((Block (Ois, Html ()) -> Html ()) -> Block (Ois, Html ()) -> Html ()) ->
+  Extension
+blockRender f = mempty {extBlockRender = Render f}
 
 -- | Create an extension that performs a transformation on 'Inline'
 -- components in entire markdown document. Similarly to 'blockTrans' the
 -- transformation is applied from the most deeply nested elements moving
 -- upwards.
-
 inlineTrans :: (Inline -> Inline) -> Extension
-inlineTrans f = mempty { extInlineTrans = Endo f }
+inlineTrans f = mempty {extInlineTrans = Endo f}
 
 -- | Create an extension that replaces or augments rendering of 'Inline's of
 -- markdown document. This works like 'blockRender'.
-
-inlineRender
-  :: ((Inline -> Html ()) -> Inline -> Html ())
-  -> Extension
-inlineRender f = mempty { extInlineRender = Render f }
+inlineRender ::
+  ((Inline -> Html ()) -> Inline -> Html ()) ->
+  Extension
+inlineRender f = mempty {extInlineRender = Render f}
 
 -- | Create a 'L.Fold' from an initial state and a folding function.
-
-scanner
-  :: a                 -- ^ Initial state
-  -> (a -> Bni -> a)   -- ^ Folding function
-  -> L.Fold Bni a      -- ^ Resulting 'L.Fold'
+scanner ::
+  -- | Initial state
+  a ->
+  -- | Folding function
+  (a -> Bni -> a) ->
+  -- | Resulting 'L.Fold'
+  L.Fold Bni a
 scanner a f = L.Fold f a id
 
 -- | Create a 'L.FoldM' from an initial state and a folding function
 -- operating in monadic context.
 --
 -- @since 0.0.2.0
-
-scannerM
-  :: Monad m
-  => m a               -- ^ Initial state
-  -> (a -> Bni -> m a) -- ^ Folding function
-  -> L.FoldM m Bni a   -- ^ Resulting 'L.FoldM'
+scannerM ::
+  Monad m =>
+  -- | Initial state
+  m a ->
+  -- | Folding function
+  (a -> Bni -> m a) ->
+  -- | Resulting 'L.FoldM'
+  L.FoldM m Bni a
 scannerM a f = L.FoldM f a return
