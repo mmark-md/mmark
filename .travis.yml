@@ -9,36 +9,30 @@ cache:
 
 matrix:
   include:
-    - env: CABALVER=3.0 GHCVER=8.6.5 COMPILER=ghc BENCHMARKS=--enable-benchmarks
+    - env: CABALVER=3.0 GHCVER=8.6.5
       addons: {apt: {packages: [cabal-install-3.0,ghc-8.6.5], sources: [hvr-ghc]}}
-    - env: CABALVER=3.0 GHCVER=8.8.3 COMPILER=ghc BENCHMARKS=--enable-benchmarks
+    - env: CABALVER=3.0 GHCVER=8.8.3
       addons: {apt: {packages: [cabal-install-3.0,ghc-8.8.3], sources: [hvr-ghc]}}
-    - env: CABALVER=3.0 GHCVER=8.10.1 COMPILER=ghc BENCHMARKS=--enable-benchmarks
+    - env: CABALVER=3.0 GHCVER=8.10.1
       addons: {apt: {packages: [cabal-install-3.0,ghc-8.10.1], sources: [hvr-ghc]}}
-    # - env: CABALVER=2.4 GHCVER=8.4 COMPILER=ghcjs BENCHMARKS=--disable-benchmarks
-    #   addons:
-    #     apt:
-    #       sources:
-    #         - hvr-ghc
-    #         - sourceline: 'ppa:hvr/ghcjs'
-    #         - ubuntu-toolchain-r-test
-    #         - sourceline: 'deb https://deb.nodesource.com/node_8.x xenial main'
-    #           key_url: 'https://deb.nodesource.com/gpgkey/nodesource.gpg.key'
-    #       packages: [cabal-install-2.4, ghcjs-8.4, alex, happy]
 
 before_install:
-  - export PATH=/opt/$COMPILER/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH
+  - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH
 
 install:
   - cabal --version
-  - $COMPILER --version
+  - ghc --version
   - travis_retry cabal new-update
 
 script:
-  - cabal --$COMPILER new-configure --enable-tests $BENCHMARKS --flags=dev
-  - cabal new-build
-  - cabal new-test
-  - cabal new-haddock
+  # To avoid re-compilation it is important to use exactly the same
+  # configuration for all steps.
+  - export CONFIG="--enable-tests --enable-benchmarks --flags=dev"
+  - cabal format
+  - git diff --exit-code --color=always
+  - cabal new-build $CONFIG
+  - cabal new-test $CONFIG
+  - cabal new-haddock $CONFIG
   - cabal new-sdist
 
 notifications:
