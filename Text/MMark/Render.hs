@@ -56,10 +56,7 @@ applyBlockRender ::
   Html ()
 applyBlockRender r = fix (runRender r . defaultBlockRender)
 
--- | The default 'Block' render. Note that it does not care about what we
--- have rendered so far because it always starts rendering. Thus it's OK to
--- just pass it something dummy as the second argument of the inner
--- function.
+-- | The default 'Block' render.
 defaultBlockRender ::
   -- | Rendering function to use to render sub-blocks
   (Block (Ois, Html ()) -> Html ()) ->
@@ -139,8 +136,7 @@ defaultBlockRender blockRender = \case
 applyInlineRender :: Render Inline -> Inline -> Html ()
 applyInlineRender r = fix (runRender r . defaultInlineRender)
 
--- | The default render for 'Inline' elements. Comments about
--- 'defaultBlockRender' apply here just as well.
+-- | The default render for 'Inline' elements.
 defaultInlineRender ::
   -- | Rendering function to use to render sub-inlines
   (Inline -> Html ()) ->
