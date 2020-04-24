@@ -2,10 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Text.MMark.ExtensionSpec
-  ( spec,
-  )
-where
+module Text.MMark.ExtensionSpec (spec) where
 
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)

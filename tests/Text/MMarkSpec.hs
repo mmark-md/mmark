@@ -2,10 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Text.MMarkSpec
-  ( spec,
-  )
-where
+module Text.MMarkSpec (spec) where
 
 import qualified Control.Foldl as L
 import Data.Aeson
