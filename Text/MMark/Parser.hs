@@ -34,7 +34,7 @@ import qualified Data.Char as Char
 import qualified Data.DList as DList
 import Data.HTML.Entities (htmlEntityMap)
 import qualified Data.HashMap.Strict as HM
-import Data.List.NonEmpty ((<|), NonEmpty (..))
+import Data.List.NonEmpty (NonEmpty (..), (<|))
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (catMaybes, fromJust, isJust, isNothing)
 import Data.Monoid (Any (..))
@@ -701,22 +701,23 @@ pAutolink = between (char '<') (char '>') $ do
 -- | Parse inline content inside an enclosing construction such as emphasis,
 -- strikeout, superscript, and\/or subscript markup.
 pEnclosedInline :: IParser Inline
-pEnclosedInline = disallowEmpty $
-  pLfdr >>= \case
-    SingleFrame x ->
-      liftFrame x <$> pInlines <* pRfdr x
-    DoubleFrame x y -> do
-      inlines0 <- pInlines
-      thisFrame <- pRfdr x <|> pRfdr y
-      let thatFrame = if thisFrame == x then y else x
-      minlines1 <- optional pInlines
-      void (pRfdr thatFrame)
-      return . liftFrame thatFrame $
-        case minlines1 of
-          Nothing ->
-            nes (liftFrame thisFrame inlines0)
-          Just inlines1 ->
-            liftFrame thisFrame inlines0 <| inlines1
+pEnclosedInline =
+  disallowEmpty $
+    pLfdr >>= \case
+      SingleFrame x ->
+        liftFrame x <$> pInlines <* pRfdr x
+      DoubleFrame x y -> do
+        inlines0 <- pInlines
+        thisFrame <- pRfdr x <|> pRfdr y
+        let thatFrame = if thisFrame == x then y else x
+        minlines1 <- optional pInlines
+        void (pRfdr thatFrame)
+        return . liftFrame thatFrame $
+          case minlines1 of
+            Nothing ->
+              nes (liftFrame thisFrame inlines0)
+            Just inlines1 ->
+              liftFrame thisFrame inlines0 <| inlines1
 
 -- | Parse a hard line break.
 pHardLineBreak :: IParser Inline
@@ -1179,7 +1180,6 @@ isEmailUri uri =
 -- libyaml we just return an empty object. It's worth using a pure haskell
 -- parser later if this is unacceptable for someone's needs.
 decodeYaml :: [T.Text] -> Int -> (Either (Int, String) Aeson.Value)
-
 #ifdef ghcjs_HOST_OS
 decodeYaml _ _ = pure $ Aeson.object []
 #else

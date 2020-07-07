@@ -56,69 +56,59 @@ spec = parallel $ do
         `shouldBe` "<p><a href=\"/url\"><em class=\"foo\">heading</em></a></p>\n"
   describe "asPlainText" $ do
     let f x = Ext.asPlainText (x :| [])
-    context "with Plain"
-      $ it "works"
-      $ property
-      $ \txt ->
-        f (Plain txt) `shouldBe` txt
-    context "with LineBreak"
-      $ it "works"
-      $ f LineBreak `shouldBe` "\n"
-    context "with Emphasis"
-      $ it "works"
-      $ property
-      $ \txt ->
-        f (Emphasis $ Plain txt :| []) `shouldBe` txt
-    context "with Strong"
-      $ it "works"
-      $ property
-      $ \txt ->
-        f (Strong $ Plain txt :| []) `shouldBe` txt
-    context "with Strikeout"
-      $ it "works"
-      $ property
-      $ \txt ->
-        f (Strikeout $ Plain txt :| []) `shouldBe` txt
-    context "with Subscript"
-      $ it "works"
-      $ property
-      $ \txt ->
-        f (Subscript $ Plain txt :| []) `shouldBe` txt
-    context "with Superscript"
-      $ it "works"
-      $ property
-      $ \txt ->
-        f (Superscript $ Plain txt :| []) `shouldBe` txt
-    context "with CodeSpan"
-      $ it "works"
-      $ property
-      $ \txt ->
-        f (CodeSpan txt) `shouldBe` txt
-    context "with Link"
-      $ it "works"
-      $ property
-      $ \txt uri ->
-        f (Link (Plain txt :| []) uri Nothing) `shouldBe` txt
-    context "with Image"
-      $ it "works"
-      $ property
-      $ \txt uri ->
-        f (Image (Plain txt :| []) uri Nothing) `shouldBe` txt
-  describe "headerId"
-    $ it "works"
-    $ Ext.headerId (Plain "Something like that" :| [])
-      `shouldBe` "something-like-that"
-  describe "headerFragment"
-    $ it "generates URIs with just that fragment"
-    $ property
-    $ \fragment -> do
-      let uri = Ext.headerFragment fragment
-      frag <- URI.mkFragment fragment
-      URI.uriScheme uri `shouldBe` Nothing
-      URI.uriAuthority uri `shouldBe` Left False
-      URI.uriPath uri `shouldBe` Nothing
-      URI.uriQuery uri `shouldBe` []
-      URI.uriFragment uri `shouldBe` Just frag
+    context "with Plain" $
+      it "works" $
+        property $ \txt ->
+          f (Plain txt) `shouldBe` txt
+    context "with LineBreak" $
+      it "works" $
+        f LineBreak `shouldBe` "\n"
+    context "with Emphasis" $
+      it "works" $
+        property $ \txt ->
+          f (Emphasis $ Plain txt :| []) `shouldBe` txt
+    context "with Strong" $
+      it "works" $
+        property $ \txt ->
+          f (Strong $ Plain txt :| []) `shouldBe` txt
+    context "with Strikeout" $
+      it "works" $
+        property $ \txt ->
+          f (Strikeout $ Plain txt :| []) `shouldBe` txt
+    context "with Subscript" $
+      it "works" $
+        property $ \txt ->
+          f (Subscript $ Plain txt :| []) `shouldBe` txt
+    context "with Superscript" $
+      it "works" $
+        property $ \txt ->
+          f (Superscript $ Plain txt :| []) `shouldBe` txt
+    context "with CodeSpan" $
+      it "works" $
+        property $ \txt ->
+          f (CodeSpan txt) `shouldBe` txt
+    context "with Link" $
+      it "works" $
+        property $ \txt uri ->
+          f (Link (Plain txt :| []) uri Nothing) `shouldBe` txt
+    context "with Image" $
+      it "works" $
+        property $ \txt uri ->
+          f (Image (Plain txt :| []) uri Nothing) `shouldBe` txt
+  describe "headerId" $
+    it "works" $
+      Ext.headerId (Plain "Something like that" :| [])
+        `shouldBe` "something-like-that"
+  describe "headerFragment" $
+    it "generates URIs with just that fragment" $
+      property $ \fragment -> do
+        let uri = Ext.headerFragment fragment
+        frag <- URI.mkFragment fragment
+        URI.uriScheme uri `shouldBe` Nothing
+        URI.uriAuthority uri `shouldBe` Left False
+        URI.uriPath uri `shouldBe` Nothing
+        URI.uriQuery uri `shouldBe` []
+        URI.uriFragment uri `shouldBe` Just frag
 
 ----------------------------------------------------------------------------
 -- Arbitrary instances

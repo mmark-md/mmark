@@ -52,7 +52,7 @@ import qualified Data.List.NonEmpty as NE
 import Data.Ratio ((%))
 import Data.Text (Text)
 import Data.Text.Metrics (damerauLevenshteinNorm)
-import Lens.Micro ((.~), Lens', (^.), over, set)
+import Lens.Micro (Lens', over, set, (.~), (^.))
 import Lens.Micro.Extras (view)
 import Text.MMark.Parser.Internal.Type
 import Text.Megaparsec hiding (State)
