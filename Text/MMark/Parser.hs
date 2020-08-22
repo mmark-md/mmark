@@ -1227,6 +1227,9 @@ splitYamlError = \case
 #if MIN_VERSION_yaml(0,11,2)
   Yaml.NonStringKey _ -> (Nothing, "non string key")
 #endif
+#if MIN_VERSION_yaml(0,11,5)
+  Yaml.MultipleDocuments -> (Nothing, "multiple documents")
+#endif
 #endif
 
 emptyIspSpan :: Isp
