@@ -5,11 +5,11 @@
 module Text.MMarkSpec (spec) where
 
 import qualified Control.Foldl as L
+import Control.Monad.Writer
 import Data.Aeson
 import Data.Char
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
-import Data.Monoid
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -18,7 +18,7 @@ import Test.Hspec
 import Test.Hspec.Megaparsec
 import Text.MMark (MMarkErr (..))
 import qualified Text.MMark as MMark
-import Text.MMark.Extension (Inline (..))
+import Text.MMark.Extension (Block (..), Inline (..))
 import qualified Text.MMark.Extension as Ext
 import Text.MMark.TestUtils
 import Text.Megaparsec (ErrorFancy (..), Stream)
@@ -2009,11 +2009,15 @@ spec = parallel $ do
     context "given a complete, comprehensive document" $
       it "outputs expected the HTML fragment" $
         withFiles "data/comprehensive.md" "data/comprehensive.html"
-  describe "useExtension" $
+  describe "useExtension" $ do
     it "applies given extension" $ do
       doc <- mkDoc "Here we go."
       toText (MMark.useExtension (append_ext "..") doc)
         `shouldBe` "<p>Here we go...</p>\n"
+    it "applies the given extension with the specified monad" $ do
+      doc <- mkDocM "# Some title\n\nSome paragraph.\n\n * First item\n * Another item\n * Final item\n"
+      runWriter (toTextM (MMark.useExtension append_extM doc))
+        `shouldBe` ("<h1 id=\"some-title\">Some title</h1>\n<p>Some paragraph.</p>\n<ul>\n<li>\nFirst item\n</li>\n<li>\nAnother item\n</li>\n<li>\nFinal item\n</li>\n</ul>\n", ["Heading1", "Paragraph"])
   describe "useExtensions" $
     it "applies extensions in the right order" $ do
       doc <- mkDoc "Here we go."
@@ -2083,6 +2087,13 @@ append_ext :: Text -> MMark.Extension
 append_ext y = Ext.inlineTrans $ \case
   Plain x -> Plain (x <> y)
   other -> other
+
+-- | Tell when encountering 'Heading1's and 'Paragraph's.
+append_extM :: MMark.ExtensionM (Writer [String])
+append_extM = Ext.blockTransM $ \case
+  b@(Heading1 _) -> writer (b, ["Heading1"])
+  b@(Paragraph _) -> writer (b, ["Paragraph"])
+  other -> pure other
 
 ----------------------------------------------------------------------------
 -- Testing scanners

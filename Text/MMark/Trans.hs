@@ -16,30 +16,29 @@ module Text.MMark.Trans
   )
 where
 
-import Data.Monoid hiding ((<>))
+import Control.Arrow
 import Text.MMark.Type
 
--- | Apply block transformation in the @'Endo' 'Bni'@ form to a block 'Bni'.
-applyBlockTrans :: Endo Bni -> Bni -> Bni
-applyBlockTrans trans@(Endo f) = \case
-  Blockquote xs -> f (Blockquote (s xs))
-  OrderedList w xs -> f (OrderedList w (s <$> xs))
-  UnorderedList xs -> f (UnorderedList (s <$> xs))
+-- | Apply block transformation.
+applyBlockTrans :: Monad m => Kleisli m Bni Bni -> Bni -> m Bni
+applyBlockTrans trans@(Kleisli f) = \case
+  Blockquote xs -> (Blockquote <$> s xs) >>= f
+  OrderedList w xs -> (OrderedList w <$> traverse s xs) >>= f
+  UnorderedList xs -> (UnorderedList <$> traverse s xs) >>= f
   other -> f other
   where
-    s = fmap (applyBlockTrans trans)
+    s = traverse (applyBlockTrans trans)
 
--- | Apply inline transformation in the @'Endo' 'Inline'@ form to an
--- 'Inline'.
-applyInlineTrans :: Endo Inline -> Inline -> Inline
-applyInlineTrans trans@(Endo f) = \case
-  Emphasis xs -> f (Emphasis (s xs))
-  Strong xs -> f (Strong (s xs))
-  Strikeout xs -> f (Strikeout (s xs))
-  Subscript xs -> f (Subscript (s xs))
-  Superscript xs -> f (Superscript (s xs))
-  Link xs uri mt -> f (Link (s xs) uri mt)
-  Image xs uri mt -> f (Image (s xs) uri mt)
+-- | Apply inline transformation.
+applyInlineTrans :: Monad m => Kleisli m Inline Inline -> Inline -> m Inline
+applyInlineTrans trans@(Kleisli f) = \case
+  Emphasis xs -> (Emphasis <$> s xs) >>= f
+  Strong xs -> (Strong <$> s xs) >>= f
+  Strikeout xs -> (Strikeout <$> s xs) >>= f
+  Subscript xs -> (Subscript <$> s xs) >>= f
+  Superscript xs -> (Superscript <$> s xs) >>= f
+  Link xs uri mt -> (Link <$> s xs <*> pure uri <*> pure mt) >>= f
+  Image xs uri mt -> (Image <$> s xs <*> pure uri <*> pure mt) >>= f
   other -> f other
   where
-    s = fmap (applyInlineTrans trans)
+    s = traverse (applyInlineTrans trans)

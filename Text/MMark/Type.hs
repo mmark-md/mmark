@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RecordWildCards #-}
 
 -- |
@@ -16,9 +16,13 @@
 -- Internal type definitions. Some of these are re-exported in the public
 -- modules.
 module Text.MMark.Type
-  ( MMark (..),
-    Extension (..),
-    Render (..),
+  ( MMark,
+    MMarkM (..),
+    Extension,
+    ExtensionM (..),
+    Render,
+    runReader,
+    RenderT (..),
     Bni,
     Block (..),
     CellAlign (..),
@@ -29,12 +33,15 @@ module Text.MMark.Type
   )
 where
 
+import Control.Arrow
+import qualified Control.Category as Category
 import Control.DeepSeq
 import Data.Aeson
 import Data.Data (Data)
 import Data.Function (on)
+import Data.Functor.Identity
+import Data.Kind
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Monoid hiding ((<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
@@ -44,22 +51,24 @@ import Text.URI (URI (..))
 -- | Representation of complete markdown document. You can't look inside of
 -- 'MMark' on purpose. The only way to influence an 'MMark' document you
 -- obtain as a result of parsing is via the extension mechanism.
-data MMark = MMark
+type MMark = MMarkM Identity
+
+data MMarkM m = MMarkM
   { -- | Parsed YAML document at the beginning (optional)
     mmarkYaml :: Maybe Value,
     -- | Actual contents of the document
     mmarkBlocks :: [Bni],
     -- | Extension specifying how to process and render the blocks
-    mmarkExtension :: Extension
+    mmarkExtension :: ExtensionM m
   }
 
-instance NFData MMark where
-  rnf MMark {..} = rnf mmarkYaml `seq` rnf mmarkBlocks
+instance NFData (MMarkM m) where
+  rnf MMarkM {..} = rnf mmarkYaml `seq` rnf mmarkBlocks
 
 -- | Dummy instance.
 --
 -- @since 0.0.5.0
-instance Show MMark where
+instance Show (MMarkM m) where
   show = const "MMark {..}"
 
 -- | An extension. You can apply extensions with 'Text.MMark.useExtension'
@@ -83,32 +92,34 @@ instance Show MMark where
 -- Here, @e0@ will be applied first, then @e1@, then @e2@. The same applies
 -- to expressions involving 'mconcat'—extensions closer to beginning of the
 -- list passed to 'mconcat' will be applied later.
-data Extension = Extension
+type Extension = ExtensionM Identity
+
+data ExtensionM (m :: Type -> Type) = ExtensionM
   { -- | Block transformation
-    extBlockTrans :: Endo Bni,
+    extBlockTrans :: Kleisli m Bni Bni,
     -- | Block render
-    extBlockRender :: Render (Block (Ois, Html ())),
+    extBlockRender :: RenderT m (Block (Ois, HtmlT m ())),
     -- | Inline transformation
-    extInlineTrans :: Endo Inline,
+    extInlineTrans :: Kleisli m Inline Inline,
     -- | Inline render
-    extInlineRender :: Render Inline
+    extInlineRender :: RenderT m Inline
   }
 
-instance Semigroup Extension where
+instance Monad m => Semigroup (ExtensionM m) where
   x <> y =
-    Extension
-      { extBlockTrans = on (<>) extBlockTrans x y,
-        extBlockRender = on (<>) extBlockRender x y,
-        extInlineTrans = on (<>) extInlineTrans x y,
-        extInlineRender = on (<>) extInlineRender x y
+    ExtensionM
+      { extBlockTrans = ((<<<) `on` extBlockTrans) x y,
+        extBlockRender = ((<>) `on` extBlockRender) x y,
+        extInlineTrans = ((<<<) `on` extInlineTrans) x y,
+        extInlineRender = ((<>) `on` extInlineRender) x y
       }
 
-instance Monoid Extension where
+instance Monad m => Monoid (ExtensionM m) where
   mempty =
-    Extension
-      { extBlockTrans = mempty,
+    ExtensionM
+      { extBlockTrans = Category.id,
         extBlockRender = mempty,
-        extInlineTrans = mempty,
+        extInlineTrans = Category.id,
         extInlineRender = mempty
       }
   mappend = (<>)
@@ -116,14 +127,19 @@ instance Monoid Extension where
 -- | An internal type that captures the extensible rendering process we use.
 -- 'Render' has a function inside which transforms a rendering function of
 -- the type @a -> Html ()@.
-newtype Render a = Render
-  {runRender :: (a -> Html ()) -> a -> Html ()}
+type Render a = RenderT Identity a
 
-instance Semigroup (Render a) where
-  Render f <> Render g = Render (f . g)
+runReader :: Render a -> (a -> Html ()) -> a -> Html ()
+runReader = runRenderT
 
-instance Monoid (Render a) where
-  mempty = Render id
+newtype RenderT m a = RenderT
+  {runRenderT :: (a -> HtmlT m ()) -> a -> HtmlT m ()}
+
+instance Semigroup (RenderT m a) where
+  RenderT f <> RenderT g = RenderT (f . g)
+
+instance Monoid (RenderT m a) where
+  mempty = RenderT id
   mappend = (<>)
 
 -- | A shortcut for the frequently used type @'Block' ('NonEmpty'
@@ -174,7 +190,7 @@ data Block a
     --
     -- @since 0.0.4.0
     Table (NonEmpty CellAlign) (NonEmpty (NonEmpty a))
-  deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor, Foldable)
+  deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor, Foldable, Traversable)
 
 instance NFData a => NFData (Block a)
 
