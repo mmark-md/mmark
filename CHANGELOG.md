@@ -1,3 +1,7 @@
+## MMark 0.0.7.3
+
+* The test suite passes with `modern-uri-0.3.4` and later.
+
 ## MMark 0.0.7.2
 
 * Uses Megaparsec 8.0.0.

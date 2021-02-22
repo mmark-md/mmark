@@ -832,7 +832,7 @@ spec = parallel $ do
           ==-> "<pre><code>\\[\\]\n</code></pre>\n"
       it "CM297" $
         "<http://example.com?find=*>"
-          ==-> "<p><a href=\"http://example.com/?find=*\">http://example.com/?find=*</a></p>\n"
+          ==-> "<p><a href=\"http://example.com?find=*\">http://example.com?find=*</a></p>\n"
       it "CM298" $
         "<a href=\"/bar\\/)\">"
           ==-> "<p>&lt;a href=&quot;/bar/)&quot;&gt;</p>\n"
@@ -1368,7 +1368,7 @@ spec = parallel $ do
          in s ~-> err 10 (utok '\\' <> euric <> euri)
       it "CM472" $
         "[link](#fragment)\n\n[link](http://example.com#fragment)\n\n[link](http://example.com?foo=3#frag)\n"
-          ==-> "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"http://example.com/#fragment\">link</a></p>\n<p><a href=\"http://example.com/?foo=3#frag\">link</a></p>\n"
+          ==-> "<p><a href=\"#fragment\">link</a></p>\n<p><a href=\"http://example.com#fragment\">link</a></p>\n<p><a href=\"http://example.com?foo=3#frag\">link</a></p>\n"
       it "CM473" $
         let s = "[link](foo\\bar)"
          in s ~-> err 10 (utok '\\' <> euric <> euri)
@@ -1697,7 +1697,7 @@ spec = parallel $ do
     context "6.7 Autolinks" $ do
       it "CM565" $
         "<http://foo.bar.baz>"
-          ==-> "<p><a href=\"http://foo.bar.baz/\">http://foo.bar.baz/</a></p>\n"
+          ==-> "<p><a href=\"http://foo.bar.baz\">http://foo.bar.baz</a></p>\n"
       it "CM566" $
         "<http://foo.bar.baz/test?q=hello&id=22&boolean>"
           ==-> "<p><a href=\"http://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean\">http://foo.bar.baz/test?q=hello&amp;id=22&amp;boolean</a></p>\n"
@@ -1715,7 +1715,7 @@ spec = parallel $ do
           ==-> "<p><a href=\"made-up-scheme://foo/,bar\">made-up-scheme://foo/,bar</a></p>\n"
       it "CM571" $
         "<http://../>"
-          ==-> "<p><a href=\"http://../\">http://../</a></p>\n"
+          ==-> "<p><a href=\"http://..\">http://..</a></p>\n"
       it "CM572" $
         "<localhost:5001/foo>"
           ==-> "<p><a href=\"localhost:5001/foo\">localhost:5001/foo</a></p>\n"

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Text.MMark.TestUtils
@@ -24,10 +23,6 @@ import Test.Hspec
 import Text.MMark (MMark, MMarkErr)
 import qualified Text.MMark as MMark
 import Text.Megaparsec
-
-#if !MIN_VERSION_base(4,13,0)
-import Data.Semigroup ((<>))
-#endif
 
 ----------------------------------------------------------------------------
 -- Document creation and rendering
