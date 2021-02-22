@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 
 -- |
@@ -139,10 +138,6 @@ import Data.Aeson
 import Text.MMark.Parser (MMarkErr (..), parse)
 import Text.MMark.Render (render)
 import Text.MMark.Type
-
-#if !MIN_VERSION_base(4,13,0)
-import Data.Semigroup ((<>))
-#endif
 
 ----------------------------------------------------------------------------
 -- Extensions

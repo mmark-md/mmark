@@ -55,12 +55,8 @@ import Text.URI (URI)
 import qualified Text.URI as URI
 import Text.URI.Lens (uriPath)
 
-#if !MIN_VERSION_base(4,13,0)
-import Data.Semigroup (Semigroup (..))
-#endif
-
 #if !defined(ghcjs_HOST_OS)
-import qualified Data.Yaml                  as Yaml
+import qualified Data.Yaml as Yaml
 #endif
 
 ----------------------------------------------------------------------------
@@ -1221,15 +1217,9 @@ splitYamlError = \case
         ++ show value
     )
   Yaml.CyclicIncludes -> (Nothing, "cyclic includes")
-#if MIN_VERSION_yaml(0,11,1)
   Yaml.LoadSettingsException _ _ -> (Nothing, "loading settings exception")
-#endif
-#if MIN_VERSION_yaml(0,11,2)
   Yaml.NonStringKey _ -> (Nothing, "non string key")
-#endif
-#if MIN_VERSION_yaml(0,11,5)
   Yaml.MultipleDocuments -> (Nothing, "multiple documents")
-#endif
 #endif
 
 emptyIspSpan :: Isp
