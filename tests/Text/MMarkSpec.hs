@@ -1432,7 +1432,7 @@ spec = parallel $ do
           ==-> "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n"
       it "CM488" $
         "[![moon](moon.jpg)](/uri)"
-          ==-> "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\"></a></p>\n"
+          ==-> "<p><a href=\"/uri\"><img alt=\"moon\" src=\"moon.jpg\"></a></p>\n"
       it "CM489" $
         let s = "[foo [bar](/uri)](/uri)\n"
          in s ~-> err 5 (utok '[' <> etok ']' <> eic)
@@ -1474,7 +1474,7 @@ spec = parallel $ do
           ==-> "<p><a href=\"/uri\">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>\n"
       it "CM502" $
         "[![moon](moon.jpg)][ref]\n\n[ref]: /uri"
-          ==-> "<p><a href=\"/uri\"><img src=\"moon.jpg\" alt=\"moon\"></a></p>\n"
+          ==-> "<p><a href=\"/uri\"><img alt=\"moon\" src=\"moon.jpg\"></a></p>\n"
       it "CM503" $
         let s = "[foo [bar](/uri)][ref]\n\n[ref]: /uri"
          in s ~-> err 5 (utok '[' <> etok ']' <> eic)
@@ -1624,57 +1624,57 @@ spec = parallel $ do
     context "6.6 Images" $ do
       it "CM543" $
         "![foo](/url \"title\")"
-          ==-> "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
+          ==-> "<p><img alt=\"foo\" title=\"title\" src=\"/url\"></p>\n"
       it "CM544" $
         "![foo *bar*](train.jpg \"train & tracks\")"
-          ==-> "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo bar\"></p>\n"
+          ==-> "<p><img alt=\"foo bar\" title=\"train &amp; tracks\" src=\"train.jpg\"></p>\n"
       it "CM545" $
         let s = "![foo ![bar](/url)](/url2)\n"
          in s ~-> err 6 (utok '!' <> etok ']' <> eic)
       it "CM546" $
         "![foo [bar](/url)](/url2)"
-          ==-> "<p><img src=\"/url2\" alt=\"foo bar\"></p>\n"
+          ==-> "<p><img alt=\"foo bar\" src=\"/url2\"></p>\n"
       it "CM547" $
         let s = "![foo *bar*][]\n\n[foo *bar*]: train.jpg \"train & tracks\"\n"
          in s ~-> errFancy 2 (couldNotMatchRef "foo bar" ["foo *bar*"])
       it "CM548" $
         "![foo *bar*][foobar]\n\n[FOOBAR]: train.jpg \"train & tracks\""
-          ==-> "<p><img src=\"train.jpg\" title=\"train &amp; tracks\" alt=\"foo bar\"></p>\n"
+          ==-> "<p><img alt=\"foo bar\" title=\"train &amp; tracks\" src=\"train.jpg\"></p>\n"
       it "CM549" $
         "![foo](train.jpg)"
-          ==-> "<p><img src=\"train.jpg\" alt=\"foo\"></p>\n"
+          ==-> "<p><img alt=\"foo\" src=\"train.jpg\"></p>\n"
       it "CM550" $
         "My ![foo bar](/path/to/train.jpg  \"title\"   )"
-          ==-> "<p>My <img src=\"/path/to/train.jpg\" title=\"title\" alt=\"foo bar\"></p>\n"
+          ==-> "<p>My <img alt=\"foo bar\" title=\"title\" src=\"/path/to/train.jpg\"></p>\n"
       it "CM551" $
         "![foo](<url>)"
-          ==-> "<p><img src=\"url\" alt=\"foo\"></p>\n"
+          ==-> "<p><img alt=\"foo\" src=\"url\"></p>\n"
       it "CM552" $
-        "![](/url)" ==-> "<p><img src=\"/url\" alt></p>\n"
+        "![](/url)" ==-> "<p><img alt src=\"/url\"></p>\n"
       it "CM553" $
         "![foo][bar]\n\n[bar]: /url"
-          ==-> "<p><img src=\"/url\" alt=\"foo\"></p>\n"
+          ==-> "<p><img alt=\"foo\" src=\"/url\"></p>\n"
       it "CM554" $
         "![foo][bar]\n\n[BAR]: /url"
-          ==-> "<p><img src=\"/url\" alt=\"foo\"></p>\n"
+          ==-> "<p><img alt=\"foo\" src=\"/url\"></p>\n"
       it "CM555" $
         "![foo][]\n\n[foo]: /url \"title\""
-          ==-> "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
+          ==-> "<p><img alt=\"foo\" title=\"title\" src=\"/url\"></p>\n"
       it "CM556" $
         "![foo bar][]\n\n[foo bar]: /url \"title\""
-          ==-> "<p><img src=\"/url\" title=\"title\" alt=\"foo bar\"></p>\n"
+          ==-> "<p><img alt=\"foo bar\" title=\"title\" src=\"/url\"></p>\n"
       it "CM557" $
         "![Foo][]\n\n[foo]: /url \"title\""
-          ==-> "<p><img src=\"/url\" title=\"title\" alt=\"Foo\"></p>\n"
+          ==-> "<p><img alt=\"Foo\" title=\"title\" src=\"/url\"></p>\n"
       it "CM558" $
         let s = "![foo] \n[]\n\n[foo]: /url \"title\""
          in s ~-> err 9 (utok ']' <> eic)
       it "CM559" $
         "![foo]\n\n[foo]: /url \"title\""
-          ==-> "<p><img src=\"/url\" title=\"title\" alt=\"foo\"></p>\n"
+          ==-> "<p><img alt=\"foo\" title=\"title\" src=\"/url\"></p>\n"
       it "CM560" $
         "![*foo* bar]\n\n[foo bar]: /url \"title\"\n"
-          ==-> "<p><img src=\"/url\" title=\"title\" alt=\"foo bar\"></p>\n"
+          ==-> "<p><img alt=\"foo bar\" title=\"title\" src=\"/url\"></p>\n"
       it "CM561" $
         let s = "![[foo]]\n\n[[foo]]: /url \"title\""
          in s
@@ -1683,7 +1683,7 @@ spec = parallel $ do
                    ]
       it "CM562" $
         "![Foo]\n\n[foo]: /url \"title\""
-          ==-> "<p><img src=\"/url\" title=\"title\" alt=\"Foo\"></p>\n"
+          ==-> "<p><img alt=\"Foo\" title=\"title\" src=\"/url\"></p>\n"
       it "CM563" $
         "!\\[foo\\]\n\n[foo]: /url \"title\""
           ==-> "<p>![foo]</p>\n"
