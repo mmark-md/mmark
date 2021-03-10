@@ -1,6 +1,6 @@
 cabal-version:   1.18
 name:            mmark
-version:         0.0.7.2
+version:         0.0.7.3
 license:         BSD3
 license-file:    LICENSE.md
 maintainer:      Mark Karpov <markkarpov92@gmail.com>
