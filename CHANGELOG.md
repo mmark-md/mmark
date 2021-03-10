@@ -2,6 +2,8 @@
 
 * The test suite passes with `modern-uri-0.3.4` and later.
 
+* Dropped support for GHC 8.6.x and older. Added support for GHC 9.0.1.
+
 ## MMark 0.0.7.2
 
 * Uses Megaparsec 8.0.0.
