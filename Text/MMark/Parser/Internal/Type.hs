@@ -70,8 +70,8 @@ import Text.URI (URI)
 -- | Block-level parser state.
 data BlockState = BlockState
   { -- | Should we consider a paragraph that does not end with a blank line
-    -- 'Naked'? It does not make sense to do so for top-level document, but
-    -- in lists, 'Naked' text is pretty common.
+    -- 'Naked'? It does not make sense to do so in the top-level document,
+    -- but in lists, 'Naked' text is pretty common.
     _bstAllowNaked :: Bool,
     -- | Current reference level: 1 column for top-level of document, column
     -- where content starts for block quotes and lists.

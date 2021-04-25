@@ -520,7 +520,7 @@ pTable = do
           (endOfTable >>= guard)
           <* sc
 
--- | Parse a paragraph or naked text (is some cases).
+-- | Parse a paragraph or naked text (in some cases).
 pParagraph :: BParser (Block Isp)
 pParagraph = do
   startOffset <- getOffset
@@ -636,8 +636,8 @@ pInlines = do
 pCodeSpan :: IParser Inline
 pCodeSpan = do
   n <- try (length <$> some (char '`'))
-  let finalizer = try $ do
         void $ count n (char '`')
+  let finalizer = try $ do
         notFollowedBy (char '`')
   r <-
     CodeSpan . collapseWhiteSpace . T.concat

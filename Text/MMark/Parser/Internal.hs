@@ -9,8 +9,8 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- An internal module that builds a framework on which the
--- "Text.MMark.Parser" module is built.
+-- An internal module that builds a framework that the "Text.MMark.Parser"
+-- module uses.
 module Text.MMark.Parser.Internal
   ( -- * Block-level parser monad
     BParser,
@@ -227,7 +227,7 @@ closeNames r' =
 ----------------------------------------------------------------------------
 -- Helpers
 
--- | Setup initial parser state.
+-- | Setup an initial parser state.
 mkInitialState ::
   -- | File name to use
   FilePath ->

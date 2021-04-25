@@ -9,14 +9,14 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- This module provides building blocks for extension creation.
+-- This module provides building blocks for creation of extensions.
 --
 -- We suggest using a qualified import, like this:
 --
 -- > import Text.MMark.Extension (Bni, Block (..), Inline (..))
 -- > import qualified Text.MMark.Extension as Ext
 --
--- === Philosophy of MMark extensions
+-- === The philosophy of MMark extensions
 --
 -- The extension system is guided by the following goals:
 --
@@ -51,7 +51,7 @@
 --
 -- One could note that the current design does not allow prepending or
 -- appending new elements to the AST. This is a limitation by design because
--- we try to make the order in which extensions are applied not important
+-- we try to make the order in which extensions are applied unimportant
 -- (it's not always possible, though). Thus, if we want to e.g. insert a
 -- table of contents into a document, we need to do so by transforming an
 -- already existing element, such as code block with a special info string

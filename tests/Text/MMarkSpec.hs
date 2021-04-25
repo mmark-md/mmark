@@ -2100,7 +2100,7 @@ length_scan p = Ext.scanner 0 $ \n block ->
 -- For testing with documents loaded externally
 
 -- | Load a complete markdown document from an external file and compare the
--- final HTML rendering with contents of another file.
+-- final HTML rendering with the contents of another file.
 withFiles ::
   -- | Markdown document
   FilePath ->
@@ -2153,37 +2153,37 @@ euric =
       elabel "unreserved character"
     ]
 
--- | Error component complaining that the given 'Text' is not in left- or
--- right- flanking position.
+-- | The error component complaining that the given 'Text' is not in left-
+-- or right- flanking position.
 nonFlanking :: Text -> EF MMarkErr
 nonFlanking = fancy . ErrorCustom . NonFlankingDelimiterRun . NE.fromList . T.unpack
 
--- | Error component complaining that the given starting index of an ordered
--- list is too big.
+-- | The error component complaining that the given starting index of an
+-- ordered list is too big.
 indexTooBig :: Word -> EF MMarkErr
 indexTooBig = fancy . ErrorCustom . ListStartIndexTooBig
 
--- | Error component complaining about non-consecutive indices in an ordered
--- list.
+-- | The error component complaining about non-consecutive indices in an
+-- ordered list.
 indexNonCons :: Word -> Word -> EF MMarkErr
 indexNonCons actual expected =
   fancy . ErrorCustom $
     ListIndexOutOfOrder actual expected
 
--- | Error component complaining about a missing link\/image reference.
+-- | The error component complaining about a missing link\/image reference.
 couldNotMatchRef :: Text -> [Text] -> EF MMarkErr
 couldNotMatchRef name names =
   fancy . ErrorCustom $
     CouldNotFindReferenceDefinition name names
 
--- | Error component complaining about a duplicate reference definition.
+-- | The error component complaining about a duplicate reference definition.
 duplicateRef :: Text -> EF MMarkErr
 duplicateRef = fancy . ErrorCustom . DuplicateReferenceDefinition
 
--- | Error component complaining about an invalid numeric character.
+-- | The error component complaining about an invalid numeric character.
 invalidNumChar :: Int -> EF MMarkErr
 invalidNumChar = fancy . ErrorCustom . InvalidNumericCharacter
 
--- | Error component complaining about an unknown HTML5 entity name.
+-- | The error component complaining about an unknown HTML5 entity name.
 unknownEntity :: Text -> EF MMarkErr
 unknownEntity = fancy . ErrorCustom . UnknownHtmlEntityName

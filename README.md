@@ -20,16 +20,17 @@ MMark (read “em-mark”) is a strict markdown processor for writers. “Strict
 means that not every input is considered valid markdown document and parse
 errors are possible and even desirable, because they allow us to spot markup
 issues without searching for them in rendered document. If a markdown
-document passes MMark parser, then it'll likely produce HTML without quirks.
-This feature makes it a good choice for writers and bloggers.
+document passes the MMark parser, then it is likely to produce an HTML
+output without quirks. This feature makes it a good choice for writers and
+bloggers.
 
 MMark in its current state features:
 
 * A parser that produces high-quality error messages and does not choke on
-  first parse error. It is capable of reporting many parse errors where
-  makes sense.
+  the first parse error. It is capable of reporting several parse errors
+  simultaneously.
 
-* An extension system allowing to create extensions that alter parsed
+* An extension system that allows us to create extensions that alter parsed
   markdown document in some way.
 
 * A [`lucid`](https://hackage.haskell.org/package/lucid)-based render.
@@ -96,9 +97,9 @@ built-in features.
 ### Differences in inline parsing
 
 Emphasis and strong emphasis is an especially hairy topic in the Common Mark
-specification. There are 17 ad-hoc rules defining interaction between `*`
-and `_` -based emphasis and more than an half of all Common Mark examples
-(that's about 300) test just this tricky logic.
+specification. There are 17 ad-hoc rules defining the interaction between
+`*` and `_` -based emphasis and more than an half of all Common Mark
+examples (that's about 300) test just this.
 
 Not only it is hard to implement, it's hard to understand for humans too.
 For example, this input:
@@ -122,8 +123,8 @@ Could it produce something like this instead?
 ```
 
 Well, why not? Without remembering those 17 ad-hoc rules, there going to be
-a lot of tricky cases when a user won't be able to tell how markdown will be
-parsed.
+a lot of tricky cases when the user won't be able to tell how markdown will
+be parsed.
 
 I decided to make parsing of emphasis, strong emphasis, and similar
 constructs like strikethrough, subscript, and superscript more symmetric and
@@ -192,7 +193,7 @@ And this too:
 __foo__bar
 ```
 
-This means that inter-word emphasis is not supported by this approach.
+This means that inter-word emphasis is not supported.
 
 The next example is OK because `s` is an **other character** and `.` is a
 **punctuation character**, so `level('s') > level('.')`.

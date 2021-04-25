@@ -13,8 +13,8 @@
 -- “Strict” means that not every input is considered valid markdown document
 -- and parse errors are possible and even desirable, because they allow us
 -- to spot markup issues without searching for them in rendered document. If
--- a markdown document passes MMark parser, then it'll likely produce HTML
--- without quirks. This feature makes it a good choice for writers and
+-- a markdown document passes the MMark parser, then it'll likely produce
+-- HTML without quirks. This feature makes it a good choice for writers and
 -- bloggers.
 --
 -- === MMark and Common Mark
@@ -179,7 +179,7 @@ runScanner ::
   a
 runScanner MMark {..} f = L.fold f mmarkBlocks
 
--- | Like 'runScanner', but allows to run scanners with monadic context.
+-- | Like 'runScanner', but allows us to run scanners with monadic context.
 --
 -- To bring 'L.Fold' and 'L.FoldM' types to the “least common denominator”
 -- use 'L.generalize' and 'L.simplify'.

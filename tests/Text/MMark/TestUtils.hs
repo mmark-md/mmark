@@ -27,8 +27,8 @@ import Text.Megaparsec
 ----------------------------------------------------------------------------
 -- Document creation and rendering
 
--- | Create an 'MMark' document from given input reporting an expectation
--- failure if it cannot be parsed.
+-- | Create an 'MMark' document from the given input reporting an
+-- expectation failure if it cannot be parsed.
 mkDoc :: Text -> IO MMark
 mkDoc input =
   case MMark.parse "" input of
