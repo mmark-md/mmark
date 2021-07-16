@@ -636,8 +636,8 @@ pInlines = do
 pCodeSpan :: IParser Inline
 pCodeSpan = do
   n <- try (length <$> some (char '`'))
-        void $ count n (char '`')
   let finalizer = try $ do
+        void $ count n (char '`')
         notFollowedBy (char '`')
   r <-
     CodeSpan . collapseWhiteSpace . T.concat
