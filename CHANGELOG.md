@@ -1,3 +1,7 @@
+## MMark 0.0.7.4
+
+* The test suite has been fixed again and for good.
+
 ## MMark 0.0.7.3
 
 * The test suite passes with `modern-uri-0.3.4` and later.

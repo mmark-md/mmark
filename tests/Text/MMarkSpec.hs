@@ -1624,10 +1624,10 @@ spec = parallel $ do
     context "6.6 Images" $ do
       it "CM543" $
         "![foo](/url \"title\")"
-          ==-> "<p><img alt=\"foo\" title=\"title\" src=\"/url\"></p>\n"
+          ==-> "<p><img alt=\"foo\" src=\"/url\" title=\"title\"></p>\n"
       it "CM544" $
         "![foo *bar*](train.jpg \"train & tracks\")"
-          ==-> "<p><img alt=\"foo bar\" title=\"train &amp; tracks\" src=\"train.jpg\"></p>\n"
+          ==-> "<p><img alt=\"foo bar\" src=\"train.jpg\" title=\"train &amp; tracks\"></p>\n"
       it "CM545" $
         let s = "![foo ![bar](/url)](/url2)\n"
          in s ~-> err 6 (utok '!' <> etok ']' <> eic)
@@ -1639,13 +1639,13 @@ spec = parallel $ do
          in s ~-> errFancy 2 (couldNotMatchRef "foo bar" ["foo *bar*"])
       it "CM548" $
         "![foo *bar*][foobar]\n\n[FOOBAR]: train.jpg \"train & tracks\""
-          ==-> "<p><img alt=\"foo bar\" title=\"train &amp; tracks\" src=\"train.jpg\"></p>\n"
+          ==-> "<p><img alt=\"foo bar\" src=\"train.jpg\" title=\"train &amp; tracks\"></p>\n"
       it "CM549" $
         "![foo](train.jpg)"
           ==-> "<p><img alt=\"foo\" src=\"train.jpg\"></p>\n"
       it "CM550" $
         "My ![foo bar](/path/to/train.jpg  \"title\"   )"
-          ==-> "<p>My <img alt=\"foo bar\" title=\"title\" src=\"/path/to/train.jpg\"></p>\n"
+          ==-> "<p>My <img alt=\"foo bar\" src=\"/path/to/train.jpg\" title=\"title\"></p>\n"
       it "CM551" $
         "![foo](<url>)"
           ==-> "<p><img alt=\"foo\" src=\"url\"></p>\n"
@@ -1659,22 +1659,22 @@ spec = parallel $ do
           ==-> "<p><img alt=\"foo\" src=\"/url\"></p>\n"
       it "CM555" $
         "![foo][]\n\n[foo]: /url \"title\""
-          ==-> "<p><img alt=\"foo\" title=\"title\" src=\"/url\"></p>\n"
+          ==-> "<p><img alt=\"foo\" src=\"/url\" title=\"title\"></p>\n"
       it "CM556" $
         "![foo bar][]\n\n[foo bar]: /url \"title\""
-          ==-> "<p><img alt=\"foo bar\" title=\"title\" src=\"/url\"></p>\n"
+          ==-> "<p><img alt=\"foo bar\" src=\"/url\" title=\"title\"></p>\n"
       it "CM557" $
         "![Foo][]\n\n[foo]: /url \"title\""
-          ==-> "<p><img alt=\"Foo\" title=\"title\" src=\"/url\"></p>\n"
+          ==-> "<p><img alt=\"Foo\" src=\"/url\" title=\"title\"></p>\n"
       it "CM558" $
         let s = "![foo] \n[]\n\n[foo]: /url \"title\""
          in s ~-> err 9 (utok ']' <> eic)
       it "CM559" $
         "![foo]\n\n[foo]: /url \"title\""
-          ==-> "<p><img alt=\"foo\" title=\"title\" src=\"/url\"></p>\n"
+          ==-> "<p><img alt=\"foo\" src=\"/url\" title=\"title\"></p>\n"
       it "CM560" $
         "![*foo* bar]\n\n[foo bar]: /url \"title\"\n"
-          ==-> "<p><img alt=\"foo bar\" title=\"title\" src=\"/url\"></p>\n"
+          ==-> "<p><img alt=\"foo bar\" src=\"/url\" title=\"title\"></p>\n"
       it "CM561" $
         let s = "![[foo]]\n\n[[foo]]: /url \"title\""
          in s
@@ -1683,7 +1683,7 @@ spec = parallel $ do
                    ]
       it "CM562" $
         "![Foo]\n\n[foo]: /url \"title\""
-          ==-> "<p><img alt=\"Foo\" title=\"title\" src=\"/url\"></p>\n"
+          ==-> "<p><img alt=\"Foo\" src=\"/url\" title=\"title\"></p>\n"
       it "CM563" $
         "!\\[foo\\]\n\n[foo]: /url \"title\""
           ==-> "<p>![foo]</p>\n"
@@ -2064,7 +2064,7 @@ spec = parallel $ do
       context "when it is invalid" $ do
         let mappingErr = fancy . ErrorCustom . YamlParseError $
               "mapping values are not allowed in this context"
-        it "signal correct parse error" $
+        it "signals correct parse error" $
           let s = "---\nx: 100\ny: x:\n---\nHere we go."
           in s ~-> errFancy 15 mappingErr
         it "does not choke and can report more parse errors" $
