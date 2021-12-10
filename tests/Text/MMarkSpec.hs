@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -2046,34 +2045,30 @@ spec = parallel $ do
         MMark.projectYaml doc `shouldBe` Nothing
     context "when document contains a YAML section" $ do
       context "when it is valid" $ do
-#ifdef ghcjs_HOST_OS
-        let r = object []
-#else
-        let r = object
-              [ "x" .= Number 100
-              , "y" .= Number 200 ]
-#endif
+        let r =
+              object
+                [ "x" .= Number 100,
+                  "y" .= Number 200
+                ]
         it "returns the YAML section (1)" $ do
           doc <- mkDoc "---\nx: 100\ny: 200\n---\nHere we go."
           MMark.projectYaml doc `shouldBe` Just r
         it "returns the YAML section (2)" $ do
           doc <- mkDoc "---\nx: 100\ny: 200\n---\n\n"
           MMark.projectYaml doc `shouldBe` Just r
-
-#ifndef ghcjs_HOST_OS
       context "when it is invalid" $ do
-        let mappingErr = fancy . ErrorCustom . YamlParseError $
-              "mapping values are not allowed in this context"
+        let mappingErr =
+              fancy . ErrorCustom . YamlParseError $
+                "mapping values are not allowed in this context"
         it "signals correct parse error" $
           let s = "---\nx: 100\ny: x:\n---\nHere we go."
-          in s ~-> errFancy 15 mappingErr
+           in s ~-> errFancy 15 mappingErr
         it "does not choke and can report more parse errors" $
           let s = "---\nx: 100\ny: x:\n---\nHere we *go."
-          in s ~~->
-              [ errFancy 15 mappingErr
-              , err 33 (ueib <> etok '*' <> eic)
-              ]
-#endif
+           in s
+                ~~-> [ errFancy 15 mappingErr,
+                       err 33 (ueib <> etok '*' <> eic)
+                     ]
 
 ----------------------------------------------------------------------------
 -- Testing extensions
