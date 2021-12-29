@@ -3,7 +3,9 @@
 module Text.MMark.TestUtils
   ( -- * Document creation and rendering
     mkDoc,
+    mkDocM,
     toText,
+    toTextM,
 
     -- * Parser expectations
     (~~->),
@@ -20,7 +22,7 @@ import Data.Text (Text)
 import qualified Data.Text.Lazy as TL
 import qualified Lucid as L
 import Test.Hspec
-import Text.MMark (MMark, MMarkErr)
+import Text.MMark (MMark, MMarkErr, MMarkM)
 import qualified Text.MMark as MMark
 import Text.Megaparsec
 
@@ -30,8 +32,11 @@ import Text.Megaparsec
 -- | Create an 'MMark' document from the given input reporting an
 -- expectation failure if it cannot be parsed.
 mkDoc :: Text -> IO MMark
-mkDoc input =
-  case MMark.parse "" input of
+mkDoc = mkDocM
+
+mkDocM :: Monad m => Text -> IO (MMarkM m)
+mkDocM input =
+  case MMark.parseM "" input of
     Left bundle -> do
       expectationFailure $
         "while parsing a document, parse error(s) occurred:\n"
@@ -42,6 +47,10 @@ mkDoc input =
 -- | Render an 'MMark' document to 'Text'.
 toText :: MMark -> Text
 toText = TL.toStrict . L.renderText . MMark.render
+
+-- | Render an 'MMark' document to 'm Text'.
+toTextM :: Monad m => MMarkM m -> m Text
+toTextM = fmap TL.toStrict . L.renderTextT . MMark.render
 
 ----------------------------------------------------------------------------
 -- Parser expectations

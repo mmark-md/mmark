@@ -115,11 +115,14 @@
 module Text.MMark
   ( -- * Parsing
     MMark,
+    MMarkM,
     MMarkErr (..),
     parse,
+    parseM,
 
     -- * Extensions
     Extension,
+    ExtensionM,
     useExtension,
     useExtensions,
 
@@ -135,7 +138,7 @@ where
 
 import qualified Control.Foldl as L
 import Data.Aeson
-import Text.MMark.Parser (MMarkErr (..), parse)
+import Text.MMark.Parser (MMarkErr (..), parse, parseM)
 import Text.MMark.Render (render)
 import Text.MMark.Type
 
@@ -146,7 +149,7 @@ import Text.MMark.Type
 -- apply 'Extension's /does matter/. Extensions you apply first take effect
 -- first. The extension system is designed in such a way that in many cases
 -- the order doesn't matter, but sometimes the difference is important.
-useExtension :: Extension -> MMark -> MMark
+useExtension :: Monad m => ExtensionM m -> MMarkM m -> MMarkM m
 useExtension ext mmark =
   mmark {mmarkExtension = ext <> mmarkExtension mmark}
 
@@ -159,7 +162,7 @@ useExtension ext mmark =
 -- As mentioned in the docs for 'useExtension', the order in which you apply
 -- extensions matters. Extensions closer to beginning of the list are
 -- applied later, i.e. the last extension in the list is applied first.
-useExtensions :: [Extension] -> MMark -> MMark
+useExtensions :: Monad m => [ExtensionM m] -> MMarkM m -> MMarkM m
 useExtensions exts = useExtension (mconcat exts)
 
 ----------------------------------------------------------------------------
@@ -177,7 +180,7 @@ runScanner ::
   L.Fold Bni a ->
   -- | Result of scanning
   a
-runScanner MMark {..} f = L.fold f mmarkBlocks
+runScanner MMarkM {..} f = L.fold f mmarkBlocks
 
 -- | Like 'runScanner', but allows us to run scanners with monadic context.
 --
@@ -193,8 +196,8 @@ runScannerM ::
   L.FoldM m Bni a ->
   -- | Result of scanning
   m a
-runScannerM MMark {..} f = L.foldM f mmarkBlocks
+runScannerM MMarkM {..} f = L.foldM f mmarkBlocks
 
 -- | Extract contents of an optional YAML block that may have been parsed.
-projectYaml :: MMark -> Maybe Value
+projectYaml :: MMarkM m -> Maybe Value
 projectYaml = mmarkYaml

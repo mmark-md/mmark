@@ -21,6 +21,7 @@
 module Text.MMark.Parser
   ( MMarkErr (..),
     parse,
+    parseM,
   )
 where
 
@@ -101,7 +102,17 @@ parse ::
   Text ->
   -- | Parse errors or parsed document
   Either (ParseErrorBundle Text MMarkErr) MMark
-parse file input =
+parse = parseM
+
+parseM ::
+  Monad m =>
+  -- | File name (only to be used in error messages), may be empty
+  FilePath ->
+  -- | Input to parse
+  Text ->
+  -- | Parse errors or parsed document
+  Either (ParseErrorBundle Text MMarkErr) (MMarkM m)
+parseM file input =
   case runBParser pMMark file input of
     Left bundle -> Left bundle
     Right ((myaml, rawBlocks), defs) ->
@@ -114,7 +125,7 @@ parse file input =
        in case NE.nonEmpty . DList.toList $ foldMap (foldMap e2p) parsed of
             Nothing ->
               Right
-                MMark
+                MMarkM
                   { mmarkYaml = myaml,
                     mmarkBlocks = fmap fromRight <$> parsed,
                     mmarkExtension = mempty
