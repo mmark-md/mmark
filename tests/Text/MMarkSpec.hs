@@ -888,10 +888,10 @@ spec = parallel $ do
           ==-> "<p>&lt;a href=&quot;\246\246.html&quot;&gt;</p>\n"
       it "CM309" $
         "[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")"
-          ##-> p_ (a_ [href_ "/f&ouml;&ouml;", title_ "f\246\246"] "foo")
+          ##-> p_ (a_ [href_ "/f%26ouml%3b%26ouml%3b", title_ "f\246\246"] "foo")
       it "CM310" $
         "[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\""
-          ##-> p_ (a_ [href_ "/f&ouml;&ouml;", title_ "f\246\246"] "foo")
+          ##-> p_ (a_ [href_ "/f%26ouml%3b%26ouml%3b", title_ "f\246\246"] "foo")
       it "CM311" $
         "``` f&ouml;&ouml;\nfoo\n```"
           ==-> "<pre><code class=\"language-f\246\246\">foo\n</code></pre>\n"
@@ -1355,13 +1355,13 @@ spec = parallel $ do
                 )
       it "CM468" $
         "[link](foo(and(bar)))\n"
-          ==-> "<p><a href=\"foo(and(bar\">link</a>))</p>\n"
+          ==-> "<p><a href=\"foo%28and%28bar\">link</a>))</p>\n"
       it "CM469" $
         let s = "[link](foo\\(and\\(bar\\))"
          in s ~-> err 10 (utok '\\' <> euric <> euri)
       it "CM470" $
         "[link](<foo(and(bar)>)"
-          ==-> "<p><a href=\"foo(and(bar)\">link</a></p>\n"
+          ==-> "<p><a href=\"foo%28and%28bar%29\">link</a></p>\n"
       it "CM471" $
         let s = "[link](foo\\)\\:)"
          in s ~-> err 10 (utok '\\' <> euric <> euri)
@@ -1373,7 +1373,7 @@ spec = parallel $ do
          in s ~-> err 10 (utok '\\' <> euric <> euri)
       it "CM474" $
         "[link](foo%20b&auml;)"
-          ==-> "<p><a href=\"foo%20b&amp;auml;\">link</a></p>\n"
+          ==-> "<p><a href=\"foo%20b%26auml%3b\">link</a></p>\n"
       it "CM475" $
         let s = "[link](\"title\")"
          in s
@@ -1705,13 +1705,13 @@ spec = parallel $ do
           ==-> "<p><a href=\"irc://foo.bar:2233/baz\">irc://foo.bar:2233/baz</a></p>\n"
       it "CM568" $
         "<MAILTO:FOO@BAR.BAZ>"
-          ==-> "<p><a href=\"mailto:FOO@BAR.BAZ\">FOO@BAR.BAZ</a></p>\n"
+          ==-> "<p><a href=\"mailto:FOO%40BAR.BAZ\">FOO@BAR.BAZ</a></p>\n"
       it "CM569" $
         "<a+b+c:d>"
           ==-> "<p><a href=\"a+b+c:d\">a+b+c:d</a></p>\n"
       it "CM570" $
         "<made-up-scheme://foo,bar>"
-          ==-> "<p><a href=\"made-up-scheme://foo/,bar\">made-up-scheme://foo/,bar</a></p>\n"
+          ==-> "<p><a href=\"made-up-scheme://foo/%2cbar\">made-up-scheme://foo/%2cbar</a></p>\n"
       it "CM571" $
         "<http://../>"
           ==-> "<p><a href=\"http://..\">http://..</a></p>\n"
@@ -1726,10 +1726,10 @@ spec = parallel $ do
           ==-> "<p>&lt;http://example.com/[&gt;</p>\n"
       it "CM575" $
         "<foo@bar.example.com>"
-          ==-> "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n"
+          ==-> "<p><a href=\"mailto:foo%40bar.example.com\">foo@bar.example.com</a></p>\n"
       it "CM576" $
         "<foo+special@Bar.baz-bar0.com>"
-          ==-> "<p><a href=\"mailto:foo+special@Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n"
+          ==-> "<p><a href=\"mailto:foo%2bspecial%40Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n"
       it "CM577" $
         "<foo\\+@bar.example.com>"
           ==-> "<p>&lt;foo+@bar.example.com&gt;</p>\n"
