@@ -1705,7 +1705,7 @@ spec = parallel $ do
           ==-> "<p><a href=\"irc://foo.bar:2233/baz\">irc://foo.bar:2233/baz</a></p>\n"
       it "CM568" $
         "<MAILTO:FOO@BAR.BAZ>"
-          ==-> "<p><a href=\"mailto:FOO%40BAR.BAZ\">FOO@BAR.BAZ</a></p>\n"
+          ==-> "<p><a href=\"mailto:FOO@BAR.BAZ\">FOO@BAR.BAZ</a></p>\n"
       it "CM569" $
         "<a+b+c:d>"
           ==-> "<p><a href=\"a+b+c:d\">a+b+c:d</a></p>\n"
@@ -1726,10 +1726,10 @@ spec = parallel $ do
           ==-> "<p>&lt;http://example.com/[&gt;</p>\n"
       it "CM575" $
         "<foo@bar.example.com>"
-          ==-> "<p><a href=\"mailto:foo%40bar.example.com\">foo@bar.example.com</a></p>\n"
+          ==-> "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>\n"
       it "CM576" $
         "<foo+special@Bar.baz-bar0.com>"
-          ==-> "<p><a href=\"mailto:foo%2bspecial%40Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n"
+          ==-> "<p><a href=\"mailto:foo%2bspecial@Bar.baz-bar0.com\">foo+special@Bar.baz-bar0.com</a></p>\n"
       it "CM577" $
         "<foo\\+@bar.example.com>"
           ==-> "<p>&lt;foo+@bar.example.com&gt;</p>\n"
