@@ -518,7 +518,7 @@ pTable = do
         <$ manyTill
           (optional nonEmptyLine)
           (endOfTable >>= guard)
-          <* sc
+        <* sc
 
 -- | Parse a paragraph or naked text (in some cases).
 pParagraph :: BParser (Block Isp)
