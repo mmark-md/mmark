@@ -208,10 +208,13 @@ instance ShowErrorComponent MMarkErr where
       showTokens (Proxy :: Proxy Text) dels
         ++ " should be in left- or right- flanking position"
     ListStartIndexTooBig n ->
-      "ordered list start numbers must be nine digits or less, " ++ show n
+      "ordered list start numbers must be nine digits or less, "
+        ++ show n
         ++ " is too big"
     ListIndexOutOfOrder actual expected ->
-      "list index is out of order: " ++ show actual ++ ", expected "
+      "list index is out of order: "
+        ++ show actual
+        ++ ", expected "
         ++ show expected
     DuplicateReferenceDefinition name ->
       "duplicate reference definitions are not allowed: \""

@@ -1346,7 +1346,11 @@ spec = parallel $ do
          in s
               ~-> err
                 7
-                ( utok '\\' <> etoks "//" <> etok '#' <> etok '/' <> etok '<'
+                ( utok '\\'
+                    <> etoks "//"
+                    <> etok '#'
+                    <> etok '/'
+                    <> etok '<'
                     <> etok '?'
                     <> elabel "ASCII alpha character"
                     <> euri
@@ -1379,7 +1383,11 @@ spec = parallel $ do
          in s
               ~-> err
                 7
-                ( utok '"' <> etoks "//" <> etok '#' <> etok '/' <> etok '<'
+                ( utok '"'
+                    <> etoks "//"
+                    <> etok '#'
+                    <> etok '/'
+                    <> etok '<'
                     <> etok '?'
                     <> elabel "ASCII alpha character"
                     <> euri
@@ -1521,7 +1529,10 @@ spec = parallel $ do
          in s
               ~~-> [ err
                        9
-                       ( utok '[' <> etoks "&#" <> etok '&' <> etok ']'
+                       ( utok '['
+                           <> etoks "&#"
+                           <> etok '&'
+                           <> etok ']'
                            <> elabel "escaped character"
                        ),
                      err 17 (utok '[' <> etok ']' <> eic)
@@ -1531,7 +1542,10 @@ spec = parallel $ do
          in s
               ~~-> [ err
                        9
-                       ( utok '[' <> etoks "&#" <> etok '&' <> etok ']'
+                       ( utok '['
+                           <> etoks "&#"
+                           <> etok '&'
+                           <> etok ']'
                            <> elabel "escaped character"
                        ),
                      err 21 (utok '[' <> etok ']' <> eic)
@@ -1864,7 +1878,10 @@ spec = parallel $ do
          in s
               ~-> err
                 23
-                ( utoks "so" <> etok '\'' <> etok '\"' <> etok '('
+                ( utoks "so"
+                    <> etok '\''
+                    <> etok '\"'
+                    <> etok '('
                     <> elabel "white space"
                     <> elabel "newline"
                 )
