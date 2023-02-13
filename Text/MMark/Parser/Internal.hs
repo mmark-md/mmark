@@ -252,7 +252,7 @@ mkInitialState file input offset =
     }
 
 -- | Locally change state in a state monad and then restore it back.
-locally :: MonadState s m => Lens' s a -> a -> m b -> m b
+locally :: (MonadState s m) => Lens' s a -> a -> m b -> m b
 locally l x m = do
   y <- gets (^. l)
   modify' (set l x)

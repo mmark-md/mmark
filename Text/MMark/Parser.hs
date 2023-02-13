@@ -831,7 +831,7 @@ pUri = between (char '<') (char '>') URI.parser <|> naked
       return r
 
 -- | Parse a title of a link or an image.
-pTitle :: MonadParsec MMarkErr Text m => m Text
+pTitle :: (MonadParsec MMarkErr Text m) => m Text
 pTitle =
   choice
     [ p '\"' '\"',
@@ -845,7 +845,7 @@ pTitle =
          in manyEscapedWith f "unescaped character"
 
 -- | Parse label of a reference link.
-pRefLabel :: MonadParsec MMarkErr Text m => m (Int, Text)
+pRefLabel :: (MonadParsec MMarkErr Text m) => m (Int, Text)
 pRefLabel = do
   try $ do
     void (char '[')
@@ -927,7 +927,7 @@ manyIndexed n' m = go n'
   where
     go !n = liftA2 (:) (m n) (go (n + 1)) <|> pure []
 
-foldMany :: MonadPlus m => m (a -> a) -> m (a -> a)
+foldMany :: (MonadPlus m) => m (a -> a) -> m (a -> a)
 foldMany f = go id
   where
     go g =
@@ -935,7 +935,7 @@ foldMany f = go id
         Nothing -> pure g
         Just h -> go (h . g)
 
-foldMany' :: MonadPlus m => m ([a] -> [a]) -> m [a]
+foldMany' :: (MonadPlus m) => m ([a] -> [a]) -> m [a]
 foldMany' f = ($ []) <$> go id
   where
     go g =
@@ -943,13 +943,13 @@ foldMany' f = ($ []) <$> go id
         Nothing -> pure g
         Just h -> go (g . h)
 
-foldSome :: MonadPlus m => m (a -> a) -> m (a -> a)
+foldSome :: (MonadPlus m) => m (a -> a) -> m (a -> a)
 foldSome f = liftA2 (flip (.)) f (foldMany f)
 
-foldSome' :: MonadPlus m => m ([a] -> [a]) -> m [a]
+foldSome' :: (MonadPlus m) => m ([a] -> [a]) -> m [a]
 foldSome' f = liftA2 ($) f (foldMany' f)
 
-sepByCount :: MonadPlus m => Int -> m a -> m sep -> m [a]
+sepByCount :: (MonadPlus m) => Int -> m a -> m sep -> m [a]
 sepByCount 0 _ _ = pure []
 sepByCount n p sep = liftA2 (:) p (count (n - 1) (sep *> p))
 
@@ -957,7 +957,7 @@ nonEmptyLine :: BParser Text
 nonEmptyLine = takeWhile1P Nothing notNewline
 
 manyEscapedWith ::
-  MonadParsec MMarkErr Text m =>
+  (MonadParsec MMarkErr Text m) =>
   (Char -> Bool) ->
   String ->
   m Text
@@ -970,7 +970,7 @@ manyEscapedWith f l =
     ]
 
 someEscapedWith ::
-  MonadParsec MMarkErr Text m =>
+  (MonadParsec MMarkErr Text m) =>
   (Char -> Bool) ->
   m Text
 someEscapedWith f =
@@ -981,13 +981,13 @@ someEscapedWith f =
       (:) <$> satisfy f
     ]
 
-escapedChar :: MonadParsec e Text m => m Char
+escapedChar :: (MonadParsec e Text m) => m Char
 escapedChar =
   label "escaped character" $
     try (char '\\' *> satisfy isAsciiPunctuation)
 
 -- | Parse an HTML5 entity reference.
-entityRef :: MonadParsec MMarkErr Text m => m String
+entityRef :: (MonadParsec MMarkErr Text m) => m String
 entityRef = do
   o <- getOffset
   let f (TrivialError _ us es) = TrivialError o us es
@@ -1004,7 +1004,7 @@ entityRef = do
     Just txt -> return (T.unpack txt)
 
 -- | Parse a numeric character using the given numeric parser.
-numRef :: MonadParsec MMarkErr Text m => m Char
+numRef :: (MonadParsec MMarkErr Text m) => m Char
 numRef = do
   o <- getOffset
   let f = between (string "&#") (char ';')
@@ -1013,19 +1013,19 @@ numRef = do
     then customFailure' o (InvalidNumericCharacter n)
     else return (Char.chr n)
 
-sc :: MonadParsec e Text m => m ()
+sc :: (MonadParsec e Text m) => m ()
 sc = void $ takeWhileP (Just "white space") isSpaceN
 
-sc1 :: MonadParsec e Text m => m ()
+sc1 :: (MonadParsec e Text m) => m ()
 sc1 = void $ takeWhile1P (Just "white space") isSpaceN
 
-sc' :: MonadParsec e Text m => m ()
+sc' :: (MonadParsec e Text m) => m ()
 sc' = void $ takeWhileP (Just "white space") isSpace
 
-sc1' :: MonadParsec e Text m => m ()
+sc1' :: (MonadParsec e Text m) => m ()
 sc1' = void $ takeWhile1P (Just "white space") isSpace
 
-eol :: MonadParsec e Text m => m ()
+eol :: (MonadParsec e Text m) => m ()
 eol =
   void . label "newline" $
     choice
@@ -1034,7 +1034,7 @@ eol =
         string "\r"
       ]
 
-eol' :: MonadParsec e Text m => m Bool
+eol' :: (MonadParsec e Text m) => m Bool
 eol' = option False (True <$ eol)
 
 ----------------------------------------------------------------------------
@@ -1152,7 +1152,7 @@ inlineFrameDel = \case
   SubscriptFrame -> "~"
   SuperscriptFrame -> "^"
 
-replaceEof :: forall e. Show e => String -> ParseError Text e -> ParseError Text e
+replaceEof :: forall e. (Show e) => String -> ParseError Text e -> ParseError Text e
 replaceEof altLabel = \case
   TrivialError pos us es -> TrivialError pos (f <$> us) (E.map f es)
   FancyError pos xs -> FancyError pos xs
@@ -1245,7 +1245,7 @@ normalizeListItems xs' =
     toNaked (Paragraph inner) = Naked inner
     toNaked other = other
 
-succeeds :: Alternative m => m () -> m Bool
+succeeds :: (Alternative m) => m () -> m Bool
 succeeds m = True <$ m <|> pure False
 
 prependErr :: Int -> MMarkErr -> [Block Isp] -> [Block Isp]
@@ -1259,7 +1259,7 @@ mailtoScheme = fromJust (URI.mkScheme "mailto")
 toNesTokens :: Text -> NonEmpty Char
 toNesTokens = NE.fromList . T.unpack
 
-unexpEic :: MonadParsec e Text m => ErrorItem Char -> m a
+unexpEic :: (MonadParsec e Text m) => ErrorItem Char -> m a
 unexpEic x =
   failure
     (Just x)
@@ -1278,7 +1278,7 @@ bakeText = T.pack . reverse . ($ [])
 
 -- | Report custom failure at specified location.
 customFailure' ::
-  MonadParsec MMarkErr Text m =>
+  (MonadParsec MMarkErr Text m) =>
   Int ->
   MMarkErr ->
   m a

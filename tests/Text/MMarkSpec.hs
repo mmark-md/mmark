@@ -2128,27 +2128,27 @@ withFiles input output = do
 -- Helpers
 
 -- | Unexpected end of inline block.
-ueib :: Stream s => ET s
+ueib :: (Stream s) => ET s
 ueib = ulabel "end of inline block"
 
 -- | Expecting end of inline block.
-eeib :: Stream s => ET s
+eeib :: (Stream s) => ET s
 eeib = elabel "end of inline block"
 
 -- | Expecting end of URI.
-euri :: Stream s => ET s
+euri :: (Stream s) => ET s
 euri = elabel "end of URI"
 
 -- | Expecting inline content.
-eic :: Stream s => ET s
+eic :: (Stream s) => ET s
 eic = elabel "inline content"
 
 -- | Expecting white space.
-ews :: Stream s => ET s
+ews :: (Stream s) => ET s
 ews = elabel "white space"
 
 -- | Expecting code span content.
-ecsc :: Stream s => ET s
+ecsc :: (Stream s) => ET s
 ecsc = elabel "code span content"
 
 -- | Expecting common URI components.

@@ -186,7 +186,7 @@ runScanner MMark {..} f = L.fold f mmarkBlocks
 --
 -- @since 0.0.2.0
 runScannerM ::
-  Monad m =>
+  (Monad m) =>
   -- | Document to scan
   MMark ->
   -- | 'L.FoldM' to use
