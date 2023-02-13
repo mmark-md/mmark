@@ -164,7 +164,7 @@ scanner a f = L.Fold f a id
 --
 -- @since 0.0.2.0
 scannerM ::
-  Monad m =>
+  (Monad m) =>
   -- | Initial state
   m a ->
   -- | Folding function

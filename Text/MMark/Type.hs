@@ -176,7 +176,7 @@ data Block a
     Table (NonEmpty CellAlign) (NonEmpty (NonEmpty a))
   deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor, Foldable)
 
-instance NFData a => NFData (Block a)
+instance (NFData a) => NFData (Block a)
 
 -- | Options for cell alignment in tables.
 --
