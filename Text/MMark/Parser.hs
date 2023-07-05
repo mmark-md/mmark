@@ -24,7 +24,7 @@ module Text.MMark.Parser
   )
 where
 
-import Control.Applicative (Alternative, liftA2)
+import Control.Applicative hiding (many, some)
 import Control.Monad
 import Control.Monad.Combinators.NonEmpty qualified as NE
 import Data.Aeson qualified as Aeson
@@ -816,7 +816,7 @@ pLocation innerOffset inner = do
     mkLabel = T.unwords . T.words . asPlainText
 
 -- | Parse a URI.
-pUri :: (Ord e, Show e, MonadParsec e Text m) => m URI
+pUri :: (MonadParsec e Text m) => m URI
 pUri = between (char '<') (char '>') URI.parser <|> naked
   where
     naked = do
@@ -1152,7 +1152,7 @@ inlineFrameDel = \case
   SubscriptFrame -> "~"
   SuperscriptFrame -> "^"
 
-replaceEof :: forall e. (Show e) => String -> ParseError Text e -> ParseError Text e
+replaceEof :: String -> ParseError Text e -> ParseError Text e
 replaceEof altLabel = \case
   TrivialError pos us es -> TrivialError pos (f <$> us) (E.map f es)
   FancyError pos xs -> FancyError pos xs
