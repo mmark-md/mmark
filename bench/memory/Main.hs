@@ -1,7 +1,7 @@
 module Main (main) where
 
-import qualified Data.Text.IO as T
-import qualified Text.MMark as MMark
+import Data.Text.IO qualified as T
+import Text.MMark qualified as MMark
 import Weigh
 
 main :: IO ()

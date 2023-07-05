@@ -102,7 +102,7 @@ module Text.MMark.Extension
   )
 where
 
-import qualified Control.Foldl as L
+import Control.Foldl qualified as L
 import Data.Monoid hiding ((<>))
 import Lucid
 import Text.MMark.Type
