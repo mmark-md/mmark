@@ -21,10 +21,10 @@ where
 import Data.Char (isAlphaNum, isSpace)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Text.MMark.Type
 import Text.URI (URI (..))
-import qualified Text.URI as URI
+import Text.URI qualified as URI
 
 -- | Convert a non-empty collection of 'Inline's into their plain text
 -- representation. This is used e.g. to render image descriptions.

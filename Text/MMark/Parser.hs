@@ -26,33 +26,33 @@ where
 
 import Control.Applicative (Alternative, liftA2)
 import Control.Monad
-import qualified Control.Monad.Combinators.NonEmpty as NE
-import qualified Data.Aeson as Aeson
+import Control.Monad.Combinators.NonEmpty qualified as NE
+import Data.Aeson qualified as Aeson
 import Data.Bifunctor (Bifunctor (..))
 import Data.Bool (bool)
-import qualified Data.Char as Char
-import qualified Data.DList as DList
+import Data.Char qualified as Char
+import Data.DList qualified as DList
 import Data.HTML.Entities (htmlEntityMap)
-import qualified Data.HashMap.Strict as HM
+import Data.HashMap.Strict qualified as HM
 import Data.List.NonEmpty (NonEmpty (..), (<|))
-import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty qualified as NE
 import Data.Maybe (catMaybes, fromJust, isJust, isNothing)
 import Data.Monoid (Any (..))
 import Data.Ratio ((%))
-import qualified Data.Set as E
+import Data.Set qualified as E
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as TE
 import Lens.Micro ((^.))
-import qualified Text.Email.Validate as Email
+import Text.Email.Validate qualified as Email
 import Text.MMark.Parser.Internal
 import Text.MMark.Type
 import Text.MMark.Util
 import Text.Megaparsec hiding (State (..), parse)
 import Text.Megaparsec.Char hiding (eol)
-import qualified Text.Megaparsec.Char.Lexer as L
+import Text.Megaparsec.Char.Lexer qualified as L
 import Text.URI (URI)
-import qualified Text.URI as URI
+import Text.URI qualified as URI
 import Text.URI.Lens (uriPath)
 
 #if !defined(ghcjs_HOST_OS)

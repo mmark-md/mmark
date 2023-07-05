@@ -6,15 +6,15 @@ module Text.MMark.ExtensionSpec (spec) where
 
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Lucid as L
+import Data.Text qualified as T
+import Lucid qualified as L
 import Test.Hspec
 import Test.QuickCheck
-import qualified Text.MMark as MMark
+import Text.MMark qualified as MMark
 import Text.MMark.Extension (Block (..), Inline (..))
-import qualified Text.MMark.Extension as Ext
+import Text.MMark.Extension qualified as Ext
 import Text.MMark.TestUtils
-import qualified Text.URI as URI
+import Text.URI qualified as URI
 
 spec :: Spec
 spec = parallel $ do

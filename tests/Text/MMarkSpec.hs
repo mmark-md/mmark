@@ -3,22 +3,22 @@
 
 module Text.MMarkSpec (spec) where
 
-import qualified Control.Foldl as L
+import Control.Foldl qualified as L
 import Data.Aeson
 import Data.Char
 import Data.List.NonEmpty (NonEmpty (..))
-import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty qualified as NE
 import Data.Monoid
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
+import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Lucid
 import Test.Hspec
 import Test.Hspec.Megaparsec
 import Text.MMark (MMarkErr (..))
-import qualified Text.MMark as MMark
+import Text.MMark qualified as MMark
 import Text.MMark.Extension (Inline (..))
-import qualified Text.MMark.Extension as Ext
+import Text.MMark.Extension qualified as Ext
 import Text.MMark.TestUtils
 import Text.Megaparsec (ErrorFancy (..), Stream)
 

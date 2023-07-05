@@ -47,8 +47,8 @@ import Control.Monad.State.Strict
 import Data.Bifunctor
 import Data.Function ((&))
 import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.List.NonEmpty as NE
+import Data.HashMap.Strict qualified as HM
+import Data.List.NonEmpty qualified as NE
 import Data.Ratio ((%))
 import Data.Text (Text)
 import Data.Text.Metrics (damerauLevenshteinNorm)
@@ -56,7 +56,7 @@ import Lens.Micro (Lens', over, set, (.~), (^.))
 import Lens.Micro.Extras (view)
 import Text.MMark.Parser.Internal.Type
 import Text.Megaparsec hiding (State)
-import qualified Text.Megaparsec as M
+import Text.Megaparsec qualified as M
 import Text.URI (URI)
 
 ----------------------------------------------------------------------------
