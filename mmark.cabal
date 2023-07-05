@@ -70,15 +70,12 @@ library
         build-depends: yaml >=0.11.5 && <0.12
 
     if flag(dev)
-        ghc-options: -O0 -Wall -Werror
+        ghc-options:
+            -Wall -Werror -Wredundant-constraints -Wpartial-fields
+            -Wunused-packages
 
     else
         ghc-options: -O2 -Wall
-
-    if flag(dev)
-        ghc-options:
-            -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns
-            -Wnoncanonical-monad-instances
 
     if impl(ghcjs >=0)
         ghcjs-options: +RTS -K1G -RTS -Wall
@@ -107,7 +104,9 @@ test-suite tests
         text >=0.2 && <2.1
 
     if flag(dev)
-        ghc-options: -O0 -Wall -Werror
+        ghc-options:
+            -Wall -Werror -Wredundant-constraints -Wpartial-fields
+            -Wunused-packages
 
     else
         ghc-options: -O2 -Wall
@@ -127,7 +126,9 @@ benchmark bench-speed
         text >=0.2 && <2.1
 
     if flag(dev)
-        ghc-options: -O2 -Wall -Werror
+        ghc-options:
+            -Wall -Werror -Wredundant-constraints -Wpartial-fields
+            -Wunused-packages
 
     else
         ghc-options: -O2 -Wall
@@ -147,7 +148,9 @@ benchmark bench-memory
         weigh >=0.0.4
 
     if flag(dev)
-        ghc-options: -O2 -Wall -Werror
+        ghc-options:
+            -Wall -Werror -Wredundant-constraints -Wpartial-fields
+            -Wunused-packages
 
     else
         ghc-options: -O2 -Wall
