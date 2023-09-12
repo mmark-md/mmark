@@ -20,7 +20,7 @@ import Text.MMark qualified as MMark
 import Text.MMark.Extension (Inline (..))
 import Text.MMark.Extension qualified as Ext
 import Text.MMark.TestUtils
-import Text.Megaparsec (ErrorFancy (..), Stream)
+import Text.Megaparsec (ErrorFancy (..))
 
 -- NOTE This test suite is mostly based on (sometimes altered) examples from
 -- the Common Mark specification. We use the version 0.28 (2017-08-01),
@@ -2128,27 +2128,27 @@ withFiles input output = do
 -- Helpers
 
 -- | Unexpected end of inline block.
-ueib :: (Stream s) => ET s
+ueib :: ET s
 ueib = ulabel "end of inline block"
 
 -- | Expecting end of inline block.
-eeib :: (Stream s) => ET s
+eeib :: ET s
 eeib = elabel "end of inline block"
 
 -- | Expecting end of URI.
-euri :: (Stream s) => ET s
+euri :: ET s
 euri = elabel "end of URI"
 
 -- | Expecting inline content.
-eic :: (Stream s) => ET s
+eic :: ET s
 eic = elabel "inline content"
 
 -- | Expecting white space.
-ews :: (Stream s) => ET s
+ews :: ET s
 ews = elabel "white space"
 
 -- | Expecting code span content.
-ecsc :: (Stream s) => ET s
+ecsc :: ET s
 ecsc = elabel "code span content"
 
 -- | Expecting common URI components.
