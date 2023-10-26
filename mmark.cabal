@@ -5,7 +5,7 @@ license:         BSD-3-Clause
 license-file:    LICENSE.md
 maintainer:      Mark Karpov <markkarpov92@gmail.com>
 author:          Mark Karpov <markkarpov92@gmail.com>
-tested-with:     ghc ==9.2.8 ghc ==9.4.7 ghc ==9.6.2
+tested-with:     ghc ==9.4.7 ghc ==9.6.3 ghc ==9.8.1
 homepage:        https://github.com/mmark-md/mmark
 bug-reports:     https://github.com/mmark-md/mmark/issues
 synopsis:        Strict markdown processor for writers
@@ -46,23 +46,23 @@ library
     default-language: GHC2021
     build-depends:
         aeson >=0.11 && <3,
-        base >=4.15 && <5.0,
+        base >=4.15 && <5,
         case-insensitive >=1.2 && <1.3,
         containers >=0.5 && <0.7,
-        deepseq >=1.3 && <1.5,
-        dlist >=0.8 && <2.0,
+        deepseq >=1.3 && <1.6,
+        dlist >=0.8 && <2,
         email-validate >=2.2 && <2.4,
         foldl >=1.2 && <1.5,
         hashable >=1 && <1.5,
         html-entity-map >=0.1 && <0.2,
-        lucid >=2.9.13 && <3.0,
-        megaparsec >=8.0 && <10.0,
+        lucid >=2.9.13 && <3,
+        megaparsec >=8 && <10,
         microlens >=0.4 && <0.5,
         microlens-th >=0.4 && <0.5,
         modern-uri >=0.3.4.4 && <0.4,
-        mtl >=2.0 && <3.0,
-        parser-combinators >=0.4 && <2.0,
-        text >=0.2 && <2.1,
+        mtl >=2 && <3,
+        parser-combinators >=0.4 && <2,
+        text >=0.2 && <2.2,
         text-metrics >=0.3 && <0.4,
         unordered-containers >=0.2.5 && <0.3
 
@@ -91,17 +91,17 @@ test-suite tests
 
     default-language: GHC2021
     build-depends:
-        QuickCheck >=2.4 && <3.0,
+        QuickCheck >=2.4 && <3,
         aeson >=0.11 && <3,
-        base >=4.15 && <5.0,
+        base >=4.15 && <5,
         foldl >=1.2 && <1.5,
-        hspec >=2.0 && <3.0,
-        hspec-megaparsec >=2.0 && <3.0,
-        lucid >=2.9.13 && <3.0,
-        megaparsec >=8.0 && <10.0,
+        hspec >=2 && <3,
+        hspec-megaparsec >=2 && <3,
+        lucid >=2.9.13 && <3,
+        megaparsec >=8 && <10,
         mmark,
         modern-uri >=0.3.4.4 && <0.4,
-        text >=0.2 && <2.1
+        text >=0.2 && <2.2
 
     if flag(dev)
         ghc-options:
@@ -120,10 +120,10 @@ benchmark bench-speed
     hs-source-dirs:   bench/speed
     default-language: GHC2021
     build-depends:
-        base >=4.15 && <5.0,
+        base >=4.15 && <5,
         criterion >=0.6.2.1 && <1.7,
         mmark,
-        text >=0.2 && <2.1
+        text >=0.2 && <2.2
 
     if flag(dev)
         ghc-options:
@@ -142,9 +142,9 @@ benchmark bench-memory
     hs-source-dirs:   bench/memory
     default-language: GHC2021
     build-depends:
-        base >=4.15 && <5.0,
+        base >=4.15 && <5,
         mmark,
-        text >=0.2 && <2.1,
+        text >=0.2 && <2.2,
         weigh >=0.0.4
 
     if flag(dev)
