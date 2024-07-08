@@ -45,8 +45,8 @@ import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Lens.Micro ((^.))
 import Text.Email.Validate qualified as Email
+import Text.MMark.Internal.Type
 import Text.MMark.Parser.Internal
-import Text.MMark.Type
 import Text.MMark.Util
 import Text.Megaparsec hiding (State (..), parse)
 import Text.Megaparsec.Char hiding (eol)

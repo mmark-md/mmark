@@ -10,6 +10,8 @@
 -- Portability :  portable
 --
 -- MMark block\/inline transformation helpers.
+--
+-- @since 0.0.8.0
 module Text.MMark.Trans
   ( applyBlockTrans,
     applyInlineTrans,
@@ -17,9 +19,11 @@ module Text.MMark.Trans
 where
 
 import Data.Monoid hiding ((<>))
-import Text.MMark.Type
+import Text.MMark.Internal.Type
 
 -- | Apply block transformation in the @'Endo' 'Bni'@ form to a block 'Bni'.
+--
+-- @since 0.0.8.0
 applyBlockTrans :: Endo Bni -> Bni -> Bni
 applyBlockTrans trans@(Endo f) = \case
   Blockquote xs -> f (Blockquote (s xs))
@@ -31,6 +35,8 @@ applyBlockTrans trans@(Endo f) = \case
 
 -- | Apply inline transformation in the @'Endo' 'Inline'@ form to an
 -- 'Inline'.
+--
+-- @since 0.0.8.0
 applyInlineTrans :: Endo Inline -> Inline -> Inline
 applyInlineTrans trans@(Endo f) = \case
   Emphasis xs -> f (Emphasis (s xs))

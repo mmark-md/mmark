@@ -105,7 +105,7 @@ where
 import Control.Foldl qualified as L
 import Data.Monoid hiding ((<>))
 import Lucid
-import Text.MMark.Type
+import Text.MMark.Internal.Type
 import Text.MMark.Util
 
 -- | Create an extension that performs a transformation on 'Block's of

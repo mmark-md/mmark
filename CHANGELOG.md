@@ -1,3 +1,8 @@
+## Upcoming
+
+* Exposed the following modules: `Text.MMark.Internal.Type`,
+  `Text.MMark.Render`, `Text.MMark.Trans`, `Text.MMark.Util`.
+
 ## MMark 0.0.7.6
 
 * The test suite now passes with `modern-uri-0.3.4.4`.
