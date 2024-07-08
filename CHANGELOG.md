@@ -1,4 +1,4 @@
-## Upcoming
+## MMark 0.0.8.0
 
 * Exposed the following modules: `Text.MMark.Internal.Type`,
   `Text.MMark.Render`, `Text.MMark.Trans`, `Text.MMark.Util`.
