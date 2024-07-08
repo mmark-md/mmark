@@ -135,9 +135,9 @@ where
 
 import Control.Foldl qualified as L
 import Data.Aeson
+import Text.MMark.Internal.Type
 import Text.MMark.Parser (MMarkErr (..), parse)
 import Text.MMark.Render (render)
-import Text.MMark.Type
 
 ----------------------------------------------------------------------------
 -- Extensions

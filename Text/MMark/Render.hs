@@ -12,8 +12,15 @@
 -- Portability :  portable
 --
 -- MMark rendering machinery.
+--
+-- @since 0.0.8.0
 module Text.MMark.Render
   ( render,
+    applyBlockRender,
+    defaultBlockRender,
+    applyInlineRender,
+    defaultInlineRender,
+    newline,
   )
 where
 
@@ -25,8 +32,8 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as T
 import Lucid
+import Text.MMark.Internal.Type
 import Text.MMark.Trans
-import Text.MMark.Type
 import Text.MMark.Util
 import Text.URI qualified as URI
 
@@ -50,6 +57,8 @@ render MMark {..} =
         . fmap (applyInlineTrans extInlineTrans)
 
 -- | Apply a 'Render' to a given @'Block' 'Html' ()@.
+--
+-- @since 0.0.8.0
 applyBlockRender ::
   Render (Block (Ois, Html ())) ->
   Block (Ois, Html ()) ->
@@ -57,6 +66,8 @@ applyBlockRender ::
 applyBlockRender r = fix (runRender r . defaultBlockRender)
 
 -- | The default 'Block' render.
+--
+-- @since 0.0.8.0
 defaultBlockRender ::
   -- | Rendering function to use to render sub-blocks
   (Block (Ois, Html ()) -> Html ()) ->
@@ -131,10 +142,14 @@ defaultBlockRender blockRender = \case
       CellAlignCenter -> [style_ "text-align:center"]
 
 -- | Apply a render to a given 'Inline'.
+--
+-- @since 0.0.8.0
 applyInlineRender :: Render Inline -> Inline -> Html ()
 applyInlineRender r = fix (runRender r . defaultInlineRender)
 
 -- | The default render for 'Inline' elements.
+--
+-- @since 0.0.8.0
 defaultInlineRender ::
   -- | Rendering function to use to render sub-inlines
   (Inline -> Html ()) ->
@@ -165,5 +180,7 @@ defaultInlineRender inlineRender = \case
      in img_ (alt_ (asPlainText desc) : src_ (URI.render src) : title)
 
 -- | HTML containing a newline.
+--
+-- @since 0.0.8.0
 newline :: Html ()
 newline = "\n"

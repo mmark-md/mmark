@@ -33,15 +33,15 @@ library
     exposed-modules:
         Text.MMark
         Text.MMark.Extension
+        Text.MMark.Internal.Type
+        Text.MMark.Render
+        Text.MMark.Trans
+        Text.MMark.Util
 
     other-modules:
         Text.MMark.Parser
         Text.MMark.Parser.Internal
         Text.MMark.Parser.Internal.Type
-        Text.MMark.Render
-        Text.MMark.Trans
-        Text.MMark.Type
-        Text.MMark.Util
 
     default-language: GHC2021
     build-depends:

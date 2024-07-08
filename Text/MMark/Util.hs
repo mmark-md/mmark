@@ -10,7 +10,9 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Internal utilities.
+-- Misc utilities.
+--
+-- @since 0.0.8.0
 module Text.MMark.Util
   ( asPlainText,
     headerId,
@@ -22,12 +24,14 @@ import Data.Char (isAlphaNum, isSpace)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import Data.Text qualified as T
-import Text.MMark.Type
+import Text.MMark.Internal.Type
 import Text.URI (URI (..))
 import Text.URI qualified as URI
 
 -- | Convert a non-empty collection of 'Inline's into their plain text
 -- representation. This is used e.g. to render image descriptions.
+--
+-- @since 0.0.8.0
 asPlainText :: NonEmpty Inline -> Text
 asPlainText = foldMap $ \case
   Plain txt -> txt
@@ -46,6 +50,8 @@ asPlainText = foldMap $ \case
 -- extensions.
 --
 -- See also: 'headerFragment'.
+--
+-- @since 0.0.8.0
 headerId :: NonEmpty Inline -> Text
 headerId =
   T.intercalate "-"
@@ -56,6 +62,8 @@ headerId =
 
 -- | Generate a 'URI' containing only a fragment from its textual
 -- representation. Useful for getting URL from id of a header.
+--
+-- @since 0.0.8.0
 headerFragment :: Text -> URI
 headerFragment fragment =
   URI

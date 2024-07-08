@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 -- |
--- Module      :  Text.MMark.Type
+-- Module      :  Text.MMark.Internal.Type
 -- Copyright   :  © 2017–present Mark Karpov
 -- License     :  BSD 3 clause
 --
@@ -13,9 +13,11 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Internal type definitions. Some of these are re-exported in the public
--- modules.
-module Text.MMark.Type
+-- Internal type definitions. The public subset of these is re-exported from
+-- "Text.MMark.Extension".
+--
+-- @since 0.0.8.0
+module Text.MMark.Internal.Type
   ( MMark (..),
     Extension (..),
     Render (..),
@@ -116,6 +118,8 @@ instance Monoid Extension where
 -- | An internal type that captures the extensible rendering process we use.
 -- 'Render' has a function inside which transforms a rendering function of
 -- the type @a -> Html ()@.
+--
+-- @since 0.0.8.0
 newtype Render a = Render
   {runRender :: (a -> Html ()) -> a -> Html ()}
 
