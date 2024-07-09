@@ -21,6 +21,7 @@
 module Text.MMark.Parser
   ( MMarkErr (..),
     parse,
+    parseM
   )
 where
 
@@ -94,14 +95,15 @@ data InlineState
 
 -- | Parse a markdown document in the form of a strict 'Text' value and
 -- either report parse errors or return an 'MMark' document.
-parse ::
+parseM ::
+  Monad m =>
   -- | File name (only to be used in error messages), may be empty
   FilePath ->
   -- | Input to parse
   Text ->
   -- | Parse errors or parsed document
-  Either (ParseErrorBundle Text MMarkErr) MMark
-parse file input =
+  Either (ParseErrorBundle Text MMarkErr) (MMarkT m)
+parseM file input =
   case runBParser pMMark file input of
     Left bundle -> Left bundle
     Right ((myaml, rawBlocks), defs) ->
@@ -132,6 +134,13 @@ parse file input =
                           pstateLinePrefix = ""
                         }
                   }
+
+-- | 'parseM' specialized to `Identity`.
+parse ::
+  FilePath ->
+  Text ->
+  Either (ParseErrorBundle Text MMarkErr) MMark
+parse = parseM
 
 ----------------------------------------------------------------------------
 -- Block parser

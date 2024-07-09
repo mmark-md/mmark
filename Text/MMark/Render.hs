@@ -26,6 +26,7 @@ where
 
 import Control.Arrow
 import Control.Monad
+import Control.Monad.Trans
 import Data.Char (isSpace)
 import Data.Function (fix)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -43,36 +44,46 @@ import Text.URI qualified as URI
 --     * to lazy 'Data.Taxt.Lazy.Text' with 'renderText'
 --     * to lazy 'Data.ByteString.Lazy.ByteString' with 'renderBS'
 --     * directly to file with 'renderToFile'
-render :: MMark -> Html ()
-render MMark {..} =
+renderM :: forall m. Monad m => MMarkT m -> HtmlT m ()
+renderM MMark {..} =
   mapM_ rBlock mmarkBlocks
   where
     Extension {..} = mmarkExtension
-    rBlock =
-      applyBlockRender extBlockRender
-        . fmap rInlines
-        . applyBlockTrans extBlockTrans
-    rInlines =
-      (mkOisInternal &&& mapM_ (applyInlineRender extInlineRender))
-        . fmap (applyInlineTrans extInlineTrans)
+
+    rBlock :: Monad m => Bni -> HtmlT m ()
+    rBlock x0 = do
+      x1 <- lift $ applyBlockTrans extBlockTrans x0
+      x2 <- lift $ traverse rInlines x1
+      applyBlockRender extBlockRender x2
+
+    rInlines :: Monad m => NonEmpty Inline -> m (Ois, HtmlT m ())
+    rInlines x0 = do
+      x1 <- traverse (applyInlineTrans extInlineTrans) x0
+      pure $ (mkOisInternal &&& mapM_ (applyInlineRender extInlineRender)) x1
+
+-- | 'renderM' specialized to `Identity`.
+render :: MMark -> Html ()
+render = renderM
 
 -- | Apply a 'Render' to a given @'Block' 'Html' ()@.
 --
 -- @since 0.0.8.0
 applyBlockRender ::
-  Render (Block (Ois, Html ())) ->
-  Block (Ois, Html ()) ->
-  Html ()
-applyBlockRender r = fix (runRender r . defaultBlockRender)
+  Monad m =>
+  RenderT m (Block (Ois, HtmlT m ())) ->
+  Block (Ois, HtmlT m ()) ->
+  HtmlT m ()
+applyBlockRender r = fix (appEndo r . defaultBlockRender)
 
 -- | The default 'Block' render.
 --
 -- @since 0.0.8.0
 defaultBlockRender ::
+  Monad m =>
   -- | Rendering function to use to render sub-blocks
-  (Block (Ois, Html ()) -> Html ()) ->
-  Block (Ois, Html ()) ->
-  Html ()
+  (Block (Ois, HtmlT m ()) -> HtmlT m ()) ->
+  Block (Ois, HtmlT m ()) ->
+  HtmlT m ()
 defaultBlockRender blockRender = \case
   ThematicBreak ->
     hr_ [] >> newline
@@ -144,17 +155,18 @@ defaultBlockRender blockRender = \case
 -- | Apply a render to a given 'Inline'.
 --
 -- @since 0.0.8.0
-applyInlineRender :: Render Inline -> Inline -> Html ()
-applyInlineRender r = fix (runRender r . defaultInlineRender)
+applyInlineRender :: Monad m => RenderT m Inline -> Inline -> HtmlT m ()
+applyInlineRender r = fix (appEndo r . defaultInlineRender)
 
 -- | The default render for 'Inline' elements.
 --
 -- @since 0.0.8.0
 defaultInlineRender ::
+  Monad m =>
   -- | Rendering function to use to render sub-inlines
-  (Inline -> Html ()) ->
+  (Inline -> HtmlT m ()) ->
   Inline ->
-  Html ()
+  HtmlT m ()
 defaultInlineRender inlineRender = \case
   Plain txt ->
     toHtml txt
@@ -182,5 +194,5 @@ defaultInlineRender inlineRender = \case
 -- | HTML containing a newline.
 --
 -- @since 0.0.8.0
-newline :: Html ()
+newline :: Monad m => HtmlT m ()
 newline = "\n"

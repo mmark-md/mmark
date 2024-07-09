@@ -82,14 +82,18 @@ module Text.MMark.Extension
     Block (..),
     CellAlign (..),
     blockTrans,
+    blockTransM,
     blockRender,
+    blockRenderM,
     Ois,
     getOis,
 
     -- ** Inline-level manipulation
     Inline (..),
     inlineTrans,
+    inlineTransM,
     inlineRender,
+    inlineRenderM,
 
     -- * Scanner construction
     scanner,
@@ -114,40 +118,62 @@ import Text.MMark.Util
 -- upwards. This has the benefit that the result of any transformation is
 -- final in the sense that sub-elements of resulting block won't be
 -- traversed again.
+blockTransM :: Monad m => (Bni -> m Bni) -> ExtensionT m
+blockTransM f = mempty {extBlockTrans = EndoM f}
+
+-- | 'blockTransM' specialized to `Identity`.
 blockTrans :: (Bni -> Bni) -> Extension
-blockTrans f = mempty {extBlockTrans = Endo f}
+blockTrans f = blockTransM (pure . f)
 
 -- | Create an extension that replaces or augments rendering of 'Block's of
--- markdown document. The argument of 'blockRender' will be given the
--- rendering function constructed so far @'Block' ('Ois', 'Html' ()) ->
--- 'Html' ()@ as well as an actual block to render—@'Block' ('Ois', 'Html'
--- ())@. The user can then decide whether to replace\/reuse that function to
--- get the final rendering of the type @'Html' ()@.
+-- markdown document. The argument of 'blockRenderM' will be given the
+-- rendering function constructed so far @'Block' ('Ois', 'HtmlT' m ()) ->
+-- 'HtmlT' m ()@ as well as an actual block to render—@'Block' ('Ois', 'HtmlT'
+-- m ())@. The user can then decide whether to replace\/reuse that function to
+-- get the final rendering of the type @'HtmlT' m ()@.
 --
--- The argument of 'blockRender' can also be thought of as a function that
+-- The argument of 'blockRenderM' can also be thought of as a function that
 -- transforms the rendering function constructed so far:
 --
--- > (Block (Ois, Html ()) -> Html ()) -> (Block (Ois, Html ()) -> Html ())
+-- > (Block (Ois, HtmlT m ()) -> HtmlT m ()) -> (Block (Ois, HtmlT m ()) -> HtmlT m ())
 --
 -- See also: 'Ois' and 'getOis'.
+blockRenderM ::
+  Monad m =>
+  ((Block (Ois, HtmlT m ()) -> HtmlT m ()) -> Block (Ois, HtmlT m ()) -> HtmlT m ()) ->
+  ExtensionT m
+blockRenderM f = mempty {extBlockRender = Endo f}
+
+-- | 'blockRenderM' specialized to `Identity`.
 blockRender ::
   ((Block (Ois, Html ()) -> Html ()) -> Block (Ois, Html ()) -> Html ()) ->
   Extension
-blockRender f = mempty {extBlockRender = Render f}
+blockRender = blockRenderM
 
 -- | Create an extension that performs a transformation on 'Inline'
--- components in entire markdown document. Similarly to 'blockTrans' the
+-- components in entire markdown document. Similarly to 'blockTransM' the
 -- transformation is applied from the most deeply nested elements moving
 -- upwards.
+inlineTransM :: Monad m => (Inline -> m Inline) -> ExtensionT m
+inlineTransM f = mempty {extInlineTrans = EndoM f}
+
+-- | 'blockTransM' specialized to `Identity`.
 inlineTrans :: (Inline -> Inline) -> Extension
-inlineTrans f = mempty {extInlineTrans = Endo f}
+inlineTrans f = inlineTransM (pure . f)
 
 -- | Create an extension that replaces or augments rendering of 'Inline's of
--- markdown document. This works like 'blockRender'.
+-- markdown document. This works like 'blockRenderM'.
+inlineRenderM ::
+  Monad m =>
+  ((Inline -> HtmlT m ()) -> Inline -> HtmlT m ()) ->
+  ExtensionT m
+inlineRenderM f = mempty {extInlineRender = Endo f}
+
+-- | 'inlineRender' specialized to `Identity`.
 inlineRender ::
   ((Inline -> Html ()) -> Inline -> Html ()) ->
   Extension
-inlineRender f = mempty {extInlineRender = Render f}
+inlineRender = inlineRenderM
 
 -- | Create a 'L.Fold' from an initial state and a folding function.
 scanner ::
