@@ -23,7 +23,7 @@ import Text.MMark.Internal.Type
 -- | Apply block transformation in the @'Endo' 'Bni'@ form to a block 'Bni'.
 --
 -- @since 0.0.8.0
-applyBlockTrans :: Monad m => EndoM m Bni -> Bni -> m Bni
+applyBlockTrans :: (Monad m) => EndoM m Bni -> Bni -> m Bni
 applyBlockTrans t@(EndoM f) = \case
   Blockquote xs -> s xs >>= f . Blockquote
   OrderedList w xs -> traverse s xs >>= f . OrderedList w
@@ -36,7 +36,7 @@ applyBlockTrans t@(EndoM f) = \case
 -- 'Inline'.
 --
 -- @since 0.0.8.0
-applyInlineTrans :: Monad m => EndoM m Inline -> Inline -> m Inline
+applyInlineTrans :: (Monad m) => EndoM m Inline -> Inline -> m Inline
 applyInlineTrans t@(EndoM f) = \case
   Emphasis xs -> s xs >>= f . Emphasis
   Strong xs -> s xs >>= f . Strong

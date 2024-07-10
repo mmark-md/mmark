@@ -21,7 +21,7 @@
 module Text.MMark.Parser
   ( MMarkErr (..),
     parse,
-    parseM
+    parseM,
   )
 where
 
@@ -96,7 +96,7 @@ data InlineState
 -- | Parse a markdown document in the form of a strict 'Text' value and
 -- either report parse errors or return an 'MMark' document.
 parseM ::
-  Monad m =>
+  (Monad m) =>
   -- | File name (only to be used in error messages), may be empty
   FilePath ->
   -- | Input to parse

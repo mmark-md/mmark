@@ -44,19 +44,19 @@ import Text.URI qualified as URI
 --     * to lazy 'Data.Taxt.Lazy.Text' with 'renderText'
 --     * to lazy 'Data.ByteString.Lazy.ByteString' with 'renderBS'
 --     * directly to file with 'renderToFile'
-renderM :: forall m. Monad m => MMarkT m -> HtmlT m ()
+renderM :: forall m. (Monad m) => MMarkT m -> HtmlT m ()
 renderM MMark {..} =
   mapM_ rBlock mmarkBlocks
   where
     Extension {..} = mmarkExtension
 
-    rBlock :: Monad m => Bni -> HtmlT m ()
+    rBlock :: Bni -> HtmlT m ()
     rBlock x0 = do
       x1 <- lift $ applyBlockTrans extBlockTrans x0
       x2 <- lift $ traverse rInlines x1
       applyBlockRender extBlockRender x2
 
-    rInlines :: Monad m => NonEmpty Inline -> m (Ois, HtmlT m ())
+    rInlines :: NonEmpty Inline -> m (Ois, HtmlT m ())
     rInlines x0 = do
       x1 <- traverse (applyInlineTrans extInlineTrans) x0
       pure $ (mkOisInternal &&& mapM_ (applyInlineRender extInlineRender)) x1
@@ -69,7 +69,7 @@ render = renderM
 --
 -- @since 0.0.8.0
 applyBlockRender ::
-  Monad m =>
+  (Monad m) =>
   RenderT m (Block (Ois, HtmlT m ())) ->
   Block (Ois, HtmlT m ()) ->
   HtmlT m ()
@@ -79,7 +79,7 @@ applyBlockRender r = fix (appEndo r . defaultBlockRender)
 --
 -- @since 0.0.8.0
 defaultBlockRender ::
-  Monad m =>
+  (Monad m) =>
   -- | Rendering function to use to render sub-blocks
   (Block (Ois, HtmlT m ()) -> HtmlT m ()) ->
   Block (Ois, HtmlT m ()) ->
@@ -155,14 +155,14 @@ defaultBlockRender blockRender = \case
 -- | Apply a render to a given 'Inline'.
 --
 -- @since 0.0.8.0
-applyInlineRender :: Monad m => RenderT m Inline -> Inline -> HtmlT m ()
+applyInlineRender :: (Monad m) => RenderT m Inline -> Inline -> HtmlT m ()
 applyInlineRender r = fix (appEndo r . defaultInlineRender)
 
 -- | The default render for 'Inline' elements.
 --
 -- @since 0.0.8.0
 defaultInlineRender ::
-  Monad m =>
+  (Monad m) =>
   -- | Rendering function to use to render sub-inlines
   (Inline -> HtmlT m ()) ->
   Inline ->
@@ -194,5 +194,5 @@ defaultInlineRender inlineRender = \case
 -- | HTML containing a newline.
 --
 -- @since 0.0.8.0
-newline :: Monad m => HtmlT m ()
+newline :: (Monad m) => HtmlT m ()
 newline = "\n"

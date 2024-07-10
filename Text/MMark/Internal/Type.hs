@@ -41,6 +41,7 @@ import Control.Foldl (EndoM (..))
 import Data.Aeson
 import Data.Data (Data)
 import Data.Function (on)
+import Data.Functor.Identity
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Data.Text (Text)
@@ -48,7 +49,6 @@ import Data.Typeable (Typeable)
 import GHC.Generics
 import Lucid
 import Text.URI (URI (..))
-import Data.Functor.Identity
 
 -- | Representation of complete markdown document. You can't look inside of
 -- 'MMarkT' on purpose. The only way to influence an 'MMarkT' document you
@@ -109,7 +109,7 @@ data ExtensionT m = Extension
 -- | 'ExtensionT' specialized to `Identity`.
 type Extension = ExtensionT Identity
 
-instance Monad m => Semigroup (ExtensionT m) where
+instance (Monad m) => Semigroup (ExtensionT m) where
   x <> y =
     Extension
       { extBlockTrans = on (<>) extBlockTrans x y,
@@ -118,7 +118,7 @@ instance Monad m => Semigroup (ExtensionT m) where
         extInlineRender = on (<>) extInlineRender x y
       }
 
-instance Monad m => Monoid (ExtensionT m) where
+instance (Monad m) => Monoid (ExtensionT m) where
   mempty =
     Extension
       { extBlockTrans = mempty,
