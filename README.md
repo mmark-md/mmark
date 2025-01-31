@@ -4,7 +4,7 @@
 [![Hackage](https://img.shields.io/hackage/v/mmark.svg?style=flat)](https://hackage.haskell.org/package/mmark)
 [![Stackage Nightly](http://stackage.org/package/mmark/badge/nightly)](http://stackage.org/nightly/package/mmark)
 [![Stackage LTS](http://stackage.org/package/mmark/badge/lts)](http://stackage.org/lts/package/mmark)
-![CI](https://github.com/mmark-md/mmark/workflows/CI/badge.svg?branch=master)
+[![CI](https://github.com/mmark-md/mmark/actions/workflows/ci.yaml/badge.svg)](https://github.com/mmark-md/mmark/actions/workflows/ci.yaml)
 
 * [Quick start: MMark vs GitHub-flavored markdown](#quick-start-mmark-vs-github-flavored-markdown)
 * [MMark and Common Mark](#mmark-and-common-mark)
