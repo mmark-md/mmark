@@ -18,9 +18,14 @@
 --
 -- @since 0.0.8.0
 module Text.MMark.Internal.Type
-  ( MMark (..),
-    Extension (..),
-    Render (..),
+  ( MMark,
+    MMarkT (..),
+    Endo (..),
+    EndoM (..),
+    Extension,
+    ExtensionT (..),
+    Render,
+    RenderT,
     Bni,
     Block (..),
     CellAlign (..),
@@ -32,9 +37,11 @@ module Text.MMark.Internal.Type
 where
 
 import Control.DeepSeq
+import Control.Foldl (EndoM (..))
 import Data.Aeson
 import Data.Data (Data)
 import Data.Function (on)
+import Data.Functor.Identity
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Data.Text (Text)
@@ -44,24 +51,27 @@ import Lucid
 import Text.URI (URI (..))
 
 -- | Representation of complete markdown document. You can't look inside of
--- 'MMark' on purpose. The only way to influence an 'MMark' document you
+-- 'MMarkT' on purpose. The only way to influence an 'MMarkT' document you
 -- obtain as a result of parsing is via the extension mechanism.
-data MMark = MMark
+data MMarkT m = MMark
   { -- | Parsed YAML document at the beginning (optional)
     mmarkYaml :: Maybe Value,
     -- | Actual contents of the document
     mmarkBlocks :: [Bni],
     -- | Extension specifying how to process and render the blocks
-    mmarkExtension :: Extension
+    mmarkExtension :: ExtensionT m
   }
 
-instance NFData MMark where
+-- | 'MMarkT' specialized to `Identity`.
+type MMark = MMarkT Identity
+
+instance NFData (MMarkT m) where
   rnf MMark {..} = rnf mmarkYaml `seq` rnf mmarkBlocks
 
 -- | Dummy instance.
 --
 -- @since 0.0.5.0
-instance Show MMark where
+instance Show (MMarkT m) where
   show = const "MMark {..}"
 
 -- | An extension. You can apply extensions with 'Text.MMark.useExtension'
@@ -85,18 +95,21 @@ instance Show MMark where
 -- Here, @e0@ will be applied first, then @e1@, then @e2@. The same applies
 -- to expressions involving 'mconcat'—extensions closer to beginning of the
 -- list passed to 'mconcat' will be applied later.
-data Extension = Extension
+data ExtensionT m = Extension
   { -- | Block transformation
-    extBlockTrans :: Endo Bni,
+    extBlockTrans :: EndoM m Bni,
     -- | Block render
-    extBlockRender :: Render (Block (Ois, Html ())),
+    extBlockRender :: RenderT m (Block (Ois, HtmlT m ())),
     -- | Inline transformation
-    extInlineTrans :: Endo Inline,
+    extInlineTrans :: EndoM m Inline,
     -- | Inline render
-    extInlineRender :: Render Inline
+    extInlineRender :: RenderT m Inline
   }
 
-instance Semigroup Extension where
+-- | 'ExtensionT' specialized to `Identity`.
+type Extension = ExtensionT Identity
+
+instance (Monad m) => Semigroup (ExtensionT m) where
   x <> y =
     Extension
       { extBlockTrans = on (<>) extBlockTrans x y,
@@ -105,7 +118,7 @@ instance Semigroup Extension where
         extInlineRender = on (<>) extInlineRender x y
       }
 
-instance Monoid Extension where
+instance (Monad m) => Monoid (ExtensionT m) where
   mempty =
     Extension
       { extBlockTrans = mempty,
@@ -117,18 +130,13 @@ instance Monoid Extension where
 
 -- | An internal type that captures the extensible rendering process we use.
 -- 'Render' has a function inside which transforms a rendering function of
--- the type @a -> Html ()@.
+-- the type @a -> HtmlT m ()@.
 --
 -- @since 0.0.8.0
-newtype Render a = Render
-  {runRender :: (a -> Html ()) -> a -> Html ()}
+type RenderT m a = Endo (a -> HtmlT m ())
 
-instance Semigroup (Render a) where
-  Render f <> Render g = Render (f . g)
-
-instance Monoid (Render a) where
-  mempty = Render id
-  mappend = (<>)
+-- | 'RenderT' specialized to `Identity`.
+type Render a = RenderT Identity a
 
 -- | A shortcut for the frequently used type @'Block' ('NonEmpty'
 -- 'Inline')@.
@@ -178,7 +186,7 @@ data Block a
     --
     -- @since 0.0.4.0
     Table (NonEmpty CellAlign) (NonEmpty (NonEmpty a))
-  deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor, Foldable)
+  deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor, Foldable, Traversable)
 
 instance (NFData a) => NFData (Block a)
 
