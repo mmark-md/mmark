@@ -58,7 +58,6 @@ import Data.List.NonEmpty qualified as NE
 import Data.Proxy
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Typeable (Typeable)
 import GHC.Generics
 import Lens.Micro.TH
 import Text.Megaparsec
@@ -198,7 +197,7 @@ data MMarkErr
     --
     -- @since 0.0.3.0
     UnknownHtmlEntityName Text
-  deriving (Eq, Ord, Show, Read, Generic, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Generic, Data)
 
 instance ShowErrorComponent MMarkErr where
   showErrorComponent = \case
