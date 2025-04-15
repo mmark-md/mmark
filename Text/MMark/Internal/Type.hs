@@ -38,7 +38,6 @@ import Data.Function (on)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Monoid hiding ((<>))
 import Data.Text (Text)
-import Data.Typeable (Typeable)
 import GHC.Generics
 import Lucid
 import Text.URI (URI (..))
@@ -178,7 +177,7 @@ data Block a
     --
     -- @since 0.0.4.0
     Table (NonEmpty CellAlign) (NonEmpty (NonEmpty a))
-  deriving (Show, Eq, Ord, Data, Typeable, Generic, Functor, Foldable)
+  deriving (Show, Eq, Ord, Data, Generic, Functor, Foldable)
 
 instance (NFData a) => NFData (Block a)
 
@@ -194,7 +193,7 @@ data CellAlign
     CellAlignRight
   | -- | Center-alignment
     CellAlignCenter
-  deriving (Show, Eq, Ord, Data, Typeable, Generic)
+  deriving (Show, Eq, Ord, Data, Generic)
 
 instance NFData CellAlign
 
@@ -220,7 +219,7 @@ data Inline
     Link (NonEmpty Inline) URI (Maybe Text)
   | -- | Image with description, URL, and optionally title
     Image (NonEmpty Inline) URI (Maybe Text)
-  deriving (Show, Eq, Ord, Data, Typeable, Generic)
+  deriving (Show, Eq, Ord, Data, Generic)
 
 instance NFData Inline
 
