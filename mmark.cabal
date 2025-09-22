@@ -57,7 +57,7 @@ library
         html-entity-map >=0.1 && <0.2,
         lucid >=2.9.13 && <3,
         megaparsec >=8 && <10,
-        microlens >=0.4 && <0.5,
+        microlens >=0.4 && <0.6,
         microlens-th >=0.4 && <0.5,
         modern-uri >=0.3.4.4 && <0.4,
         mtl >=2 && <3,
