@@ -45,9 +45,9 @@ asPlainText = foldMap $ \case
   Link xs _ _ -> asPlainText xs
   Image xs _ _ -> asPlainText xs
 
--- | Generate value of id attribute for a given header. This is used during
--- rendering and also can be used to get id of a header for linking to it in
--- extensions.
+-- | Generate the value of the id attribute for a given header. This is used
+-- during rendering and also can be used to get the id of a header for
+-- linking to it in extensions.
 --
 -- See also: 'headerFragment'.
 --
@@ -61,7 +61,7 @@ headerId =
     . asPlainText
 
 -- | Generate a 'URI' containing only a fragment from its textual
--- representation. Useful for getting URL from id of a header.
+-- representation. Useful for getting a URL from the id of a header.
 --
 -- @since 0.0.8.0
 headerFragment :: Text -> URI

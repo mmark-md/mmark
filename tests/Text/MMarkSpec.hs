@@ -63,9 +63,9 @@ spec = parallel $ do
         "#\tFoo" ==-> "<h1 id=\"foo\">Foo</h1>\n"
       it "CM11" $
         "*\t*\t*\t" ==-> "<hr>\n"
-    context "3.1 Precedence" $
-      it "CM12" $
-        let s = "- `one\n- two`"
+    context "3.1 Precedence"
+      $ it "CM12"
+      $ let s = "- `one\n- two`"
          in s
               ~~-> [ err 6 (ueib <> etok '`' <> ecsc),
                      err 13 (ueib <> etok '`' <> ecsc)
@@ -499,10 +499,10 @@ spec = parallel $ do
       it "CM189" $
         "aaa     \nbbb     "
           ==-> "<p>aaa\nbbb</p>\n"
-    context "4.9 Blank lines" $
-      it "CM190" $
-        "  \n\naaa\n  \n\n# aaa\n\n  "
-          ==-> "<p>aaa</p>\n<h1 id=\"aaa\">aaa</h1>\n"
+    context "4.9 Blank lines"
+      $ it "CM190"
+      $ "  \n\naaa\n  \n\n# aaa\n\n  "
+        ==-> "<p>aaa</p>\n<h1 id=\"aaa\">aaa</h1>\n"
     context "5.1 Block quotes" $ do
       it "CM191" $
         "> # Foo\n  bar\n  baz"
@@ -800,9 +800,9 @@ spec = parallel $ do
       it "CM287" $
         "- a\n  - b\n  - c\n\n- d\n  - e\n  - f"
           ==-> "<ul>\n<li>\na\n<ul>\n<li>\nb\n</li>\n<li>\nc\n</li>\n</ul>\n</li>\n<li>\nd\n<ul>\n<li>\ne\n</li>\n<li>\nf\n</li>\n</ul>\n</li>\n</ul>\n"
-    context "6 Inlines" $
-      it "CM288" $
-        let s = "`hi`lo`\n"
+    context "6 Inlines"
+      $ it "CM288"
+      $ let s = "`hi`lo`\n"
          in s ~-> err 7 (ueib <> etok '`' <> ecsc)
     context "6.1 Blackslash escapes" $ do
       it "CM289" $
@@ -1866,15 +1866,15 @@ spec = parallel $ do
       it "a composite, complex example" $
         "***Something ~~~is not~~ going~ ^so well^** today*."
           ==-> "<p><em><strong>Something <sub><del>is not</del> going</sub> <sup>so well</sup></strong> today</em>.</p>\n"
-    context "collapsed reference links (special cases)" $
-      it "offsets after such links are still correct" $
-        "[foo][] *foo\n\n[foo]: https://example.org"
-          ~-> err
-            12
-            (ueib <> etok '*' <> eic)
-    context "title parse errors" $
-      it "parse error is OK in reference definitions" $
-        let s = "[something]: something something"
+    context "collapsed reference links (special cases)"
+      $ it "offsets after such links are still correct"
+      $ "[foo][] *foo\n\n[foo]: https://example.org"
+        ~-> err
+          12
+          (ueib <> etok '*' <> eic)
+    context "title parse errors"
+      $ it "parse error is OK in reference definitions"
+      $ let s = "[something]: something something"
          in s
               ~-> err
                 23
@@ -2022,9 +2022,9 @@ spec = parallel $ do
                  errFancy 16 (indexNonCons 4 3),
                  err 23 e
                ]
-    context "given a complete, comprehensive document" $
-      it "outputs expected the HTML fragment" $
-        withFiles "data/comprehensive.md" "data/comprehensive.html"
+    context "given a complete, comprehensive document"
+      $ it "outputs expected the HTML fragment"
+      $ withFiles "data/comprehensive.md" "data/comprehensive.html"
   describe "useExtension" $
     it "applies given extension" $ do
       doc <- mkDoc "Here we go."

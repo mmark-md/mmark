@@ -171,7 +171,7 @@ pYamlBlock = do
 pBlocks :: BParser [Block Isp]
 pBlocks = catMaybes <$> many pBlock
 
--- | Parse a single block of markdown document.
+-- | Parse a single block of a markdown document.
 pBlock :: BParser (Maybe (Block Isp))
 pBlock = do
   sc
@@ -302,7 +302,7 @@ pIndentedCodeBlock = do
   ls <- g . ($ []) <$> go id
   CodeBlock Nothing (assembleCodeBlock clevel ls) <$ sc
 
--- | Parse an unorederd list.
+-- | Parse an unordered list.
 pUnorderedList :: BParser (Block Isp)
 pUnorderedList = do
   (bullet, bulletPos, minLevel, indLevel) <-
@@ -1172,8 +1172,8 @@ isEmailUri uri =
         else Nothing
     _ -> Nothing
 
--- | Decode the yaml block to a 'Aeson.Value'. On GHCJs, without access to
--- libyaml we just return an empty object. It's worth using a pure haskell
+-- | Decode the yaml block to an 'Aeson.Value'. On GHCJS, without access to
+-- libyaml, we just return an empty object. It's worth using a pure Haskell
 -- parser later if this is unacceptable for someone's needs.
 decodeYaml :: [T.Text] -> Int -> (Either (Int, String) Aeson.Value)
 #ifdef ghcjs_HOST_OS

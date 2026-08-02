@@ -42,7 +42,7 @@ import GHC.Generics
 import Lucid
 import Text.URI (URI (..))
 
--- | Representation of complete markdown document. You can't look inside of
+-- | Representation of a complete markdown document. You can't look inside of
 -- 'MMark' on purpose. The only way to influence an 'MMark' document you
 -- obtain as a result of parsing is via the extension mechanism.
 data MMark = MMark
@@ -82,8 +82,8 @@ instance Show MMark where
 -- > e2 <> e1 <> e0 == e2 <> (e1 <> e0)
 --
 -- Here, @e0@ will be applied first, then @e1@, then @e2@. The same applies
--- to expressions involving 'mconcat'—extensions closer to beginning of the
--- list passed to 'mconcat' will be applied later.
+-- to expressions involving 'mconcat'—extensions closer to the beginning of
+-- the list passed to 'mconcat' will be applied later.
 data Extension = Extension
   { -- | Block transformation
     extBlockTrans :: Endo Bni,

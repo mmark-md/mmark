@@ -10,12 +10,12 @@
 -- Portability :  portable
 --
 -- MMark (read “em-mark”) is a strict markdown processor for writers.
--- “Strict” means that not every input is considered valid markdown document
--- and parse errors are possible and even desirable, because they allow us
--- to spot markup issues without searching for them in rendered document. If
--- a markdown document passes the MMark parser, then it'll likely produce
--- HTML without quirks. This feature makes it a good choice for writers and
--- bloggers.
+-- “Strict” means that not every input is considered a valid markdown
+-- document and parse errors are possible and even desirable, because they
+-- allow us to spot markup issues without searching for them in the rendered
+-- document. If a markdown document passes the MMark parser, then it'll
+-- likely produce HTML without quirks. This feature makes it a good choice
+-- for writers and bloggers.
 --
 -- === MMark and Common Mark
 --
@@ -25,12 +25,12 @@
 --
 -- However, due to the fact that we do not allow inputs that do not make
 -- sense, and also try to guard against common mistakes (like writing @##My
--- header@ and having it rendered as a paragraph starting with hashes) MMark
+-- header@ and having it rendered as a paragraph starting with hashes), MMark
 -- obviously can't follow the specification precisely. In particular,
 -- parsing of inlines differs considerably from Common Mark.
 --
 -- Another difference between Common Mark and MMark is that the latter
--- supports more (pun alert) common markdown extensions out-of-the-box. In
+-- supports more (pun alert) common markdown extensions out of the box. In
 -- particular, MMark supports:
 --
 --     * parsing of an optional YAML block
@@ -55,11 +55,11 @@
 --
 -- Working with MMark happens in three stages:
 --
---     1. Parsing of markdown document.
---     2. Applying extensions, which optionally may require scanning of
+--     1. Parsing of a markdown document.
+--     2. Applying extensions, which optionally may require scanning of the
 --        previously parsed document (for example to build a table of
 --        contents).
---     3. Rendering of HTML document.
+--     3. Rendering of an HTML document.
 --
 -- The structure of the documentation below corresponds to these stages and
 -- should clarify the details.
@@ -157,7 +157,7 @@ useExtension ext mmark =
 -- > useExtensions exts = useExtension (mconcat exts)
 --
 -- As mentioned in the docs for 'useExtension', the order in which you apply
--- extensions matters. Extensions closer to beginning of the list are
+-- extensions matters. Extensions closer to the beginning of the list are
 -- applied later, i.e. the last extension in the list is applied first.
 useExtensions :: [Extension] -> MMark -> MMark
 useExtensions exts = useExtension (mconcat exts)

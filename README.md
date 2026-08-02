@@ -17,11 +17,11 @@
 * [License](#license)
 
 MMark (read “em-mark”) is a strict markdown processor for writers. “Strict”
-means that not every input is considered valid markdown document and parse
+means that not every input is considered a valid markdown document and parse
 errors are possible and even desirable, because they allow us to spot markup
-issues without searching for them in rendered document. If a markdown
-document passes the MMark parser, then it is likely to produce an HTML
-output without quirks. This feature makes it a good choice for writers and
+issues without searching for them in the rendered document. If a markdown
+document passes the MMark parser, then it is likely to produce HTML output
+without quirks. This feature makes it a good choice for writers and
 bloggers.
 
 MMark in its current state features:
@@ -33,7 +33,7 @@ MMark in its current state features:
 * An extension system that allows us to create extensions that alter parsed
   markdown document in some way.
 
-* A [`lucid`](https://hackage.haskell.org/package/lucid)-based render.
+* A [`lucid`](https://hackage.haskell.org/package/lucid)-based renderer.
 
 There is also a blog post announcing the project:
 
@@ -44,7 +44,7 @@ https://markkarpov.com/post/announcing-mmark.html
 It's easy to start using MMark if you're used to GitHub-flavored markdown.
 There are four main differences:
 
-1. URIs are not automatically recognized, you must enclose them in `<` and
+1. URIs are not automatically recognized; you must enclose them in `<` and
    `>`.
 
 2. Block quotes require only one `>` and they continue as long as the inner
@@ -76,12 +76,12 @@ https://spec.commonmark.org/0.28/
 
 However, due to the fact that we do not allow inputs that do not make sense,
 and also try to guard against common mistakes (like writing `##My header`
-and having it rendered as a paragraph starting with hashes) MMark obviously
+and having it rendered as a paragraph starting with hashes), MMark obviously
 can't follow the specification precisely. In particular, parsing of inlines
 differs considerably from Common Mark (see below).
 
 Another difference between Common Mark and MMark is that the latter supports
-more (pun alert) common markdown extensions out-of-the-box. In particular,
+more (pun alert) common markdown extensions out of the box. In particular,
 MMark supports:
 
 * parsing of an optional YAML block
@@ -98,10 +98,10 @@ built-in features.
 
 Emphasis and strong emphasis is an especially hairy topic in the Common Mark
 specification. There are 17 ad-hoc rules defining the interaction between
-`*` and `_` -based emphasis and more than an half of all Common Mark
+`*` and `_` -based emphasis and more than half of all Common Mark
 examples (that's about 300) test just this.
 
-Not only it is hard to implement, it's hard to understand for humans too.
+Not only is it hard to implement, it's hard to understand for humans too.
 For example, this input:
 
 ```
@@ -122,9 +122,9 @@ Could it produce something like this instead?
 <p><em>(</em>foo<em>)</em></p>
 ```
 
-Well, why not? Without remembering those 17 ad-hoc rules, there going to be
-a lot of tricky cases when the user won't be able to tell how markdown will
-be parsed.
+Well, why not? Without remembering those 17 ad-hoc rules, there are going to
+be a lot of tricky cases when the user won't be able to tell how markdown
+will be parsed.
 
 I decided to make parsing of emphasis, strong emphasis, and similar
 constructs like strikethrough, subscript, and superscript more symmetric and
@@ -156,7 +156,7 @@ Next, let's assign *levels* to all groups but **markup characters**:
 When **markup characters** or **punctuation characters** are escaped with
 backslash they become **other characters**.
 
-We'll call **markdown characters** placed between a character of level `L`
+We'll call **markup characters** placed between a character of level `L`
 and a character of level `R` *left-flanking delimiter run* if and only if:
 
 ```
@@ -165,7 +165,7 @@ level(L) < level(R)
 
 These **markup characters** sort of hang on the left hand side of a word.
 
-Similarly we'll call **markdown characters** placed between a character of
+Similarly we'll call **markup characters** placed between a character of
 level `L` and a character of level `R` *right-flanking delimiter run* if and
 only if:
 
@@ -244,15 +244,15 @@ Inline-level parsing:
 * All URI references (in links, images, autolinks, etc.) are parsed as per
   RFC 3986, no support for escaping or support for entity and numeric
   character references is provided. In addition to that, when a URI
-  reference in not enclosed with `<` and `>`, then closing parenthesis
-  character `)` is not considered part of URI (use `<uri>` syntax if you
+  reference is not enclosed with `<` and `>`, then the closing parenthesis
+  character `)` is not considered part of the URI (use `<uri>` syntax if you
   want a closing parenthesis as part of a URI). Since the empty string is a
   valid URI and it may be confusing in some cases, we also force the user to
   write `<>` to represent the empty URI.
-* Putting links in text of another link is not allowed, i.e. no nested links
-  is possible.
-* Putting images in description of other images is not allowed (similarly to
-  the situation with links).
+* Putting links in the text of another link is not allowed, i.e. no nested
+  links are possible.
+* Putting images in the description of other images is not allowed (similarly
+  to the situation with links).
 * HTML inlines are not supported for the same reason why HTML blocks are not
   supported.
 
@@ -305,4 +305,4 @@ Pull requests are also welcome.
 
 Copyright © 2017–present Mark Karpov
 
-Distributed under BSD 3 clause license.
+Distributed under the BSD 3-clause license.

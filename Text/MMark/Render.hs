@@ -37,10 +37,10 @@ import Text.MMark.Trans
 import Text.MMark.Util
 import Text.URI qualified as URI
 
--- | Render a 'MMark' markdown document. You can then render @'Html' ()@ to
+-- | Render an 'MMark' markdown document. You can then render @'Html' ()@ to
 -- various things:
 --
---     * to lazy 'Data.Taxt.Lazy.Text' with 'renderText'
+--     * to lazy 'Data.Text.Lazy.Text' with 'renderText'
 --     * to lazy 'Data.ByteString.Lazy.ByteString' with 'renderBS'
 --     * directly to file with 'renderToFile'
 render :: MMark -> Html ()

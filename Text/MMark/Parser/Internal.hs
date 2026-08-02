@@ -86,7 +86,7 @@ runBParser p file input =
 isNakedAllowed :: BParser Bool
 isNakedAllowed = gets (^. bstAllowNaked)
 
--- | Lookup current reference indentation level.
+-- | Look up the current reference indentation level.
 refLevel :: BParser Pos
 refLevel = gets (^. bstRefLevel)
 
@@ -190,7 +190,7 @@ lastChar :: CharType -> IParser ()
 lastChar = modify' . set istLastChar
 {-# INLINE lastChar #-}
 
--- | Lookup a link\/image reference definition.
+-- | Look up a link\/image reference definition.
 lookupReference ::
   -- | Reference name
   Text ->
@@ -199,7 +199,7 @@ lookupReference ::
   IParser (Either [Text] (URI, Maybe Text))
 lookupReference = lookupGeneric referenceDefs
 
--- | A generic function for looking up definition in 'IParser'.
+-- | A generic function for looking up a definition in 'IParser'.
 lookupGeneric ::
   -- | How to access the definition map
   Lens' Defs (HashMap DefLabel a) ->

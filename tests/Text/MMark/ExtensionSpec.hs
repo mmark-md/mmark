@@ -60,9 +60,9 @@ spec = parallel $ do
       it "works" $
         property $ \txt ->
           f (Plain txt) `shouldBe` txt
-    context "with LineBreak" $
-      it "works" $
-        f LineBreak `shouldBe` "\n"
+    context "with LineBreak"
+      $ it "works"
+      $ f LineBreak `shouldBe` "\n"
     context "with Emphasis" $
       it "works" $
         property $ \txt ->
@@ -95,10 +95,10 @@ spec = parallel $ do
       it "works" $
         property $ \txt uri ->
           f (Image (Plain txt :| []) uri Nothing) `shouldBe` txt
-  describe "headerId" $
-    it "works" $
-      Ext.headerId (Plain "Something like that" :| [])
-        `shouldBe` "something-like-that"
+  describe "headerId"
+    $ it "works"
+    $ Ext.headerId (Plain "Something like that" :| [])
+      `shouldBe` "something-like-that"
   describe "headerFragment" $
     it "generates URIs with just that fragment" $
       property $ \fragment -> do

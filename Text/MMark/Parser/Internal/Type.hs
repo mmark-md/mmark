@@ -175,8 +175,8 @@ data MMarkErr
     --
     -- @since 0.0.2.0
     ListStartIndexTooBig Word
-  | -- | The index in an ordered list is out of order, first number is the
-    -- actual index we ran into, the second number is the expected index
+  | -- | The index in an ordered list is out of order; the first number is
+    -- the actual index we ran into, the second number is the expected index
     --
     -- @since 0.0.2.0
     ListIndexOutOfOrder Word Word

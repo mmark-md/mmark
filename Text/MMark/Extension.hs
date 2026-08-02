@@ -108,7 +108,7 @@ import Lucid
 import Text.MMark.Internal.Type
 import Text.MMark.Util
 
--- | Create an extension that performs a transformation on 'Block's of
+-- | Create an extension that performs a transformation on 'Block's of a
 -- markdown document. Since a block may contain other blocks we choose to
 -- perform transformations from the most deeply nested blocks moving
 -- upwards. This has the benefit that the result of any transformation is
@@ -117,7 +117,7 @@ import Text.MMark.Util
 blockTrans :: (Bni -> Bni) -> Extension
 blockTrans f = mempty {extBlockTrans = Endo f}
 
--- | Create an extension that replaces or augments rendering of 'Block's of
+-- | Create an extension that replaces or augments rendering of 'Block's of a
 -- markdown document. The argument of 'blockRender' will be given the
 -- rendering function constructed so far @'Block' ('Ois', 'Html' ()) ->
 -- 'Html' ()@ as well as an actual block to render—@'Block' ('Ois', 'Html'
@@ -136,13 +136,13 @@ blockRender ::
 blockRender f = mempty {extBlockRender = Render f}
 
 -- | Create an extension that performs a transformation on 'Inline'
--- components in entire markdown document. Similarly to 'blockTrans' the
+-- components in the entire markdown document. Similarly to 'blockTrans' the
 -- transformation is applied from the most deeply nested elements moving
 -- upwards.
 inlineTrans :: (Inline -> Inline) -> Extension
 inlineTrans f = mempty {extInlineTrans = Endo f}
 
--- | Create an extension that replaces or augments rendering of 'Inline's of
+-- | Create an extension that replaces or augments rendering of 'Inline's of a
 -- markdown document. This works like 'blockRender'.
 inlineRender ::
   ((Inline -> Html ()) -> Inline -> Html ()) ->
