@@ -150,7 +150,7 @@
 
 ## MMark 0.0.3.0
 
-* Code can interrupt paragraphs now, as per Common Mark spec.
+* Code can interrupt paragraphs now, as per CommonMark spec.
 
 * Implemented parsing of reference-links (including collapsed and
   shortcut-style links).

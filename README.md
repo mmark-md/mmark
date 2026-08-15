@@ -7,7 +7,7 @@
 [![CI](https://github.com/mmark-md/mmark/actions/workflows/ci.yaml/badge.svg)](https://github.com/mmark-md/mmark/actions/workflows/ci.yaml)
 
 * [Quick start: MMark vs GitHub-flavored markdown](#quick-start-mmark-vs-github-flavored-markdown)
-* [MMark and Common Mark](#mmark-and-common-mark)
+* [MMark and CommonMark](#mmark-and-commonmark)
     * [Differences in inline parsing](#differences-in-inline-parsing)
     * [Other differences](#other-differences)
 * [About MMark-specific extensions](#about-mmark-specific-extensions)
@@ -68,9 +68,9 @@ There are four main differences:
 
 4. See [differences in inline parsing](#differences-in-inline-parsing).
 
-## MMark and Common Mark
+## MMark and CommonMark
 
-MMark mostly tries to follow the Common Mark specification as given here:
+MMark mostly tries to follow the CommonMark specification as given here:
 
 https://spec.commonmark.org/0.28/
 
@@ -78,9 +78,9 @@ However, due to the fact that we do not allow inputs that do not make sense,
 and also try to guard against common mistakes (like writing `##My header`
 and having it rendered as a paragraph starting with hashes), MMark obviously
 can't follow the specification precisely. In particular, parsing of inlines
-differs considerably from Common Mark (see below).
+differs considerably from CommonMark (see below).
 
-Another difference between Common Mark and MMark is that the latter supports
+Another difference between CommonMark and MMark is that the latter supports
 more (pun alert) common markdown extensions out of the box. In particular,
 MMark supports:
 
@@ -96,9 +96,9 @@ built-in features.
 
 ### Differences in inline parsing
 
-Emphasis and strong emphasis is an especially hairy topic in the Common Mark
+Emphasis and strong emphasis is an especially hairy topic in the CommonMark
 specification. There are 17 ad-hoc rules defining the interaction between
-`*` and `_` -based emphasis and more than half of all Common Mark
+`*` and `_` -based emphasis and more than half of all CommonMark
 examples (that's about 300) test just this.
 
 Not only is it hard to implement, it's hard to understand for humans too.
@@ -128,7 +128,7 @@ will be parsed.
 
 I decided to make parsing of emphasis, strong emphasis, and similar
 constructs like strikethrough, subscript, and superscript more symmetric and
-less ad-hoc. In 99% of practical cases it is identical to Common Mark, and
+less ad-hoc. In 99% of practical cases it is identical to CommonMark, and
 normal markdown intuitions will work OK for the users.
 
 Let's start by dividing all characters into four groups:

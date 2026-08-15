@@ -17,9 +17,9 @@
 -- likely produce HTML without quirks. This feature makes it a good choice
 -- for writers and bloggers.
 --
--- === MMark and Common Mark
+-- === MMark and CommonMark
 --
--- MMark mostly tries to follow the Common Mark specification as given here:
+-- MMark mostly tries to follow the CommonMark specification as given here:
 --
 -- <https://spec.commonmark.org/0.28/>
 --
@@ -27,9 +27,9 @@
 -- sense, and also try to guard against common mistakes (like writing @##My
 -- header@ and having it rendered as a paragraph starting with hashes), MMark
 -- obviously can't follow the specification precisely. In particular,
--- parsing of inlines differs considerably from Common Mark.
+-- parsing of inlines differs considerably from CommonMark.
 --
--- Another difference between Common Mark and MMark is that the latter
+-- Another difference between CommonMark and MMark is that the latter
 -- supports more (pun alert) common markdown extensions out of the box. In
 -- particular, MMark supports:
 --
@@ -44,7 +44,7 @@
 -- built-in features.
 --
 -- The readme contains a more detailed description of differences between
--- Common Mark and MMark.
+-- CommonMark and MMark.
 --
 -- === How to use the library
 --
