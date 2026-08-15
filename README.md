@@ -42,31 +42,14 @@ https://markkarpov.com/post/announcing-mmark.html
 ## Quick start: MMark vs GitHub-flavored markdown
 
 It's easy to start using MMark if you're used to GitHub-flavored markdown.
-There are four main differences:
+There are three main differences:
 
 1. URIs are not automatically recognized; you must enclose them in `<` and
    `>`.
 
-2. Block quotes require only one `>` and they continue as long as the inner
-   content is indented.
+2. HTML blocks and inline HTML are not supported.
 
-   This is OK:
-
-   ```
-   > Here goes my block quote.
-     And this is the second line of the quote.
-   ```
-
-   This produces *two* block quotes:
-
-   ```
-   > Here goes my block quote.
-   > And this is another block quote!
-   ```
-
-3. HTML blocks and inline HTML are not supported.
-
-4. See [differences in inline parsing](#differences-in-inline-parsing).
+3. See [differences in inline parsing](#differences-in-inline-parsing).
 
 ## MMark and CommonMark
 
@@ -222,14 +205,11 @@ Block-level parsing:
 * Setext headings are not supported for the sake of simplicity.
 * Fenced code blocks must be explicitly closed by a closing fence. They are
   not closed by the end of document or by start of another block.
-* Lists and block quotes are defined by column at which their content
-  starts. Content belonging to a particular list or block quote should start
-  at the same column (or greater column, up to the column where indented
-  code blocks start). As a consequence of this, block quotes do not feature
-  “laziness”.
-* Block quotes are started by a single `>` character, it's not necessary to
-  put a `>` character at beginning of every line belonging to a quote (in
-  fact, this would make every line a separate block quote).
+* Lists are defined by column at which their content starts. Content
+  belonging to a particular list should start at the same column (or greater
+  column, up to the column where indented code blocks start). As a
+  consequence of this, lists do not feature “laziness”, unlike in
+  CommonMark.
 * Paragraphs can be interrupted by unordered and ordered lists with any
   valid starting index.
 * HTML blocks are not supported because the syntax conflicts with autolinks

@@ -1,3 +1,24 @@
+## Unpublished
+
+* Block quotes now follow the CommonMark specification. Every line of a
+  block quote must begin with a `>` character, one per level of nesting,
+  instead of the quote continuing for as long as its content is indented.
+  Paragraphs inside a block quote can be continued lazily, that is, on lines
+  that lack the character. Note that fenced code blocks still have to be
+  closed explicitly, so a code fence that is opened inside a block quote and
+  not closed before the quote ends is a parse error.
+
+* Block quotes now take precedence over tables. A line that begins with a
+  `>` character opens a block quote even when it looks like the header of a
+  table, so `> foo | bar` is a table inside a block quote instead of a table
+  whose first header cell is `> foo`. Unlike paragraphs, tables cannot be
+  continued lazily: a row that does not carry the block quote markers of the
+  table it belongs to ends both the table and the quote.
+
+* An unclosed code fence whose last line lacks a line ending is now reported
+  as “expecting closing code fence or code block content” rather than as
+  “expecting newline”.
+
 ## MMark 0.0.8.0
 
 * Exposed the following modules: `Text.MMark.Internal.Type`,

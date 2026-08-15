@@ -18,6 +18,16 @@ module Text.MMark.Parser.Internal
     isNakedAllowed,
     refLevel,
     subEnv,
+    quoteDepth,
+    subQuote,
+    LineState,
+    mkLineState,
+    lsDepth,
+    lsBase,
+    getLineState,
+    setLineState,
+    lineDepth,
+    lineBase,
     registerReference,
 
     -- * Inline-level parser monad
@@ -103,6 +113,36 @@ subEnv ::
 subEnv allowNaked rlevel =
   locally bstAllowNaked allowNaked
     . locally bstRefLevel rlevel
+
+-- | Look up the number of block quote markers the lines of the current
+-- container are required to begin with.
+quoteDepth :: BParser Int
+quoteDepth = gets (^. bstQuoteDepth)
+
+-- | Execute a 'BParser' computation inside one more level of block quote.
+subQuote :: BParser a -> BParser a
+subQuote m = do
+  d <- quoteDepth
+  locally bstQuoteDepth (d + 1) m
+
+-- | Get 'LineState'. Note that it is not restored on backtracking
+-- automatically, so parsers that may fail after having changed it should
+-- take care of that themselves.
+getLineState :: BParser LineState
+getLineState = gets (^. bstLineState)
+
+-- | Set 'LineState'.
+setLineState :: LineState -> BParser ()
+setLineState = modify' . set bstLineState
+
+-- | Look up the number of block quote markers found at the beginning of the
+-- current line.
+lineDepth :: BParser Int
+lineDepth = gets (^. bstLineState . lsDepth)
+
+-- | Look up the column at which the content of the current line begins.
+lineBase :: BParser Pos
+lineBase = gets (^. bstLineState . lsBase)
 
 -- | Register a reference (link\/image) definition.
 registerReference ::

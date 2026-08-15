@@ -23,7 +23,7 @@ import Text.MMark.TestUtils
 import Text.Megaparsec (ErrorFancy (..))
 
 -- NOTE This test suite is mostly based on (sometimes altered) examples from
--- the Common Mark specification. We use the version 0.28 (2017-08-01),
+-- the CommonMark specification. We use the version 0.28 (2017-08-01),
 -- which can be found online here:
 --
 -- <http://spec.commonmark.org/0.28/>
@@ -216,7 +216,7 @@ spec = parallel $ do
           ==-> "<blockquote>\n<p>Foo</p>\n</blockquote>\n<hr>\n"
       it "CM62" $
         "> foo\nbar\n==="
-          ==-> "<blockquote>\n<p>foo</p>\n</blockquote>\n<p>bar\n===</p>\n"
+          ==-> "<blockquote>\n<p>foo\nbar\n===</p>\n</blockquote>\n"
       it "CM63" $
         "- Foo\n---"
           ==-> "<ul>\n<li>\nFoo\n</li>\n</ul>\n<hr>\n"
@@ -324,9 +324,13 @@ spec = parallel $ do
               ~-> err
                 15
                 (ueof <> elabel "closing code fence" <> elabel "code block content")
+      -- NOTE CommonMark closes the code fence implicitly when the block
+      -- quote containing it ends, while MMark requires an explicit closing
+      -- fence, see CM95, CM96, CM106, and CM108. The block quote ends at the
+      -- blank line, which is where we report the missing fence.
       it "CM97" $
         let s = "> ```\n> aaa\n\nbbb\n"
-         in s ~-> err 17 (ueof <> elabel "closing code fence" <> elabel "code block content")
+         in s ~-> err 12 (ebqm <> eccf <> ecbc)
       it "CM98" $
         "```\n\n  \n```"
           ==-> "<pre><code>\n  \n</code></pre>\n"
@@ -505,23 +509,23 @@ spec = parallel $ do
         ==-> "<p>aaa</p>\n<h1 id=\"aaa\">aaa</h1>\n"
     context "5.1 Block quotes" $ do
       it "CM191" $
-        "> # Foo\n  bar\n  baz"
+        "> # Foo\n> bar\n> baz"
           ==-> "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
       it "CM192" $
-        "># Foo\n bar\n  baz"
+        "># Foo\n>bar\n> baz"
           ==-> "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
       it "CM193" $
-        "   > # Foo\n     bar\n     baz"
+        "   > # Foo\n   > bar\n > baz"
           ==-> "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
       it "CM194" $
         "    > # Foo\n    > bar\n    > baz"
           ==-> "<pre><code>&gt; # Foo\n&gt; bar\n&gt; baz\n</code></pre>\n"
       it "CM195" $
         "> # Foo\n> bar\nbaz"
-          ==-> "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n</blockquote>\n<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
+          ==-> "<blockquote>\n<h1 id=\"foo\">Foo</h1>\n<p>bar\nbaz</p>\n</blockquote>\n"
       it "CM196" $
         "> bar\nbaz\n> foo"
-          ==-> "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n<blockquote>\n<p>foo</p>\n</blockquote>\n"
+          ==-> "<blockquote>\n<p>bar\nbaz\nfoo</p>\n</blockquote>\n"
       it "CM197" $
         "> foo\n---"
           ==-> "<blockquote>\n<p>foo</p>\n</blockquote>\n<hr>\n"
@@ -530,30 +534,34 @@ spec = parallel $ do
           ==-> "<blockquote>\n<ul>\n<li>\nfoo\n</li>\n</ul>\n</blockquote>\n<ul>\n<li>\nbar\n</li>\n</ul>\n"
       it "CM199" $
         ">     foo\n    bar"
-          ==-> "<blockquote>\n<pre><code>foo\n</code></pre>\n<p>bar</p>\n</blockquote>\n"
+          ==-> "<blockquote>\n<pre><code>foo\n</code></pre>\n</blockquote>\n<pre><code>bar\n</code></pre>\n"
+      -- NOTE Unlike CommonMark, MMark demands that code fences be closed
+      -- explicitly, see CM95, CM96, CM106, and CM108. The block quote ends
+      -- at the second line, so the fence it opens is never closed, just like
+      -- in CM97.
       it "CM200" $
-        "> ```\nfoo\n```"
-          ==-> "<blockquote>\n<pre><code>foo\n</code></pre>\n</blockquote>\n"
+        let s = "> ```\nfoo\n```"
+         in s ~-> err 6 (ebqm <> eccf <> ecbc)
       it "CM201" $
         "> foo\n    - bar"
-          ==-> "<blockquote>\n<p>foo</p>\n<ul>\n<li>\nbar\n</li>\n</ul>\n</blockquote>\n"
+          ==-> "<blockquote>\n<p>foo\n- bar</p>\n</blockquote>\n"
       it "CM202" $
         ">"
           ==-> "<blockquote>\n</blockquote>\n"
       it "CM203" $
         ">\n>  \n> "
-          ==-> "<blockquote>\n</blockquote>\n<blockquote>\n</blockquote>\n<blockquote>\n</blockquote>\n"
+          ==-> "<blockquote>\n</blockquote>\n"
       it "CM204" $
-        ">\n  foo\n   "
+        ">\n> foo\n>  "
           ==-> "<blockquote>\n<p>foo</p>\n</blockquote>\n"
       it "CM205" $
         "> foo\n\n> bar"
           ==-> "<blockquote>\n<p>foo</p>\n</blockquote>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
       it "CM206" $
-        "> foo\n  bar"
+        "> foo\n> bar"
           ==-> "<blockquote>\n<p>foo\nbar</p>\n</blockquote>\n"
       it "CM207" $
-        "> foo\n\n  bar"
+        "> foo\n>\n> bar"
           ==-> "<blockquote>\n<p>foo</p>\n<p>bar</p>\n</blockquote>\n"
       it "CM208" $
         "foo\n> bar"
@@ -562,19 +570,19 @@ spec = parallel $ do
         "> aaa\n***\n> bbb"
           ==-> "<blockquote>\n<p>aaa</p>\n</blockquote>\n<hr>\n<blockquote>\n<p>bbb</p>\n</blockquote>\n"
       it "CM210" $
-        "> bar\n  baz"
+        "> bar\nbaz"
           ==-> "<blockquote>\n<p>bar\nbaz</p>\n</blockquote>\n"
       it "CM211" $
         "> bar\n\nbaz"
           ==-> "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
       it "CM212" $
-        "> bar\n\nbaz"
+        "> bar\n>\nbaz"
           ==-> "<blockquote>\n<p>bar</p>\n</blockquote>\n<p>baz</p>\n"
       it "CM213" $
         "> > > foo\nbar"
-          ==-> "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo</p>\n</blockquote>\n</blockquote>\n</blockquote>\n<p>bar</p>\n"
+          ==-> "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar</p>\n</blockquote>\n</blockquote>\n</blockquote>\n"
       it "CM214" $
-        ">>> foo\n    bar\n    baz"
+        ">>> foo\n> bar\n>>baz"
           ==-> "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar\nbaz</p>\n</blockquote>\n</blockquote>\n</blockquote>\n"
       it "CM215" $
         ">     code\n\n>    not code"
@@ -599,11 +607,11 @@ spec = parallel $ do
         " -    one\n\n      two"
           ==-> "<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n"
       it "CM222" $
-        "   > > 1.  one\n\n       two"
-          ==-> "<blockquote>\n<blockquote>\n<ol>\n<li>\none\n</li>\n</ol>\n<p>two</p>\n</blockquote>\n</blockquote>\n"
+        "   > > 1.  one\n>>\n>>     two"
+          ==-> "<blockquote>\n<blockquote>\n<ol>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ol>\n</blockquote>\n</blockquote>\n"
       it "CM223" $
-        ">>- one\n\n     two"
-          ==-> "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>one</p>\n<p>two</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+        ">>- one\n>>\n  >  > two"
+          ==-> "<blockquote>\n<blockquote>\n<ul>\n<li>\none\n</li>\n</ul>\n<p>two</p>\n</blockquote>\n</blockquote>\n"
       it "CM224" $
         "-one\n\n2.two"
           ==-> "<p>-one</p>\n<p>2.two</p>\n"
@@ -702,10 +710,10 @@ spec = parallel $ do
           ==-> "<ol>\n<li>\nA paragraph\n</li>\n</ol>\n<pre><code>with two lines.\n</code></pre>\n"
       it "CM255" $
         "> 1. > Blockquote\ncontinued here."
-          ==-> "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n<p>continued here.</p>\n"
+          ==-> "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote\ncontinued here.</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n"
       it "CM256" $
-        "> 1. > Blockquote\n  continued here."
-          ==-> "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote</p>\n</blockquote>\n</li>\n</ol>\n<p>continued here.</p>\n</blockquote>\n"
+        "> 1. > Blockquote\n> continued here."
+          ==-> "<blockquote>\n<ol>\n<li>\n<blockquote>\n<p>Blockquote\ncontinued here.</p>\n</blockquote>\n</li>\n</ol>\n</blockquote>\n"
       it "CM257" $
         "- foo\n  - bar\n    - baz\n      - boo"
           ==-> "<ul>\n<li>\nfoo\n<ul>\n<li>\nbar\n<ul>\n<li>\nbaz\n<ul>\n<li>\nboo\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n</li>\n</ul>\n"
@@ -781,7 +789,7 @@ spec = parallel $ do
           ==-> "<ul>\n<li>\na\n<ul>\n<li>\n<p>b</p>\n<p>c</p>\n</li>\n</ul>\n</li>\n<li>\nd\n</li>\n</ul>\n"
       it "CM281" $
         "* a\n  > b\n  >\n* c"
-          ==-> "<ul>\n<li>\n<p>a</p>\n<blockquote>\n<p>b</p>\n</blockquote>\n<blockquote>\n</blockquote>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n"
+          ==-> "<ul>\n<li>\n<p>a</p>\n<blockquote>\n<p>b</p>\n</blockquote>\n</li>\n<li>\n<p>c</p>\n</li>\n</ul>\n"
       it "CM282" $
         "- a\n  > b\n  ```\n  c\n  ```\n- d"
           ==-> "<ul>\n<li>\n<p>a</p>\n<blockquote>\n<p>b</p>\n</blockquote>\n<pre><code>c\n</code></pre>\n</li>\n<li>\n<p>d</p>\n</li>\n</ul>\n"
@@ -1962,6 +1970,9 @@ spec = parallel $ do
           ==-> "<table>\n<thead>\n<tr><th>1. foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n"
         "1. foo | bar\n ------|----\n"
           ==-> "<table>\n<thead>\n<tr><th>1. foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n"
+      it "block quotes have higher precedence than tables" $
+        "> foo | bar\n> -----|----\n> baz | quux"
+          ==-> "<blockquote>\n<table>\n<thead>\n<tr><th>foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n<tr><td>baz</td><td>quux</td></tr>\n</tbody>\n</table>\n</blockquote>\n"
       it "if table is indented inside unordered list, it's put there" $
         "+ foo | bar\n  ----|----\n"
           ==-> "<ul>\n<li>\n<table>\n<thead>\n<tr><th>foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n</li>\n</ul>\n"
@@ -1970,6 +1981,102 @@ spec = parallel $ do
           ==-> "<ol>\n<li>\n<table>\n<thead>\n<tr><th>foo</th><th>bar</th></tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n</li>\n</ol>\n"
       it "renders a comprehensive table correctly" $
         withFiles "data/table.md" "data/table.html"
+    context "parse errors at block level" $ do
+      it "reports a heading that has no content" $
+        "#" ~-> err 1 (ueib <> etok '#' <> ews)
+      it "reports a heading with too many hash signs" $
+        "####### foo" ~-> err 6 (utok '#' <> ews)
+      it "a YAML block does not shift the offsets that follow it" $ do
+        "---\nfoo: bar\n---\n\n*baz"
+          ~-> err 22 (ueib <> etok '*' <> eic)
+        "---\nfoo: bar\n---\n\n> *baz"
+          ~-> err 24 (ueib <> etok '*' <> eic)
+    context "parse errors in block quotes" $ do
+      -- NOTE The block quote markers are replaced by spaces in the text that
+      -- is handed over to the inline-level parser, so offsets inside a block
+      -- quote must come out exactly as they would without it.
+      it "reports an error in a one-line block quote" $ do
+        "> *foo" ~-> err 6 (ueib <> etok '*' <> eic)
+        "  > *foo" ~-> err 8 (ueib <> etok '*' <> eic)
+      it "block quote markers do not shift offsets" $ do
+        "> foo\n> *bar" ~-> err 12 (ueib <> etok '*' <> eic)
+        "> > foo\n> > *bar" ~-> err 16 (ueib <> etok '*' <> eic)
+        ">foo\n>   *bar" ~-> err 13 (ueib <> etok '*' <> eic)
+        ">\t*foo" ~-> err 6 (ueib <> etok '*' <> eic)
+      it "offsets are correct on lazy continuation lines" $ do
+        "> foo\n*bar" ~-> err 10 (ueib <> etok '*' <> eic)
+        "> *foo\n  bar" ~-> err 12 (ueib <> etok '*' <> eic)
+        ">>> foo\n> *bar" ~-> err 14 (ueib <> etok '*' <> eic)
+        "> 1. > *foo\n> continued *bar"
+          ~-> err 28 (ueib <> etok '*' <> eic)
+      it "offsets are correct in inlines that span several lines" $ do
+        "> `foo\n> bar" ~-> err 12 (ueib <> etok '`' <> ecsc)
+        "> foo\n*bar `baz" ~-> err 15 (ueib <> etok '`' <> ecsc)
+      it "offsets after a block quote are not affected by it" $
+        "> quote\n\n*after" ~-> err 15 (ueib <> etok '*' <> eic)
+      it "reports an error in a heading in a block quote" $ do
+        "> # *foo" ~-> err 8 (ueib <> etok '*' <> eic)
+        ">#Header" ~-> err 2 (utok 'H' <> etok '#' <> ews)
+      it "reports an error in a table cell in a block quote" $
+        "> foo | bar\n> -----|----\n> *baz | quux"
+          ~-> err 31 (ueib <> etok '*' <> eic)
+      it "reports an error in a title in a block quote" $
+        "> ![img](/url \"title\n"
+          ~-> err
+            20
+            ( ueib
+                <> etok '\"'
+                <> etok '&'
+                <> etoks "&#"
+                <> elabel "escaped character"
+                <> elabel "unescaped character"
+            )
+      it "reports reference definition errors in a block quote" $ do
+        "> [foo]\n\n[bar]: /url"
+          ~-> errFancy 3 (couldNotMatchRef "foo" [])
+        "> [foo]: /url\n> [foo]: /bar"
+          ~-> errFancy 17 (duplicateRef "foo")
+      it "reports entity errors in a block quote" $ do
+        "> &nosuchentity;" ~-> errFancy 2 (unknownEntity "nosuchentity")
+        "> &#0;" ~-> errFancy 2 (invalidNumChar 0)
+      it "reports every error in a block quote" $ do
+        let e = ueib <> etok '*' <> eic
+        "> *foo\n>\n> *bar" ~~-> [err 6 e, err 15 e]
+        "> *foo\n> ***\n> *bar" ~~-> [err 6 e, err 19 e]
+        "> *foo\n\n> *bar" ~~-> [err 6 e, err 14 e]
+      it "reports errors in lists inside a block quote" $ do
+        let e = ueib <> etok '*' <> eic
+        "> - *foo\n> - *bar" ~~-> [err 8 e, err 17 e]
+        "> 1. *foo\n> 3. *bar"
+          ~~-> [ err 9 e,
+                 errFancy 12 (indexNonCons 3 2),
+                 err 19 e
+               ]
+      it "reports errors in a block quote inside a list" $
+        "- *foo\n\n  > *bar"
+          ~~-> [ err 6 (ueib <> etok '*' <> eic),
+                 err 16 (ueib <> etok '*' <> eic)
+               ]
+      it "reports errors around a block quote in correct order" $ do
+        let e = ueib <> etok '*' <> eic
+        "*foo\n\n> *bar\n\n*baz" ~~-> [err 4 e, err 12 e, err 18 e]
+        -- A block quote may interrupt a paragraph and be interrupted by a
+        -- heading, without either losing its parse error.
+        "*foo\n> *bar" ~~-> [err 4 e, err 11 e]
+        "> *foo\n# *bar" ~~-> [err 6 e, err 13 e]
+      -- NOTE Unlike in CommonMark, the end of a block quote does not close
+      -- a code fence that was opened inside of it, see CM97 and CM200.
+      describe "code fences that the end of a block quote leaves unclosed" $ do
+        it "reports the line that lacks the block quote marker" $ do
+          "> ```\n> foo\n" ~-> err 12 (ebqm <> eccf <> ecbc)
+          "> foo\n\n> ```\n> bar\n\nbaz" ~-> err 19 (ebqm <> eccf <> ecbc)
+        it "reports the marker of the innermost block quote" $
+          "> > ```\n> > foo\n> ```" ~-> err 18 (ebqm <> eccf <> ecbc)
+        it "works for a block quote inside a list" $
+          "- > ```\n  > foo\n\nbar" ~-> err 16 (ebqm <> eccf <> ecbc)
+        it "names the missing fence when the last line has no line ending" $ do
+          "```\nfoo" ~-> err 7 (ueof <> eccf <> ecbc)
+          "> ```\n> foo" ~-> err 11 (ueof <> eccf <> ecbc)
     context "multiple parse errors" $ do
       it "they are reported in correct order" $ do
         let s = "Foo `\n\nBar `.\n"
@@ -2150,6 +2257,18 @@ ews = elabel "white space"
 -- | Expecting code span content.
 ecsc :: ET s
 ecsc = elabel "code span content"
+
+-- | Expecting a block quote marker.
+ebqm :: ET s
+ebqm = elabel "block quote marker"
+
+-- | Expecting a closing code fence.
+eccf :: ET s
+eccf = elabel "closing code fence"
+
+-- | Expecting code block content.
+ecbc :: ET s
+ecbc = elabel "code block content"
 
 -- | Expecting common URI components.
 euric :: ET Text

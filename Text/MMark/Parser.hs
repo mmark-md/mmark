@@ -169,16 +169,22 @@ pYamlBlock = do
 
 -- | Parse several (possibly zero) blocks in a row.
 pBlocks :: BParser [Block Isp]
-pBlocks = catMaybes <$> many pBlock
+pBlocks = scQ *> (catMaybes <$> many pBlock)
 
 -- | Parse a single block of a markdown document.
 pBlock :: BParser (Maybe (Block Isp))
 pBlock = do
-  sc
   rlevel <- refLevel
-  alevel <- L.indentLevel
+  alevel <- indentLevel'
   done <- atEnd
-  if done || alevel < rlevel
+  -- 'scQ' stops in front of a line ending when the next line does not
+  -- continue the block quote we are in, and it does not move at all when the
+  -- line we are on is not a part of it either. Both mean that the block
+  -- quote ends here.
+  inQuote <- quoteOk
+  atLineEnd <- succeeds (void (lookAhead eol))
+  let quoteEnded = not inQuote || atLineEnd
+  if done || quoteEnded || alevel < rlevel
     then empty
     else case compare alevel (ilevel rlevel) of
       LT ->
@@ -186,10 +192,13 @@ pBlock = do
           [ Just <$> pThematicBreak,
             Just <$> pAtxHeading,
             Just <$> pFencedCodeBlock,
+            -- NOTE This has to be tried before 'pTable', otherwise a line
+            -- such as @> | a | b |@ is taken for the header of a table
+            -- whose first cell happens to begin with a @>@ character.
+            Just <$> pBlockquote,
             Just <$> pTable,
             Just <$> pUnorderedList,
             Just <$> pOrderedList,
-            Just <$> pBlockquote,
             pReferenceDef,
             Just <$> pParagraph
           ]
@@ -206,7 +215,7 @@ pThematicBreak = do
            || T.all (== '-') l
            || T.all (== '_') l
        )
-    then ThematicBreak <$ nonEmptyLine <* sc
+    then ThematicBreak <$ nonEmptyLine <* scQ
     else empty
 
 -- | Parse an ATX heading.
@@ -219,7 +228,8 @@ pAtxHeading = do
     ispOffset <- getOffset
     r <-
       someTill (satisfy notNewline <?> "heading character") . try $
-        optional (sc1' *> some (char '#') *> sc') *> (eof <|> eol)
+        optional (sc1' *> some (char '#') *> sc')
+          *> (eof <|> void (lookAhead eol))
     let toBlock = case hlevel of
           1 -> Heading1
           2 -> Heading2
@@ -227,20 +237,29 @@ pAtxHeading = do
           4 -> Heading4
           5 -> Heading5
           _ -> Heading6
-    toBlock (IspSpan ispOffset (T.strip (T.pack r))) <$ sc
+    toBlock (IspSpan ispOffset (T.strip (T.pack r))) <$ scQ
   where
     hashIntro = count' 1 6 (char '#')
     recover err =
-      Heading1 (IspError err) <$ takeWhileP Nothing notNewline <* sc
+      Heading1 (IspError err) <$ takeWhileP Nothing notNewline <* scQ
 
 -- | Parse a fenced code block.
 pFencedCodeBlock :: BParser (Block Isp)
 pFencedCodeBlock = do
-  alevel <- L.indentLevel
+  alevel <- indentLevel'
   (ch, n, infoString) <- pOpeningFence
-  let content = label "code block content" (option "" nonEmptyLine <* eol)
+  let content = label "code block content" $ do
+        quoteOk >>= guard
+        l <- option "" nonEmptyLine
+        done <- atEnd
+        -- The last line of the input may lack a line ending, but only when
+        -- it is not empty, otherwise we would keep producing empty lines
+        -- forever.
+        let lastLine = done && not (T.null l)
+        unless lastLine eolLazy
+        return l
   ls <- manyTill content (pClosingFence ch n)
-  CodeBlock infoString (assembleCodeBlock alevel ls) <$ sc
+  CodeBlock infoString (assembleCodeBlock alevel ls) <$ scQ
 
 -- | Parse the opening fence of a fenced code block.
 pOpeningFence :: BParser (Char, Int, Maybe Text)
@@ -262,31 +281,41 @@ pOpeningFence = p '`' <|> p '~'
               then Nothing
               else Just l
         )
-        <$ eol
+        <$ eolLazy
 
 -- | Parse the closing fence of a fenced code block.
 pClosingFence :: Char -> Int -> BParser ()
-pClosingFence ch n = try . label "closing code fence" $ do
+pClosingFence ch n = tryB . label "closing code fence" $ do
+  quoteOk >>= guard
   clevel <- ilevel <$> refLevel
-  void $ L.indentGuard sc' LT clevel
+  sc'
+  alevel <- indentLevel'
+  guard (alevel < clevel)
   void $ count n (char ch)
   (void . many . char) ch
   sc'
-  eof <|> eol
+  eof <|> eolLazy
 
 -- | Parse an indented code block.
 pIndentedCodeBlock :: BParser (Block Isp)
 pIndentedCodeBlock = do
-  alevel <- L.indentLevel
+  alevel <- indentLevel'
   clevel <- ilevel <$> refLevel
   let go ls = do
-        indented <-
-          lookAhead $
-            (>= clevel) <$> (sc *> L.indentLevel)
+        indented <- lookAheadB $ do
+          scQ
+          inQuote <- quoteOk
+          done <- atEnd
+          atLineEnd <- succeeds (void (lookAhead eol))
+          if not inQuote || done || atLineEnd
+            then return False
+            else do
+              nextLevel <- indentLevel'
+              return (nextLevel >= clevel)
         if indented
           then do
             l <- option "" nonEmptyLine
-            continue <- eol'
+            continue <- eolLazy'
             let ls' = ls . (l :)
             if continue
               then go ls'
@@ -300,7 +329,7 @@ pIndentedCodeBlock = do
       g [] = []
       g (x : xs) = f x : xs
   ls <- g . ($ []) <$> go id
-  CodeBlock Nothing (assembleCodeBlock clevel ls) <$ sc
+  CodeBlock Nothing (assembleCodeBlock clevel ls) <$ scQ
 
 -- | Parse an unordered list.
 pUnorderedList :: BParser (Block Isp)
@@ -309,13 +338,15 @@ pUnorderedList = do
     pListBullet Nothing
   x <- innerBlocks bulletPos minLevel indLevel
   xs <- many $ do
+    -- A list cannot continue past the end of the block quote it is in.
+    quoteOk >>= guard
     (_, bulletPos', minLevel', indLevel') <-
       pListBullet (Just (bullet, bulletPos))
     innerBlocks bulletPos' minLevel' indLevel'
-  return (UnorderedList (normalizeListItems (x :| xs)))
+  UnorderedList (normalizeListItems (x :| xs)) <$ scQ
   where
     innerBlocks bulletPos minLevel indLevel = do
-      p <- getSourcePos
+      p <- sourcePos'
       let tooFar = sourceLine p > sourceLine bulletPos <> pos1
           rlevel = slevel minLevel indLevel
       if tooFar || sourceColumn p < minLevel
@@ -333,17 +364,17 @@ pListBullet ::
   -- | Bullet 'Char' and start position of the first bullet in a list
   Maybe (Char, SourcePos) ->
   BParser (Char, SourcePos, Pos, Pos)
-pListBullet mbullet = try $ do
-  pos <- getSourcePos
-  l <- (<> mkPos 2) <$> L.indentLevel
+pListBullet mbullet = tryB $ do
+  pos <- sourcePos'
+  l <- (<> mkPos 2) <$> indentLevel'
   bullet <-
     case mbullet of
       Nothing -> char '-' <|> char '+' <|> char '*'
       Just (bullet, bulletPos) -> do
         guard (sourceColumn pos >= sourceColumn bulletPos)
         char bullet
-  eof <|> sc1
-  l' <- L.indentLevel
+  eof <|> sc1Q
+  l' <- indentLevel'
   return (bullet, pos, l, l')
 
 -- | Parse an ordered list.
@@ -354,6 +385,8 @@ pOrderedList = do
     pListIndex Nothing
   x <- innerBlocks startPos minLevel indLevel
   xs <- manyIndexed (startIx + 1) $ \expectedIx -> do
+    -- A list cannot continue past the end of the block quote it is in.
+    quoteOk >>= guard
     startOffset' <- getOffset
     (actualIx, _, startPos', minLevel', indLevel') <-
       pListIndex (Just (del, startPos))
@@ -366,15 +399,17 @@ pOrderedList = do
                 (ListIndexOutOfOrder actualIx expectedIx)
                 blocks
     f <$> innerBlocks startPos' minLevel' indLevel'
-  return . OrderedList startIx . normalizeListItems $
-    ( if startIx <= 999999999
-        then x
-        else prependErr startOffset (ListStartIndexTooBig startIx) x
+  ( OrderedList startIx . normalizeListItems $
+      ( if startIx <= 999999999
+          then x
+          else prependErr startOffset (ListStartIndexTooBig startIx) x
+      )
+        :| xs
     )
-      :| xs
+    <$ scQ
   where
     innerBlocks indexPos minLevel indLevel = do
-      p <- getSourcePos
+      p <- sourcePos'
       let tooFar = sourceLine p > sourceLine indexPos <> pos1
           rlevel = slevel minLevel indLevel
       if tooFar || sourceColumn p < minLevel
@@ -393,49 +428,44 @@ pListIndex ::
   -- | Delimiter 'Char' and start position of the first index in a list
   Maybe (Char, SourcePos) ->
   BParser (Word, Char, SourcePos, Pos, Pos)
-pListIndex mstart = try $ do
-  pos <- getSourcePos
+pListIndex mstart = tryB $ do
+  pos <- sourcePos'
   i <- L.decimal
   del <- case mstart of
     Nothing -> char '.' <|> char ')'
     Just (del, startPos) -> do
       guard (sourceColumn pos >= sourceColumn startPos)
       char del
-  l <- (<> pos1) <$> L.indentLevel
-  eof <|> sc1
-  l' <- L.indentLevel
+  l <- (<> pos1) <$> indentLevel'
+  eof <|> sc1Q
+  l' <- indentLevel'
   return (i, del, pos, l, l')
 
 -- | Parse a block quote.
 pBlockquote :: BParser (Block Isp)
 pBlockquote = do
-  minLevel <- try $ do
-    minLevel <- (<> pos1) <$> L.indentLevel
-    void (char '>')
-    eof <|> sc
-    l <- L.indentLevel
-    return $
-      if l > minLevel
-        then minLevel <> pos1
-        else minLevel
-  indLevel <- L.indentLevel
-  if indLevel >= minLevel
-    then do
-      let rlevel = slevel minLevel indLevel
-      xs <- subEnv False rlevel pBlocks
-      return (Blockquote xs)
-    else return (Blockquote [])
+  -- The marker that opens the block quote is consumed here, the markers
+  -- that continue it on the following lines are consumed by 'eolQ' and
+  -- friends, which know how many of them to expect from 'quoteDepth'.
+  ls <- try (pQuoteMarkersAll 1)
+  ldepth <- lineDepth
+  setLineState (mkLineState (ldepth + 1) (ls ^. lsBase))
+  -- The content of a block quote always starts in the first (virtual)
+  -- column of the quote, whatever the width of the marker on any particular
+  -- line.
+  xs <- subQuote (subEnv False pos1 pBlocks)
+  Blockquote xs <$ scQ
 
 -- | Parse a link\/image reference definition and register it.
 pReferenceDef :: BParser (Maybe (Block Isp))
 pReferenceDef = do
   (o, dlabel) <- try (pRefLabel <* char ':')
   withRecovery recover $ do
-    sc' <* optional eol <* sc'
+    sc' <* optional eolQ <* sc'
     uri <- pUri
     hadSpN <-
       optional $
-        (sc1' *> option False (True <$ eol)) <|> (True <$ (sc' <* eol))
+        (sc1' *> option False (True <$ eolQ)) <|> (True <$ (sc' <* eolQ))
     sc'
     mtitle <-
       if isJust hadSpN
@@ -443,20 +473,20 @@ pReferenceDef = do
         else return Nothing
     case (hadSpN, mtitle) of
       (Just True, Nothing) -> return ()
-      _ -> hidden eof <|> eol
+      _ -> hidden eof <|> void (lookAhead eol)
     conflict <- registerReference dlabel (uri, mtitle)
     when conflict $
       customFailure' o (DuplicateReferenceDefinition dlabel)
-    Nothing <$ sc
+    Nothing <$ scQ
   where
     recover err =
-      Just (Naked (IspError err)) <$ takeWhileP Nothing notNewline <* sc
+      Just (Naked (IspError err)) <$ takeWhileP Nothing notNewline <* scQ
 
 -- | Parse a pipe table.
 pTable :: BParser (Block Isp)
 pTable = do
-  (n, headerRow) <- try $ do
-    pos <- L.indentLevel
+  (n, headerRow) <- tryB $ do
+    pos <- indentLevel'
     option False (T.any (== '|') <$> lookAhead nonEmptyLine) >>= guard
     let pipe' = option False (True <$ pipe)
     l <- pipe'
@@ -464,8 +494,8 @@ pTable = do
     r <- pipe'
     let n = NE.length headerRow
     guard (n > 1 || l || r)
-    eol <* sc'
-    L.indentLevel >>= \i -> guard (i == pos || i == (pos <> pos1))
+    eolQ <* sc'
+    indentLevel' >>= \i -> guard (i == pos || i == (pos <> pos1))
     lookAhead nonEmptyLine >>= guard . isHeaderLike
     return (n, headerRow)
   withRecovery recover $ do
@@ -474,7 +504,7 @@ pTable = do
     otherRows <- many $ do
       endOfTable >>= guard . not
       rowWrapper (NE.fromList <$> sepByCount n cell pipe)
-    Table caligns (headerRow :| otherRows) <$ sc
+    Table caligns (headerRow :| otherRows) <$ scQ
   where
     cell = do
       o <- getOffset
@@ -490,7 +520,7 @@ pTable = do
       void (optional pipe)
       r <- p
       void (optional pipe)
-      eof <|> eol
+      eof <|> eolLazy
       sc'
       return r
     pipe = char '|' <* sc'
@@ -511,14 +541,17 @@ pTable = do
         > 8 % 10
     isHeaderConstituent x =
       isSpace x || x == '|' || x == '-' || x == ':'
-    endOfTable =
-      lookAhead (option True (isBlank <$> nonEmptyLine))
+    endOfTable = do
+      inQuote <- quoteOk
+      if inQuote
+        then lookAhead (option True (isBlank <$> nonEmptyLine))
+        else return True
     recover err =
       Naked (IspError (replaceEof "end of table block" err))
         <$ manyTill
           (optional nonEmptyLine)
           (endOfTable >>= guard)
-        <* sc
+        <* scQ
 
 -- | Parse a paragraph or naked text (in some cases).
 pParagraph :: BParser (Block Isp)
@@ -526,13 +559,20 @@ pParagraph = do
   startOffset <- getOffset
   allowNaked <- isNakedAllowed
   rlevel <- refLevel
-  let go ls = do
+  let go ls pad = do
         l <- lookAhead (option "" nonEmptyLine)
-        broken <- succeeds . lookAhead . try $ do
-          sc
-          alevel <- L.indentLevel
-          guard (alevel < ilevel rlevel)
-          unless (alevel < rlevel) . choice $
+        -- A line that does not carry all the block quote markers it should
+        -- may still continue this paragraph: CommonMark calls such lines
+        -- lazy continuation lines. Since the missing markers are simply
+        -- assumed to be there, such a line is judged as if it were at the
+        -- top level of the document.
+        lazy <- not <$> quoteOk
+        let rlevel' = if lazy then pos1 else rlevel
+        broken <- succeeds . lookAheadB $ do
+          sc'
+          alevel <- indentLevel'
+          guard (alevel < ilevel rlevel')
+          unless (alevel < rlevel') . choice $
             [ void (char '>'),
               void pThematicBreak,
               void pAtxHeading,
@@ -547,20 +587,171 @@ pParagraph = do
               then return (ls, Naked)
               else do
                 void nonEmptyLine
-                continue <- eol'
-                let ls' = ls . (l :)
-                if continue
-                  then go ls'
-                  else return (ls', Naked)
+                mpad <- eolLazyPad
+                let ls' = ls . ((pad <> l) :)
+                case mpad of
+                  Just pad' -> go ls' pad'
+                  Nothing -> return (ls', Naked)
   l <- nonEmptyLine
-  continue <- eol'
+  mpad <- eolLazyPad
   (ls, toBlock) <-
-    if continue
-      then go id
-      else return (id, Naked)
+    case mpad of
+      Just pad -> go id pad
+      Nothing -> return (id, Naked)
   (if allowNaked then toBlock else Paragraph)
     (IspSpan startOffset (assembleParagraph (l : ls [])))
-    <$ sc
+    <$ scQ
+
+----------------------------------------------------------------------------
+-- Block quote prefixes and virtual columns
+
+-- Every line inside a block quote must begin with a @>@ marker per level of
+-- nesting (CommonMark calls this the block quote's continuation). Since the
+-- markers may be of different width on different lines, the block parser
+-- cannot work with real columns; instead it works with /virtual/ columns
+-- which are obtained by subtracting from a real column the width of the
+-- block quote markers of the line in question, see @bstLineBase@. At the
+-- top level of a document the two coincide.
+
+-- | Convert a real column into a virtual one.
+toVirtual :: Pos -> Pos -> Pos
+toVirtual base c = mkPos (max 1 (unPos c - unPos base + 1))
+
+-- | Like 'L.indentLevel', but the level is virtual.
+indentLevel' :: BParser Pos
+indentLevel' = toVirtual <$> lineBase <*> L.indentLevel
+
+-- | Like 'getSourcePos', but 'sourceColumn' of the result is virtual.
+sourcePos' :: BParser SourcePos
+sourcePos' = do
+  base <- lineBase
+  p <- getSourcePos
+  return p {sourceColumn = toVirtual base (sourceColumn p)}
+
+-- | Consume up to the given number of block quote markers starting at the
+-- beginning of the current line. Return the number of markers that were
+-- found and the column at which the content of the line begins. This does
+-- not update 'LineState', it is up to the caller to do that once it has
+-- decided to commit to the result.
+pQuoteMarkers :: Int -> BParser LineState
+pQuoteMarkers n = go 0 pos1
+  where
+    go !k base
+      | k >= n = return (mkLineState k base)
+      | otherwise = do
+          r <- optional . try . label "block quote marker" $ do
+            c0 <- L.indentLevel
+            sc'
+            c1 <- L.indentLevel
+            -- Just like the other block level constructs, a block quote
+            -- marker may be preceded by up to three spaces.
+            guard (unPos c1 - unPos c0 < 4)
+            void (char '>')
+            c2 <- L.indentLevel
+            -- A single space after the marker is a part of it. A tab is not
+            -- consumed, but one column of it belongs to the marker all the
+            -- same, which is why we only shift the base here.
+            padded <-
+              option False . choice $
+                [ True <$ char ' ',
+                  True <$ lookAhead (char '\t')
+                ]
+            return (if padded then c2 <> pos1 else c2)
+          case r of
+            Nothing -> return (mkLineState k base)
+            Just base' -> go (k + 1) base'
+
+-- | Like 'pQuoteMarkers', but fail unless all the markers are found. Since
+-- some of them may have been consumed before the failure, this should be
+-- used inside 'try'.
+pQuoteMarkersAll :: Int -> BParser LineState
+pQuoteMarkersAll n = do
+  ls <- pQuoteMarkers n
+  guard (ls ^. lsDepth == n)
+  return ls
+
+-- | Check that the line we are on begins with all the block quote markers
+-- that the current container requires.
+quoteOk :: BParser Bool
+quoteOk = (>=) <$> lineDepth <*> quoteDepth
+
+-- | Cross a line ending and consume the block quote markers of the new
+-- line. Fail without consuming input if the line ending is not there or the
+-- new line does not begin with all the required markers.
+eolQ :: BParser ()
+eolQ = do
+  d <- quoteDepth
+  ls <- try (eol *> pQuoteMarkersAll d)
+  setLineState ls
+
+-- | Cross a line ending and consume as many of the block quote markers of
+-- the new line as happen to be there. This is what makes lazy continuation
+-- lines possible: the caller can inspect 'lineDepth' and decide for itself
+-- whether the missing markers matter.
+eolLazy :: BParser ()
+eolLazy = do
+  d <- quoteDepth
+  void eol
+  ls <- pQuoteMarkers d
+  setLineState ls
+
+-- | 'eolLazy' returning 'False' instead of failing at the end of input.
+eolLazy' :: BParser Bool
+eolLazy' = option False (True <$ eolLazy)
+
+-- | Like 'eolLazy'', but instead of a 'Bool' return the block quote markers
+-- of the new line replaced by that many spaces. Paragraphs collect their
+-- lines with this padding in place of the markers so that the offsets inside
+-- the collected text still match the original input.
+eolLazyPad :: BParser (Maybe Text)
+eolLazyPad = optional $ do
+  d <- quoteDepth
+  void eol
+  o <- getOffset
+  ls <- pQuoteMarkers d
+  setLineState ls
+  o' <- getOffset
+  return (T.replicate (o' - o) " ")
+
+-- | White space, including blank lines, the block quote markers of every
+-- line we cross being consumed. Stops before a line ending that is not
+-- followed by the required markers, as well as when the line we are on does
+-- not belong to the current block quote in the first place.
+scQ :: BParser ()
+scQ = do
+  inQuote <- quoteOk
+  sc'
+  when inQuote . void . many $ eolQ <* sc'
+
+-- | 'scQ' that requires at least some white space to be consumed.
+sc1Q :: BParser ()
+sc1Q = do
+  o <- getOffset
+  scQ
+  o' <- getOffset
+  guard (o' > o)
+
+-- | Like 'try', but 'LineState' is restored in case of failure too. Parsers
+-- that consume block quote markers and may fail afterwards must use this,
+-- because 'LineState' lives in the state monad underlying 'BParser' and so
+-- is not subject to backtracking.
+tryB :: BParser a -> BParser a
+tryB m = do
+  ls <- getLineState
+  observing (try m) >>= \case
+    Right x -> return x
+    Left err -> do
+      setLineState ls
+      parseError err
+
+-- | Like 'lookAhead', but 'LineState' is restored as well and failure never
+-- consumes input.
+lookAheadB :: BParser a -> BParser a
+lookAheadB m = do
+  ls <- getLineState
+  r <- observing (lookAhead (try m))
+  setLineState ls
+  either parseError return r
 
 ----------------------------------------------------------------------------
 -- Auxiliary block-level parsers
@@ -1033,9 +1224,6 @@ eol =
         string "\r\n",
         string "\r"
       ]
-
-eol' :: (MonadParsec e Text m) => m Bool
-eol' = option False (True <$ eol)
 
 ----------------------------------------------------------------------------
 -- Char classification

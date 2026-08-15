@@ -20,7 +20,16 @@ module Text.MMark.Parser.Internal.Type
     initialBlockState,
     bstAllowNaked,
     bstRefLevel,
+    bstQuoteDepth,
+    bstLineState,
     bstDefs,
+
+    -- * Line state
+    LineState,
+    initialLineState,
+    mkLineState,
+    lsDepth,
+    lsBase,
 
     -- * Inline-level parser state
     InlineState,
@@ -73,8 +82,14 @@ data BlockState = BlockState
     -- but in lists, 'Naked' text is pretty common.
     _bstAllowNaked :: Bool,
     -- | Current reference level: 1 column for top-level of document, column
-    -- where content starts for block quotes and lists.
+    -- where content starts for block quotes and lists. Note that this is a
+    -- /virtual/ column, i.e. it is relative to @bstLineBase@.
     _bstRefLevel :: Pos,
+    -- | The number of block quote markers that the lines of the current
+    -- container are required to begin with.
+    _bstQuoteDepth :: Int,
+    -- | Facts about the line we are currently on.
+    _bstLineState :: LineState,
     -- | Reference and footnote definitions
     _bstDefs :: Defs
   }
@@ -85,7 +100,46 @@ initialBlockState =
   BlockState
     { _bstAllowNaked = False,
       _bstRefLevel = pos1,
+      _bstQuoteDepth = 0,
+      _bstLineState = initialLineState,
       _bstDefs = emptyDefs
+    }
+
+----------------------------------------------------------------------------
+-- Line state
+
+-- | Facts about the line the parser is currently on. Unlike the rest of
+-- 'BlockState' these are tied to the position in the input, so they have to
+-- be restored whenever that position is restored.
+data LineState = LineState
+  { -- | The number of block quote markers that were actually found at the
+    -- beginning of the line. When it is less than @bstQuoteDepth@ the
+    -- innermost block quotes have ended (or, in the case of a paragraph,
+    -- are being continued lazily).
+    _lsDepth :: Int,
+    -- | The (real) column at which the content of the line begins, that is,
+    -- the column just after its block quote markers. Virtual columns, which
+    -- is what the block parser works with, are obtained by subtracting this
+    -- value from real columns.
+    _lsBase :: Pos
+  }
+
+-- | Initial value for 'LineState': the first line of a document carries no
+-- block quote markers.
+initialLineState :: LineState
+initialLineState = mkLineState 0 pos1
+
+-- | Smart constructor for the 'LineState' type.
+mkLineState ::
+  -- | The number of block quote markers found at the beginning of the line
+  Int ->
+  -- | The column at which the content of the line begins
+  Pos ->
+  LineState
+mkLineState depth base =
+  LineState
+    { _lsDepth = depth,
+      _lsBase = base
     }
 
 ----------------------------------------------------------------------------
@@ -249,5 +303,6 @@ orList xs = intercalate ", " (NE.init xs) <> ", or " <> NE.last xs
 -- Lens TH
 
 makeLenses ''BlockState
+makeLenses ''LineState
 makeLenses ''InlineState
 makeLenses ''Defs
