@@ -20,12 +20,6 @@
   already used and which lets a scanner be partially applied:
   `documentMetadata = runScanner metadataScanner`.
 
-* Added `runCheck` and `runCheckM`, which run a computation in the
-  transformation monad once against a document instead of applying it to
-  every top-level block. A check that concerns the document as a whole no
-  longer has to be written as a transformation of a block it has no
-  interest in.
-
 * Transformations are now applied to the document right away with `runTrans`
   and `runTransM`, instead of being accumulated in an extension value and
   applied just before rendering. `useExtension`, `useExtensions`,
@@ -33,20 +27,23 @@
   ordering that came with them: transformations are sequenced with `(>=>)`
   and abort as soon as one of them reports an error.
 
+* Added `runCheck` and `runCheckM`, which run a computation in the
+  transformation monad once against a document instead of applying it to
+  every top-level block. This way a check that concerns the document as a
+  whole does not have to be written as a transformation of a block it has no
+  interest in.
+
 * Transformations are explicit and available in both directions:
   `bottomUpBlocks`, `topDownBlocks`, `bottomUpInlines`, and
   `topDownInlines`. The function given to `runTransM` is applied to
   top-level blocks only, so the transformation that reaches the rest of the
   document is the caller's choice.
 
-* Rendering extensions cannot fail. They are collected in a
+* Rendering extensions still cannot fail. They are collected in a
   `RenderExtension` value, which is now passed to `render` explicitly rather
   than being stored in the document: `render :: RenderExtension -> MMark ->
   Html ()`. Use `mempty` when there are none. Anything that can fail belongs
   in a transformation.
-
-* Every constructor of `Block` and `Inline` now takes the `Span` of the
-  source it derives from as its first argument.
 
 * The `Text.MMark.Extension` module is gone. The two kinds of extension now
   have a module each: `Text.MMark.Trans` for transformations and
@@ -79,8 +76,9 @@
   run is, instead of being split into nested groups of at most two frames
   each. The delimiters of a run consequently close from the inside out at
   any length, which only changes the result for runs of five characters and
-  more: `_____foo_____` is now `<em><strong><strong>foo</strong></strong></em>`
-  as in CommonMark, rather than `<strong><strong><em>foo</em></strong></strong>`.
+  more: `_____foo_____` is now
+  `<em><strong><strong>foo</strong></strong></em>` as in CommonMark, rather
+  than `<strong><strong><em>foo</em></strong></strong>`.
 
 * A run of underscores surrounded by word characters is now literal text
   rather than markup, so `snake_case` and `to_string()` no longer have to be

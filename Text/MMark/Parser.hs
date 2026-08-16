@@ -775,7 +775,7 @@ pInlinesTop = do
   eof <|> void pLfdr
   return inlines
 
--- | Parse inlines using settings from given 'InlineConfig'.
+-- | Parse inlines using the settings in the inline parser state.
 pInlines :: IParser (NonEmpty Inline)
 pInlines = do
   done <- atEnd

@@ -86,8 +86,8 @@ import Text.URI (URI)
 -- | Block-level parser state.
 data BlockState = BlockState
   { -- | Should we consider a paragraph that does not end with a blank line
-    -- 'Naked'? It does not make sense to do so in the top-level document,
-    -- but in lists, 'Naked' text is pretty common.
+    -- 'Text.MMark.Internal.Type.Naked'? It does not make sense to do so in
+    -- the top-level document, but in lists, naked text is pretty common.
     _bstAllowNaked :: Bool,
     -- | Current reference level: 1 column for top-level of document, column
     -- where content starts for block quotes and lists. Note that this is a
@@ -183,7 +183,7 @@ initialInlineState =
       _istDefs = emptyDefs
     }
 
--- | 'Inline' source pending parsing.
+-- | 'Text.MMark.Internal.Type.Inline' source pending parsing.
 data Isp
   = -- | We have an inline source pending parsing
     IspSpan Int Text
