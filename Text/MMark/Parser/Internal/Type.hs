@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- |
@@ -38,9 +39,16 @@ module Text.MMark.Parser.Internal.Type
     istAllowEmpty,
     istAllowLinks,
     istAllowImages,
+    istFrames,
     istDefs,
     Isp (..),
     CharType (..),
+    Flanking (..),
+    flanking,
+
+    -- * Inline frames
+    InlineFrame (..),
+    inlineFrameDel,
 
     -- * Reference and footnote definitions
     Defs,
@@ -155,6 +163,10 @@ data InlineState = InlineState
     _istAllowLinks :: Bool,
     -- | Whether to allow parsing of images
     _istAllowImages :: Bool,
+    -- | The inline frames that are currently open, innermost first. A
+    -- delimiter run that could both open or close a frame is resolved by
+    -- looking at this stack.
+    _istFrames :: [InlineFrame],
     -- | Reference link definitions
     _istDefs :: Defs
   }
@@ -167,6 +179,7 @@ initialInlineState =
       _istAllowEmpty = True,
       _istAllowLinks = True,
       _istAllowImages = True,
+      _istFrames = [],
       _istDefs = emptyDefs
     }
 
@@ -178,7 +191,9 @@ data Isp
     IspError (ParseError Text MMarkErr)
   deriving (Eq, Show)
 
--- | Type of the last seen character.
+-- | Type of the last seen character. The 'Ord' instance orders the
+-- constructors by how “solid” the characters are, which is what the
+-- classification of delimiter runs is based on, see 'flanking'.
 data CharType
   = -- | White space or a transparent character
     SpaceChar
@@ -187,6 +202,71 @@ data CharType
   | -- | Other character
     OtherChar
   deriving (Eq, Ord, Show)
+
+-- | What a delimiter run can do to the stack of open inline frames.
+data Flanking
+  = -- | The run can only open a frame
+    OpensFrame
+  | -- | The run can only close a frame
+    ClosesFrame
+  | -- | The run could do either, so the frames that are currently open have
+    -- to decide
+    AmbiguousFrame
+  | -- | The run can do neither, which is always an error
+    NotFlanking
+  deriving (Eq, Show)
+
+-- | Classify a delimiter run by the characters that surround it. A run that
+-- leans towards the more solid of its two neighbours (see the 'Ord'
+-- instance of 'CharType') hangs on that side of the word and so opens or
+-- closes a frame accordingly. When both neighbors are equally solid the run
+-- leans nowhere: white space on both sides means it cannot be markup at
+-- all, anything else means it could go either way.
+flanking ::
+  -- | Type of the character to the left of the run
+  CharType ->
+  -- | Type of the character to the right of the run
+  CharType ->
+  Flanking
+flanking lch rch = case compare lch rch of
+  LT -> OpensFrame
+  GT -> ClosesFrame
+  EQ ->
+    if lch == SpaceChar
+      then NotFlanking
+      else AmbiguousFrame
+
+----------------------------------------------------------------------------
+-- Inline frames
+
+-- | Frame that describes where we are in parsing inlines.
+data InlineFrame
+  = -- | Emphasis with asterisk @*@
+    EmphasisFrame
+  | -- | Emphasis with underscore @_@
+    EmphasisFrame_
+  | -- | Strong emphasis with asterisk @**@
+    StrongFrame
+  | -- | Strong emphasis with underscore @__@
+    StrongFrame_
+  | -- | Strikeout
+    StrikeoutFrame
+  | -- | Subscript
+    SubscriptFrame
+  | -- | Superscript
+    SuperscriptFrame
+  deriving (Eq, Ord, Show)
+
+-- | The delimiter that opens and closes the given 'InlineFrame'.
+inlineFrameDel :: InlineFrame -> Text
+inlineFrameDel = \case
+  EmphasisFrame -> "*"
+  EmphasisFrame_ -> "_"
+  StrongFrame -> "**"
+  StrongFrame_ -> "__"
+  StrikeoutFrame -> "~~"
+  SubscriptFrame -> "~"
+  SuperscriptFrame -> "^"
 
 ----------------------------------------------------------------------------
 -- Reference and footnote definitions
@@ -251,6 +331,11 @@ data MMarkErr
     --
     -- @since 0.0.3.0
     UnknownHtmlEntityName Text
+  | -- | This delimiter run can only close an inline frame, but there is no
+    -- frame for it to close
+    --
+    -- @since 0.1.0.0
+    UnmatchedClosingDelimiterRun (NonEmpty Char)
   deriving (Eq, Ord, Show, Read, Generic, Data)
 
 instance ShowErrorComponent MMarkErr where
@@ -289,6 +374,9 @@ instance ShowErrorComponent MMarkErr where
       "invalid numeric character: " ++ show n
     UnknownHtmlEntityName name ->
       "unknown HTML5 entity name: \"" ++ T.unpack name ++ "\""
+    UnmatchedClosingDelimiterRun dels ->
+      showTokens (Proxy :: Proxy Text) dels
+        ++ " does not have a matching opening delimiter run"
 
 instance NFData MMarkErr
 

@@ -61,7 +61,7 @@ However, due to the fact that we do not allow inputs that do not make sense,
 and also try to guard against common mistakes (like writing `##My header`
 and having it rendered as a paragraph starting with hashes), MMark obviously
 can't follow the specification precisely. In particular, parsing of inlines
-differs considerably from CommonMark (see below).
+is stricter than CommonMark (see below).
 
 Another difference between CommonMark and MMark is that the latter supports
 more (pun alert) common markdown extensions out of the box. In particular,
@@ -84,37 +84,15 @@ specification. There are 17 ad-hoc rules defining the interaction between
 `*` and `_` -based emphasis and more than half of all CommonMark
 examples (that's about 300) test just this.
 
-Not only is it hard to implement, it's hard to understand for humans too.
-For example, this input:
+Almost none of that complexity is in deciding *what a delimiter run could
+do*—CommonMark's notion of left- and right-flanking delimiter runs is
+straightforward. It is in deciding what to do with a run that could just as
+well open emphasis as close it, and the answer to that is a pile of special
+cases that is hard to implement and harder for a human to remember.
 
-```
-*(*foo*)*
-```
-
-results in the following HTML:
-
-```
-<p><em>(<em>foo</em>)</em></p>
-```
-
-(Note the nested emphasis.)
-
-Could it produce something like this instead?
-
-```
-<p><em>(</em>foo<em>)</em></p>
-```
-
-Well, why not? Without remembering those 17 ad-hoc rules, there are going to
-be a lot of tricky cases when the user won't be able to tell how markdown
-will be parsed.
-
-I decided to make parsing of emphasis, strong emphasis, and similar
-constructs like strikethrough, subscript, and superscript more symmetric and
-less ad-hoc. In 99% of practical cases it is identical to CommonMark, and
-normal markdown intuitions will work OK for the users.
-
-Let's start by dividing all characters into four groups:
+MMark classifies delimiter runs exactly the way CommonMark does and then
+resolves the ambiguous ones with a single rule. Let's start by dividing all
+characters into four groups:
 
 * **Space characters**, including space, tab, newline, carriage return, and
   other characters like non-breaking space.
@@ -122,7 +100,8 @@ Let's start by dividing all characters into four groups:
 * **Markup characters**, including the following: `*`, `~`, `_`, `` ` ``,
   `^`, `[`, `]`. These are used for markup and whenever they appear in a
   document, they must form valid markup constructions. To be used as
-  ordinary punctuation characters they must be backslash escaped.
+  ordinary punctuation characters they must be backslash escaped (there is
+  exactly one exception to this, see below).
 
 * **Punctuation characters**, which include all punctuation characters that
   are not **markup characters**.
@@ -139,61 +118,67 @@ Next, let's assign *levels* to all groups but **markup characters**:
 When **markup characters** or **punctuation characters** are escaped with
 backslash they become **other characters**.
 
-We'll call **markup characters** placed between a character of level `L`
-and a character of level `R` *left-flanking delimiter run* if and only if:
+Now take a run of **markup characters** placed between a character of level
+`L` and a character of level `R`. It leans towards whichever of its two
+neighbours is more solid, and that is what decides what it can do:
+
+* `level(L) < level(R)`—the run hangs on the left hand side of a word, so it
+  can only *open* emphasis markup (and other similar things like
+  strikethrough, which we won't mention explicitly anymore for brevity);
+* `level(L) > level(R)`—the run hangs on the right hand side of a word, so
+  it can only *close* emphasis markup;
+* `level(L) == level(R) == 0`—there is white space on both sides of the run,
+  so it can do neither and the run is a parse error;
+* `level(L) == level(R) > 0`—the run leans nowhere, so it is *ambiguous*.
+
+The first two cases are exactly what the CommonMark specification calls a
+left-flanking delimiter run that is not right-flanking, and a right-flanking
+delimiter run that is not left-flanking. The last case is a run that is
+both, and it is the only one where MMark has to make a decision of its own:
+
+> An ambiguous run closes the markup it is inside of and opens new markup
+> otherwise.
+
+That is the whole rule, and it is what makes emphasis on a part of a word
+work:
 
 ```
-level(L) < level(R)
+un*frigging*believable
+H~2~O is not O~2~
+x^2^ + y^2^ = z^2^
 ```
 
-These **markup characters** sort of hang on the left hand side of a word.
-
-Similarly we'll call **markup characters** placed between a character of
-level `L` and a character of level `R` *right-flanking delimiter run* if and
-only if:
+There is one exception to all of the above, and it is about the `_`
+character. A run of underscores that has word characters on both sides of it
+is not markup at all, it is literal text:
 
 ```
-level(L) > level (R)
+snake_case and to_string() and __dunder__
 ```
 
-These **markup characters** hang on the right hand side of a word.
+This is the one place where a **markup character** does not have to be
+backslash escaped to be taken literally, and it exists because underscores
+are so common inside identifiers. Asterisks are the way to emphasize a part
+of a word.
 
-*Emphasis markup* (and other similar things like strikethrough, which we
-won't mention explicitly anymore for brevity) can start only as
-*left-flanking delimiter run* and end only as *right-flanking delimiter
-run*.
-
-This produces a parse error:
+A run with white space on both sides of it leans nowhere and can do nothing,
+so these do not parse:
 
 ```
 *Something * is not right.
 Something __is __ not right.
 ```
 
-And this too:
+Neither does a run that closes markup that was never opened:
 
 ```
-__foo__bar
+Here goes bar*
 ```
 
-This means that inter-word emphasis is not supported.
-
-The next example is OK because `s` is an **other character** and `.` is a
-**punctuation character**, so `level('s') > level('.')`.
-
-```
-Here it *goes*.
-```
-
-In some rare cases backslash escaping can help get the right result:
-
-```
-Here goes *(something\)*.
-```
-
-We escaped the closing parenthesis `)` so it becomes an **other character**
-with level 2 and so its level is greater than the level of plain punctuation
-character `.`.
+Nor markup that is opened and never closed. That last one is what makes
+`__foo__bar` an error rather than literal text: the first `__` opens strong
+emphasis, the second one is inside a word and so is literal, and nothing
+closes the strong emphasis afterwards.
 
 ### Other differences
 
