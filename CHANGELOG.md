@@ -45,6 +45,27 @@
   as “expecting closing code fence or code block content” rather than as
   “expecting newline”.
 
+* The contents of a code span are no longer normalized by collapsing every
+  run of white space into a single space and trimming both ends. Following
+  CommonMark, only line endings become spaces now, and a single space is
+  removed from each end when the contents both begin and end with a space
+  without consisting of spaces alone. White space inside a code span is
+  therefore preserved verbatim, so `` `col1  col2` `` keeps its two spaces
+  and `` `a<tab>b` `` keeps its tab.
+
+* Fixed a bug that made the info string of a fenced code block reject
+  backtick characters even when the fence was made of tildes. Only a
+  backtick fence can be confused with a backtick in its info string, so
+  ` ~~~ aa ``` ~~~ ` opens a code block now instead of being a parse error.
+
+* Symbols such as `$`, `+`, and `=` now count as punctuation when the type
+  of the characters around a delimiter run is determined, as they do in
+  CommonMark since version 0.31. Emphasis cannot hang on such a character
+  anymore, so `*$*alpha` is a parse error rather than emphasized `$`.
+
+* The test suite now follows the CommonMark specification 0.31.2 rather than
+  0.28.
+
 ## MMark 0.0.8.0
 
 * Exposed the following modules: `Text.MMark.Internal.Type`,

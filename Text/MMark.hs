@@ -21,13 +21,13 @@
 --
 -- MMark mostly tries to follow the CommonMark specification as given here:
 --
--- <https://spec.commonmark.org/0.28/>
+-- <https://spec.commonmark.org/0.31.2/>
 --
 -- However, due to the fact that we do not allow inputs that do not make
 -- sense, and also try to guard against common mistakes (like writing @##My
 -- header@ and having it rendered as a paragraph starting with hashes), MMark
 -- obviously can't follow the specification precisely. In particular,
--- parsing of inlines differs considerably from CommonMark.
+-- parsing of inlines is stricter than CommonMark.
 --
 -- Another difference between CommonMark and MMark is that the latter
 -- supports more (pun alert) common markdown extensions out of the box. In
