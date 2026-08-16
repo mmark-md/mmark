@@ -229,25 +229,34 @@ Inline-level parsing:
 ## Performance
 
 I [have compared](https://github.com/mrkkrp/md-bench) speed and memory
-consumption of various Haskell markdown libraries by running them on an
-identical, big-enough markdown document and by rendering it as HTML:
+consumption of the Haskell markdown libraries that are still maintained by
+running each of them on the same markdown document (the readme of
+`megaparsec`, about 19 KB) and rendering it as HTML:
 
-Library             | Parsing library     | Execution time | Allocated   | Max residency
---------------------|---------------------|---------------:|------------:|-------------:
-`cmark-0.5.6`       | Custom C code       |       323.4 μs |     228,440 |         9,608
-`mmark-0.0.5.1`     | Megaparsec          |       7.027 ms |  26,180,272 |        37,792
-`cheapskate-0.1.1`  | Custom Haskell code |       10.76 ms |  44,686,272 |       799,200
-`markdown-0.1.16` † | Attoparsec          |       14.13 ms |  69,261,816 |       699,656
-`pandoc-2.0.5`      | Parsec              |       37.90 ms | 141,868,840 |     1,471,080
+Library              | Parsing library | Execution time | Allocated   | Max residency
+---------------------|-----------------|---------------:|------------:|-------------:
+`cmark-0.6.1`        | Custom C code   |       177.7 μs |     175,464 |        63,112
+`commonmark-0.3`     | Parsec          |       7.502 ms |  39,616,824 |     1,042,184
+`mmark-0.1.0.0`      | Megaparsec      |       7.680 ms |  33,609,608 |        70,712
+`pandoc-3.10.2`      | Parsec          |       26.85 ms | 157,760,336 |     1,029,112
 
-*Results are ordered from fastest to slowest.*
+*Results are ordered from fastest to slowest. Measured with GHC 9.10.3.*
 
-† The `markdown` library is sloppy and parses markdown incorrectly. For
-example, it parses the following `*My * text` as an inline containing
-emphasis, while in reality both asterisks must form flanking delimiter runs
-to create emphasis, like so `*My* text`. This allowed `markdown` to get away
-with a far simpler approach to parsing at the price that it's not really a
-valid markdown implementation.
+`cmark` is a binding to the C reference implementation, so it is in a
+different league and will stay there. Among the Haskell implementations,
+`mmark` and `commonmark` take about the same time, `mmark` allocating
+somewhat less, and `pandoc` costs about three and a half times as much as
+either—which is the price of being able to read and write everything rather
+than one thing.
+
+The number I would draw attention to is the last column. `mmark` holds on to
+about 70 KB while it works, where `commonmark` and `pandoc` hold on to
+around a megabyte, roughly fifteen times as much. If you render many
+documents in one process, that is the figure that decides how the memory
+profile of your program looks.
+
+Two libraries that appeared in earlier versions of this table, `cheapskate`
+and `markdown`, have been dropped: neither has had a release since 2020.
 
 ## Related packages
 
