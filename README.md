@@ -55,7 +55,7 @@ There are three main differences:
 
 MMark mostly tries to follow the CommonMark specification as given here:
 
-https://spec.commonmark.org/0.28/
+https://spec.commonmark.org/0.31.2/
 
 However, due to the fact that we do not allow inputs that do not make sense,
 and also try to guard against common mistakes (like writing `##My header`
@@ -104,7 +104,8 @@ characters into four groups:
   exactly one exception to this, see below).
 
 * **Punctuation characters**, which include all punctuation characters that
-  are not **markup characters**.
+  are not **markup characters**. Following CommonMark, symbols such as `$`,
+  `+`, and `=` count as punctuation here too.
 
 * **Other characters**, which include all characters not falling into the
   three groups described above.

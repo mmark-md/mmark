@@ -242,7 +242,10 @@ pOpeningFence = p '`' <|> p '~'
       ml <-
         optional
           (T.strip <$> someEscapedWith notNewline <?> "info string")
-      guard (maybe True (not . T.any (== '`')) ml)
+      -- A backtick in the info string of a backtick fence would be
+      -- ambiguous with the fence itself. Tilde fences have no such problem.
+      when (ch == '`') $
+        guard (maybe True (not . T.any (== '`')) ml)
       ( ch,
         n,
         case ml of
@@ -804,7 +807,7 @@ pCodeSpan = do
         void $ count n (char '`')
         notFollowedBy (char '`')
   r <-
-    CodeSpan . collapseWhiteSpace . T.concat
+    CodeSpan . normalizeCodeSpan . T.concat
       <$> manyTill
         ( label "code span content" $
             takeWhile1P Nothing (== '`')
@@ -939,7 +942,7 @@ pPlain = fmap (Plain . bakeText) . foldSome $ do
                   (Just . Tokens . nes $ ch)
                   (E.singleton . Label . NE.fromList $ "inline content")
               else
-                if Char.isPunctuation ch
+                if isPunctuationChar ch
                   then char ch <* lastChar PunctChar
                   else char ch <* lastChar OtherChar
 
@@ -1136,7 +1139,7 @@ getNextChar frameType = lookAhead (option SpaceChar (charType <$> anySingle))
       | isFrameConstituent ch = frameType
       | Char.isSpace ch = SpaceChar
       | ch == '\\' = OtherChar
-      | Char.isPunctuation ch = PunctChar
+      | isPunctuationChar ch = PunctChar
       | otherwise = OtherChar
 
 ----------------------------------------------------------------------------
@@ -1289,6 +1292,13 @@ isMarkupChar x = isFrameConstituent x || f x
 isSpecialChar :: Char -> Bool
 isSpecialChar x = isMarkupChar x || x == '\\' || x == '!' || x == '<'
 
+-- | Check whether the character is a punctuation character in the sense of
+-- the CommonMark specification, which counts the Unicode symbol categories
+-- as punctuation in addition to the punctuation categories proper. This is
+-- what @$@ in @*$*alpha@ is: emphasis cannot hang on it.
+isPunctuationChar :: Char -> Bool
+isPunctuationChar x = Char.isPunctuation x || Char.isSymbol x
+
 isAsciiPunctuation :: Char -> Bool
 isAsciiPunctuation x =
   (x >= '!' && x <= '/')
@@ -1329,20 +1339,29 @@ assembleParagraph = go
     go [x] = T.dropWhileEnd isSpace x
     go (x : xs) = x <> "\n" <> go xs
 
-collapseWhiteSpace :: Text -> Text
-collapseWhiteSpace =
-  T.stripEnd . T.filter (/= '\0') . snd . T.mapAccumL f True
+-- | Normalize the contents of a code span the way the CommonMark
+-- specification prescribes: every line ending becomes a space, and when the
+-- result both begins and ends with a space but does not consist of spaces
+-- alone, one space is removed from each end. Everything else is preserved
+-- verbatim, so a code span is the one place where the exact spelling of the
+-- input survives.
+--
+-- The indentation of a continuation line goes with its line ending because
+-- it belongs to the block that contains the paragraph, not to the code
+-- span: it is the indentation of a list item or the padding that replaced
+-- the markers of a block quote.
+normalizeCodeSpan :: Text -> Text
+normalizeCodeSpan txt =
+  if padded && not (T.all (== ' ') oneLine)
+    then (T.init . T.tail) oneLine
+    else oneLine
   where
-    f seenSpace ch =
-      case (seenSpace, g ch) of
-        (False, False) -> (False, ch)
-        (True, False) -> (False, ch)
-        (False, True) -> (True, ' ')
-        (True, True) -> (True, '\0')
-    g ' ' = True
-    g '\t' = True
-    g '\n' = True
-    g _ = False
+    padded = " " `T.isPrefixOf` oneLine && " " `T.isSuffixOf` oneLine
+    oneLine = T.intercalate " " (unindent (T.splitOn "\n" unified))
+    unindent = \case
+      [] -> []
+      x : xs -> x : fmap (T.dropWhile isSpace) xs
+    unified = T.replace "\r" "\n" (T.replace "\r\n" "\n" txt)
 
 liftFrame :: InlineFrame -> NonEmpty Inline -> Inline
 liftFrame = \case
