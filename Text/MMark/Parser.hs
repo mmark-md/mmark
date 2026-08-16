@@ -34,6 +34,7 @@ import Data.Char qualified as Char
 import Data.DList qualified as DList
 import Data.HTML.Entities (htmlEntityMap)
 import Data.HashMap.Strict qualified as HM
+import Data.List (delete)
 import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (catMaybes, fromJust, isJust, isNothing)
@@ -58,36 +59,6 @@ import Text.URI.Lens (uriPath)
 #if !defined(ghcjs_HOST_OS)
 import qualified Data.Yaml as Yaml
 #endif
-
-----------------------------------------------------------------------------
--- Auxiliary data types
-
--- | Frame that describes where we are in parsing inlines.
-data InlineFrame
-  = -- | Emphasis with asterisk @*@
-    EmphasisFrame
-  | -- | Emphasis with underscore @_@
-    EmphasisFrame_
-  | -- | Strong emphasis with asterisk @**@
-    StrongFrame
-  | -- | Strong emphasis with underscore @__@
-    StrongFrame_
-  | -- | Strikeout
-    StrikeoutFrame
-  | -- | Subscript
-    SubscriptFrame
-  | -- | Superscript
-    SuperscriptFrame
-  deriving (Eq, Ord, Show)
-
--- | State of inline parsing that specifies whether we expect to close one
--- frame or there is a possibility to close one of two alternatives.
-data InlineState
-  = -- | One frame to be closed
-    SingleFrame InlineFrame
-  | -- | Two frames to be closed
-    DoubleFrame InlineFrame InlineFrame
-  deriving (Eq, Ord, Show)
 
 ----------------------------------------------------------------------------
 -- Top-level API
@@ -818,7 +789,9 @@ pInlines = do
           try pHardLineBreak <|> pPlain
         ch ->
           if isFrameConstituent ch
-            then pEnclosedInline
+            then do
+              literal <- lookingAtWordUnderscores
+              if literal then pPlain else pEnclosedInline
             else pPlain
 
 -- | Parse a code span.
@@ -845,7 +818,7 @@ pLink :: IParser Inline
 pLink = do
   void (char '[')
   o <- getOffset
-  txt <- disallowLinks (disallowEmpty pInlines)
+  txt <- outsideFrames (disallowLinks (disallowEmpty pInlines))
   void (char ']')
   (dest, mtitle) <- pLocation o txt
   Link txt dest mtitle <$ lastChar OtherChar
@@ -864,7 +837,7 @@ pImage = do
     nonEmptyAlt = do
       void (string "![")
       o <- getOffset
-      alt <- disallowImages (disallowEmpty pInlines)
+      alt <- outsideFrames (disallowImages (disallowEmpty pInlines))
       void (char ']')
       return (o, alt)
 
@@ -888,23 +861,25 @@ pAutolink = between (char '<') (char '>') $ do
 -- | Parse inline content inside an enclosing construction such as emphasis,
 -- strikeout, superscript, and\/or subscript markup.
 pEnclosedInline :: IParser Inline
-pEnclosedInline =
-  disallowEmpty $
-    pLfdr >>= \case
-      SingleFrame x ->
-        liftFrame x <$> pInlines <* pRfdr x
-      DoubleFrame x y -> do
-        inlines0 <- pInlines
-        thisFrame <- pRfdr x <|> pRfdr y
-        let thatFrame = if thisFrame == x then y else x
-        minlines1 <- optional pInlines
-        void (pRfdr thatFrame)
-        return . liftFrame thatFrame $
-          case minlines1 of
-            Nothing ->
-              nes (liftFrame thisFrame inlines0)
-            Just inlines1 ->
-              liftFrame thisFrame inlines0 <| inlines1
+pEnclosedInline = disallowEmpty $ do
+  frames <- pLfdr
+  inlines <- insideFrames frames pInlines
+  go frames inlines
+  where
+    -- The frames of one group close in whatever order the closing runs
+    -- dictate, and the one that closes first ends up innermost. This is
+    -- what makes both @***foo** bar*@ and @***foo* bar**@ work.
+    go frames inlines = do
+      frame <- choice (pRfdr <$> frames)
+      let frames' = delete frame frames
+          inline = liftFrame frame inlines
+      if null frames'
+        then return inline
+        else do
+          minlines <- optional (insideFrames frames' pInlines)
+          go frames' $ case minlines of
+            Nothing -> nes inline
+            Just inlines' -> inline <| inlines'
 
 -- | Parse a hard line break.
 pHardLineBreak :: IParser Inline
@@ -945,6 +920,14 @@ pPlain = fmap (Plain . bakeText) . foldSome $ do
           (:) <$> char '&'
         ]
         <* lastChar PunctChar
+    '_' -> do
+      literal <- lookingAtWordUnderscores
+      if literal
+        then do
+          run <- takeWhile1P Nothing (== '_')
+          lastChar OtherChar
+          return ((++) (reverse (T.unpack run)))
+        else unexpEic (Tokens (nes ch))
     _ ->
       (:)
         <$> if Char.isSpace ch
@@ -1048,35 +1031,49 @@ pRefLabel = do
   void (char ']')
   return (o, dlabel)
 
--- | Parse an opening markup sequence corresponding to given 'InlineState'.
-pLfdr :: IParser InlineState
+-- | Parse an opening markup sequence, that is, a delimiter run that opens a
+-- group of inline frames. The whole run is consumed, however long it is.
+pLfdr :: IParser [InlineFrame]
 pLfdr = try $ do
   o <- getOffset
-  let r st = st <$ string (inlineStateDel st)
-  st <-
-    hidden $
-      choice
-        [ r (DoubleFrame StrongFrame StrongFrame),
-          r (DoubleFrame StrongFrame EmphasisFrame),
-          r (SingleFrame StrongFrame),
-          r (SingleFrame EmphasisFrame),
-          r (DoubleFrame StrongFrame_ StrongFrame_),
-          r (DoubleFrame StrongFrame_ EmphasisFrame_),
-          r (SingleFrame StrongFrame_),
-          r (SingleFrame EmphasisFrame_),
-          r (DoubleFrame StrikeoutFrame StrikeoutFrame),
-          r (DoubleFrame StrikeoutFrame SubscriptFrame),
-          r (SingleFrame StrikeoutFrame),
-          r (SingleFrame SubscriptFrame),
-          r (SingleFrame SuperscriptFrame)
-        ]
-  let dels = inlineStateDel st
-      failNow =
-        customFailure' o (NonFlankingDelimiterRun (toNesTokens dels))
+  (ch, run, rch) <- lookAhead $ do
+    ch <- satisfy isFrameConstituent
+    run <- T.cons ch <$> takeWhileP Nothing (== ch)
+    rch <- getNextChar OtherChar
+    return (ch, run, rch)
+  let failNow e = customFailure' o (e (toNesTokens run))
+      open = runFrames ch (T.length run) <$ takeWhile1P Nothing (== ch)
   lch <- getLastChar
-  rch <- getNextChar OtherChar
-  when (lch >= rch) failNow
-  return st
+  frames <- getFrames
+  case flanking lch rch of
+    OpensFrame ->
+      open
+    NotFlanking ->
+      failNow NonFlankingDelimiterRun
+    ClosesFrame ->
+      if null frames
+        then failNow UnmatchedClosingDelimiterRun
+        else empty
+    AmbiguousFrame ->
+      if closesFrames run frames
+        then empty
+        else open
+
+-- | The frames that a delimiter run of the given character and length
+-- opens, in the order in which we prefer to close them. Preferring the
+-- longer delimiters is what puts the strong emphasis inside the emphasis in
+-- @***foo***@ and, more generally, leaves the odd delimiter of a run on the
+-- outside.
+runFrames :: Char -> Int -> [InlineFrame]
+runFrames ch n = case ch of
+  '*' -> pairsThenSingle StrongFrame EmphasisFrame
+  '_' -> pairsThenSingle StrongFrame_ EmphasisFrame_
+  '~' -> pairsThenSingle StrikeoutFrame SubscriptFrame
+  '^' -> replicate n SuperscriptFrame
+  _ -> []
+  where
+    pairsThenSingle paired odd' =
+      replicate (n `div` 2) paired ++ replicate (n `mod` 2) odd'
 
 -- | Parse a closing markup sequence corresponding to given 'InlineFrame'.
 pRfdr :: InlineFrame -> IParser InlineFrame
@@ -1093,8 +1090,40 @@ pRfdr frame = try $ do
         customFailure' o (NonFlankingDelimiterRun (toNesTokens dels))
   lch <- getLastChar
   rch <- getNextChar SpaceChar
-  when (lch <= rch) failNow
-  return frame
+  case flanking lch rch of
+    ClosesFrame -> return frame
+    -- We only get here when 'pLfdr' has already decided that an ambiguous
+    -- run closes the frame we are in.
+    AmbiguousFrame -> return frame
+    _ -> failNow
+
+-- | Check whether the given delimiter run is exactly what the given open
+-- frames are waiting for, innermost first. A run that closes a frame only
+-- partially, as the @**@ does in @*foo**bar**baz*@, is not a closing run:
+-- there it opens strong emphasis inside the emphasis instead.
+closesFrames :: Text -> [InlineFrame] -> Bool
+closesFrames dels = \case
+  [] -> False
+  f : fs ->
+    case T.stripPrefix (inlineFrameDel f) dels of
+      Nothing -> False
+      Just dels' -> T.null dels' || closesFrames dels' fs
+
+-- | Check whether the input begins with a run of underscores that has word
+-- characters on both sides. Underscores are common inside words, so such a
+-- run is not markup at all but literal text; this is the one place where a
+-- markup character does not have to be escaped to be taken literally.
+lookingAtWordUnderscores :: IParser Bool
+lookingAtWordUnderscores = do
+  lch <- getLastChar
+  if lch /= OtherChar
+    then return False
+    else lookAhead . option False $ do
+      void (takeWhile1P Nothing (== '_'))
+      -- Markup characters do not count as word characters here: in
+      -- @*_foo_*@ the closing @_@ is markup, not part of a word.
+      rch <- getNextChar SpaceChar
+      return (rch == OtherChar)
 
 -- | Get 'CharType' of the next char in the input stream.
 getNextChar ::
@@ -1315,11 +1344,6 @@ collapseWhiteSpace =
     g '\n' = True
     g _ = False
 
-inlineStateDel :: InlineState -> Text
-inlineStateDel = \case
-  SingleFrame x -> inlineFrameDel x
-  DoubleFrame x y -> inlineFrameDel x <> inlineFrameDel y
-
 liftFrame :: InlineFrame -> NonEmpty Inline -> Inline
 liftFrame = \case
   StrongFrame -> Strong
@@ -1329,16 +1353,6 @@ liftFrame = \case
   StrikeoutFrame -> Strikeout
   SubscriptFrame -> Subscript
   SuperscriptFrame -> Superscript
-
-inlineFrameDel :: InlineFrame -> Text
-inlineFrameDel = \case
-  EmphasisFrame -> "*"
-  EmphasisFrame_ -> "_"
-  StrongFrame -> "**"
-  StrongFrame_ -> "__"
-  StrikeoutFrame -> "~~"
-  SubscriptFrame -> "~"
-  SuperscriptFrame -> "^"
 
 replaceEof :: String -> ParseError Text e -> ParseError Text e
 replaceEof altLabel = \case

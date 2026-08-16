@@ -41,9 +41,16 @@ module Text.MMark.Parser.Internal
     isImagesAllowed,
     getLastChar,
     lastChar,
+    getFrames,
+    insideFrames,
+    outsideFrames,
     lookupReference,
     Isp (..),
     CharType (..),
+    Flanking (..),
+    flanking,
+    InlineFrame (..),
+    inlineFrameDel,
 
     -- * Reference and footnote definitions
     Defs,
@@ -229,6 +236,22 @@ getLastChar = gets (view istLastChar)
 lastChar :: CharType -> IParser ()
 lastChar = modify' . set istLastChar
 {-# INLINE lastChar #-}
+
+-- | Get the inline frames that are currently open, innermost first.
+getFrames :: IParser [InlineFrame]
+getFrames = gets (view istFrames)
+
+-- | Run a parser with the given frames opened, innermost first.
+insideFrames :: [InlineFrame] -> IParser a -> IParser a
+insideFrames frames m = do
+  frames' <- getFrames
+  locally istFrames (frames ++ frames') m
+
+-- | Run a parser with no frame open at all. An inline frame cannot span the
+-- boundary of a link's text or an image's description, so a delimiter run
+-- inside one of those cannot close a frame that was opened outside of it.
+outsideFrames :: IParser a -> IParser a
+outsideFrames = locally istFrames []
 
 -- | Look up a link\/image reference definition.
 lookupReference ::

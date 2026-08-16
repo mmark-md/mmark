@@ -823,8 +823,7 @@ spec = parallel $ do
         "\\*not emphasized\\*\n\\<br/> not a tag\n\\[not a link\\](/foo)\n\\`not code\\`\n1\\. not a list\n\\* not a list\n\\# not a heading\n\\[foo\\]: /url \"not a reference\"\n"
           ==-> "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url &quot;not a reference&quot;</p>\n"
       it "CM292" $
-        let s = "\\\\*emphasis*"
-         in s ~-> errFancy 2 (nonFlanking "*")
+        "\\\\*emphasis*" ==-> "<p>\\<em>emphasis</em></p>\n"
       it "CM293" $
         "foo\\\nbar"
           ==-> "<p>foo<br>\nbar</p>\n"
@@ -963,16 +962,14 @@ spec = parallel $ do
          in s ~-> errFancy 2 (nonFlanking "*")
       it "CM333" $
         let s = "a*\"foo\"*\n"
-         in s ~-> errFancy 1 (nonFlanking "*")
+         in s ~-> errFancy 1 (unmatchedClosing "*")
       it "CM334" $
         let s = "* a *\n"
          in s ~-> errFancy 0 (nonFlanking "*")
       it "CM335" $
-        let s = "foo*bar*\n"
-         in s ~-> errFancy 3 (nonFlanking "*")
+        "foo*bar*\n" ==-> "<p>foo<em>bar</em></p>\n"
       it "CM336" $
-        let s = "5*6*78\n"
-         in s ~-> errFancy 1 (nonFlanking "*")
+        "5*6*78\n" ==-> "<p>5<em>6</em>78</p>\n"
       it "CM337" $
         "_foo bar_" ==-> "<p><em>foo bar</em></p>\n"
       it "CM338" $
@@ -980,22 +977,20 @@ spec = parallel $ do
          in s ~-> errFancy 0 (nonFlanking "_")
       it "CM339" $
         let s = "a_\"foo\"_\n"
-         in s ~-> errFancy 1 (nonFlanking "_")
+         in s ~-> errFancy 1 (unmatchedClosing "_")
       it "CM340" $
         let s = "foo_bar_\n"
-         in s ~-> errFancy 3 (nonFlanking "_")
+         in s ~-> errFancy 7 (unmatchedClosing "_")
       it "CM341" $
-        let s = "5_6_78\n"
-         in s ~-> errFancy 1 (nonFlanking "_")
+        "5_6_78\n" ==-> "<p>5_6_78</p>\n"
       it "CM342" $
         let s = "пристаням_стремятся_\n"
-         in s ~-> errFancy 9 (nonFlanking "_")
+         in s ~-> errFancy 19 (unmatchedClosing "_")
       it "CM343" $
         let s = "aa_\"bb\"_cc\n"
-         in s ~-> errFancy 2 (nonFlanking "_")
+         in s ~-> errFancy 2 (unmatchedClosing "_")
       it "CM344" $
-        let s = "foo-_(bar)_\n"
-         in s ~-> errFancy 4 (nonFlanking "_")
+        "foo-_(bar)_\n" ==-> "<p>foo-<em>(bar)</em></p>\n"
       it "CM345" $
         let s = "_foo*\n"
          in s ~-> err 4 (utok '*' <> etok '_' <> eic)
@@ -1012,8 +1007,7 @@ spec = parallel $ do
         "*(*foo*)*"
           ==-> "<p><em>(<em>foo</em>)</em></p>\n"
       it "CM350" $
-        let s = "*foo*bar\n"
-         in s ~-> errFancy 4 (nonFlanking "*")
+        "*foo*bar\n" ==-> "<p><em>foo</em>bar</p>\n"
       it "CM351" $
         let s = "_foo bar _\n"
          in s ~-> errFancy 9 (nonFlanking "_")
@@ -1025,15 +1019,14 @@ spec = parallel $ do
           ==-> "<p><em>(<em>foo</em>)</em></p>\n"
       it "CM354" $
         let s = "_foo_bar\n"
-         in s ~-> errFancy 4 (nonFlanking "_")
+         in s ~-> err 8 (ueib <> etok '_' <> eic)
       it "CM355" $
         let s = "_пристаням_стремятся\n"
-         in s ~-> errFancy 10 (nonFlanking "_")
+         in s ~-> err 20 (ueib <> etok '_' <> eic)
       it "CM356" $
-        let s = "_foo_bar_baz_\n"
-         in s ~-> errFancy 4 (nonFlanking "_")
+        "_foo_bar_baz_\n" ==-> "<p><em>foo_bar_baz</em></p>\n"
       it "CM357" $
-        "_(bar\\)_.\n" ==-> "<p><em>(bar)</em>.</p>\n"
+        "_(bar)_.\n" ==-> "<p><em>(bar)</em>.</p>\n"
       it "CM358" $
         "**foo bar**\n" ==-> "<p><strong>foo bar</strong></p>\n"
       it "CM359" $
@@ -1041,10 +1034,9 @@ spec = parallel $ do
          in s ~-> errFancy 0 (nonFlanking "**")
       it "CM360" $
         let s = "a**\"foo\"**\n"
-         in s ~-> errFancy 1 (nonFlanking "**")
+         in s ~-> errFancy 1 (unmatchedClosing "**")
       it "CM361" $
-        let s = "foo**bar**\n"
-         in s ~-> errFancy 3 (nonFlanking "**")
+        "foo**bar**\n" ==-> "<p>foo<strong>bar</strong></p>\n"
       it "CM362" $
         "__foo bar__" ==-> "<p><strong>foo bar</strong></p>\n"
       it "CM363" $
@@ -1055,21 +1047,20 @@ spec = parallel $ do
          in s ~-> errFancy 0 (nonFlanking "__")
       it "CM365" $
         let s = "a__\"foo\"__\n"
-         in s ~-> errFancy 1 (nonFlanking "__")
+         in s ~-> errFancy 1 (unmatchedClosing "__")
       it "CM366" $
         let s = "foo__bar__\n"
-         in s ~-> errFancy 3 (nonFlanking "__")
+         in s ~-> errFancy 8 (unmatchedClosing "__")
       it "CM367" $
-        let s = "5__6__78\n"
-         in s ~-> errFancy 1 (nonFlanking "__")
+        "5__6__78\n" ==-> "<p>5__6__78</p>\n"
       it "CM368" $
         let s = "пристаням__стремятся__\n"
-         in s ~-> errFancy 9 (nonFlanking "__")
+         in s ~-> errFancy 20 (unmatchedClosing "__")
       it "CM369" $
         "__foo, __bar__, baz__"
           ==-> "<p><strong>foo, <strong>bar</strong>, baz</strong></p>\n"
       it "CM370" $
-        "foo-__\\(bar)__" ==-> "<p>foo-<strong>(bar)</strong></p>\n"
+        "foo-__(bar)__" ==-> "<p>foo-<strong>(bar)</strong></p>\n"
       it "CM371" $
         let s = "**foo bar **\n"
          in s ~-> errFancy 10 (nonFlanking "**")
@@ -1086,8 +1077,7 @@ spec = parallel $ do
         "**foo \"*bar*\" foo**"
           ==-> "<p><strong>foo &quot;<em>bar</em>&quot; foo</strong></p>\n"
       it "CM376" $
-        let s = "**foo**bar\n"
-         in s ~-> errFancy 5 (nonFlanking "**")
+        "**foo**bar\n" ==-> "<p><strong>foo</strong>bar</p>\n"
       it "CM377" $
         let s = "__foo bar __\n"
          in s ~-> errFancy 10 (nonFlanking "__")
@@ -1099,15 +1089,15 @@ spec = parallel $ do
           ==-> "<p><em>(<strong>foo</strong>)</em></p>\n"
       it "CM380" $
         let s = "__foo__bar\n"
-         in s ~-> errFancy 5 (nonFlanking "__")
+         in s ~-> err 10 (ueib <> etoks "__" <> eic)
       it "CM381" $
         let s = "__пристаням__стремятся\n"
-         in s ~-> errFancy 11 (nonFlanking "__")
+         in s ~-> err 22 (ueib <> etoks "__" <> eic)
       it "CM382" $
-        "__foo\\_\\_bar\\_\\_baz__"
+        "__foo__bar__baz__"
           ==-> "<p><strong>foo__bar__baz</strong></p>\n"
       it "CM383" $
-        "__(bar\\)__."
+        "__(bar)__."
           ==-> "<p><strong>(bar)</strong>.</p>\n"
       it "CM384" $
         "*foo [bar](/url)*"
@@ -1131,15 +1121,14 @@ spec = parallel $ do
         "*foo **bar** baz*"
           ==-> "<p><em>foo <strong>bar</strong> baz</em></p>\n"
       it "CM391" $
-        let s = "*foo**bar**baz*\n"
-         in s ~-> errFancy 5 (nonFlanking "*")
+        "*foo**bar**baz*\n"
+          ==-> "<p><em>foo<strong>bar</strong>baz</em></p>\n"
       it "CM392" $
         "***foo** bar*\n" ==-> "<p><em><strong>foo</strong> bar</em></p>\n"
       it "CM393" $
         "*foo **bar***\n" ==-> "<p><em>foo <strong>bar</strong></em></p>\n"
       it "CM394" $
-        let s = "*foo**bar***\n"
-         in s ~-> errFancy 5 (nonFlanking "*")
+        "*foo**bar***\n" ==-> "<p><em>foo<strong>bar</strong></em></p>\n"
       it "CM395" $
         "*foo **bar *baz* bim** bop*\n"
           ==-> "<p><em>foo <strong>bar <em>baz</em> bim</strong> bop</em></p>\n"
@@ -1174,8 +1163,8 @@ spec = parallel $ do
         "**foo *bar* baz**"
           ==-> "<p><strong>foo <em>bar</em> baz</strong></p>\n"
       it "CM406" $
-        let s = "**foo*bar*baz**\n"
-         in s ~-> err 5 (utoks "*b" <> etoks "**" <> eic)
+        "**foo*bar*baz**\n"
+          ==-> "<p><strong>foo<em>bar</em>baz</strong></p>\n"
       it "CM407" $
         "***foo* bar**"
           ==-> "<p><strong><em>foo</em> bar</strong></p>\n"
@@ -1203,7 +1192,7 @@ spec = parallel $ do
         "foo *\\_*\n" ==-> "<p>foo <em>_</em></p>\n"
       it "CM416" $
         let s = "foo *****\n"
-         in s ~-> errFancy 8 (nonFlanking "*")
+         in s ~-> errFancy 4 (nonFlanking "*****")
       it "CM417" $
         "foo **\\***" ==-> "<p>foo <strong>*</strong></p>\n"
       it "CM418" $
@@ -1213,7 +1202,7 @@ spec = parallel $ do
          in s ~-> err 5 (utok '*' <> etoks "**" <> eic)
       it "CM420" $
         let s = "*foo**\n"
-         in s ~-> errFancy 5 (nonFlanking "*")
+         in s ~-> errFancy 5 (unmatchedClosing "*")
       it "CM421" $
         let s = "***foo**\n"
          in s ~-> err 8 (ueib <> etok '*' <> eic)
@@ -1222,10 +1211,10 @@ spec = parallel $ do
          in s ~-> err 7 (utok '*' <> etoks "**" <> eic)
       it "CM423" $
         let s = "**foo***\n"
-         in s ~-> errFancy 7 (nonFlanking "*")
+         in s ~-> errFancy 7 (unmatchedClosing "*")
       it "CM424" $
         let s = "*foo****\n"
-         in s ~-> errFancy 5 (nonFlanking "***")
+         in s ~-> errFancy 5 (unmatchedClosing "***")
       it "CM425" $
         let s = "foo ___\n"
          in s ~-> errFancy 4 (nonFlanking "___")
@@ -1235,7 +1224,7 @@ spec = parallel $ do
         "foo _\\*_" ==-> "<p>foo <em>*</em></p>\n"
       it "CM428" $
         let s = "foo _____\n"
-         in s ~-> errFancy 8 (nonFlanking "_")
+         in s ~-> errFancy 4 (nonFlanking "_____")
       it "CM429" $
         "foo __\\___" ==-> "<p>foo <strong>_</strong></p>\n"
       it "CM430" $
@@ -1245,7 +1234,7 @@ spec = parallel $ do
          in s ~-> err 5 (utok '_' <> etoks "__" <> eic)
       it "CM432" $
         let s = "_foo__\n"
-         in s ~-> errFancy 5 (nonFlanking "_")
+         in s ~-> errFancy 5 (unmatchedClosing "_")
       it "CM433" $
         let s = "___foo__\n"
          in s ~-> err 8 (ueib <> etok '_' <> eic)
@@ -1254,10 +1243,10 @@ spec = parallel $ do
          in s ~-> err 7 (utok '_' <> etoks "__" <> eic)
       it "CM435" $
         let s = "__foo___\n"
-         in s ~-> errFancy 7 (nonFlanking "_")
+         in s ~-> errFancy 7 (unmatchedClosing "_")
       it "CM436" $
         let s = "_foo____\n"
-         in s ~-> errFancy 5 (nonFlanking "___")
+         in s ~-> errFancy 5 (unmatchedClosing "___")
       it "CM437" $
         "**foo**" ==-> "<p><strong>foo</strong></p>\n"
       it "CM438" $
@@ -1277,7 +1266,7 @@ spec = parallel $ do
         "***foo***" ==-> "<p><em><strong>foo</strong></em></p>\n"
       it "CM445" $
         "_____foo_____"
-          ==-> "<p><strong><strong><em>foo</em></strong></strong></p>\n"
+          ==-> "<p><em><strong><strong>foo</strong></strong></em></p>\n"
       it "CM446" $
         let s = "*foo _bar* baz_\n"
          in s ~-> err 9 (utok '*' <> etok '_' <> eic)
@@ -1297,14 +1286,14 @@ spec = parallel $ do
         let s = "_foo [bar_](/url)\n"
          in s ~-> err 9 (utok '_' <> etok ']' <> eic)
       it "CM452" $
-        let s = "*<img src=\"foo\" title=\"*\"/>\n"
-         in s ~-> errFancy 23 (nonFlanking "*")
+        "*<img src=\"foo\" title=\"*\"/>\n"
+          ==-> "<p><em>&lt;img src=&quot;foo&quot; title=&quot;</em>&quot;/&gt;</p>\n"
       it "CM453" $
-        let s = "**<a href=\"**\">"
-         in s ~-> errFancy 11 (nonFlanking "**")
+        "**<a href=\"**\">"
+          ==-> "<p><strong>&lt;a href=&quot;</strong>&quot;&gt;</p>\n"
       it "CM454" $
-        let s = "__<a href=\"__\">\n"
-         in s ~-> errFancy 11 (nonFlanking "__")
+        "__<a href=\"__\">\n"
+          ==-> "<p><strong>&lt;a href=&quot;</strong>&quot;&gt;</p>\n"
       it "CM455" $
         "*a `*`*" ==-> "<p><em>a <code>*</code></em></p>\n"
       it "CM456" $
@@ -1841,9 +1830,6 @@ spec = parallel $ do
       it "CM624" $
         "Multiple     spaces"
           ==-> "<p>Multiple     spaces</p>\n"
-    -- NOTE I don't test these so extensively because they share
-    -- implementation with emphasis and strong emphasis which are thoroughly
-    -- tested already.
     context "strikeout" $ do
       it "works in simplest form" $
         "It's ~~bad~~ news."
@@ -1857,6 +1843,14 @@ spec = parallel $ do
       it "interacts with subscript reasonably (2)" $
         "It's ~~~bad~ news~~."
           ==-> "<p>It&#39;s <del><sub>bad</sub> news</del>.</p>\n"
+      it "nests a subscript the way strong emphasis nests emphasis" $ do
+        "~~foo~bar~baz~~"
+          ==-> "<p><del>foo<sub>bar</sub>baz</del></p>\n"
+        "**foo*bar*baz**"
+          ==-> "<p><strong>foo<em>bar</em>baz</strong></p>\n"
+      it "does not lend a subscript one of its closing tildes" $ do
+        "~~foo~bar~~" ~-> err 10 (utok '~' <> etoks "~~" <> eic)
+        "**foo*bar**" ~-> err 10 (utok '*' <> etoks "**" <> eic)
     context "subscript" $ do
       it "works in simplest form" $
         "It's ~bad~ news."
@@ -1864,6 +1858,8 @@ spec = parallel $ do
       it "combines with emphasis" $
         "**It's ~bad~** news."
           ==-> "<p><strong>It&#39;s <sub>bad</sub></strong> news.</p>\n"
+      it "works inside a word" $
+        "H~2~O is not O~2~." ==-> "<p>H<sub>2</sub>O is not O<sub>2</sub>.</p>\n"
     context "superscript" $ do
       it "works in simplest form" $
         "It's ^bad^ news."
@@ -1871,6 +1867,29 @@ spec = parallel $ do
       it "combines with emphasis" $
         "**It's ^bad^** news."
           ==-> "<p><strong>It&#39;s <sup>bad</sup></strong> news.</p>\n"
+      it "works inside a word" $
+        "x^2^ + y^2^ = z^2^"
+          ==-> "<p>x<sup>2</sup> + y<sup>2</sup> = z<sup>2</sup></p>\n"
+    context "delimiter runs inside words" $ do
+      it "an underscore inside a word is literal" $
+        "snake_case and __dunder__ and to_string()"
+          ==-> "<p>snake_case and <strong>dunder</strong> and to_string()</p>\n"
+      it "an underscore inside a word does not close a frame" $
+        "*a_b_c*" ==-> "<p><em>a_b_c</em></p>\n"
+      it "an asterisk inside a word opens and closes a frame" $
+        "un*frigging*believable"
+          ==-> "<p>un<em>frigging</em>believable</p>\n"
+      it "an ambiguous run closes the frame it is inside of" $
+        "**foo**bar" ==-> "<p><strong>foo</strong>bar</p>\n"
+      it "an ambiguous run that closes nothing opens a frame" $
+        "*foo**bar**baz*"
+          ==-> "<p><em>foo<strong>bar</strong>baz</em></p>\n"
+      it "a run that closes nothing at all is an error" $
+        let s = "foo*bar\n"
+         in s ~-> err 7 (ueib <> etok '*' <> eic)
+      it "a closing run without an opening one is an error" $
+        let s = "foo and bar*\n"
+         in s ~-> errFancy 11 (unmatchedClosing "*")
       it "a composite, complex example" $
         "***Something ~~~is not~~ going~ ^so well^** today*."
           ==-> "<p><em><strong>Something <sub><del>is not</del> going</sub> <sup>so well</sup></strong> today</em>.</p>\n"
@@ -1958,7 +1977,7 @@ spec = parallel $ do
          in s
               ~~-> [ err 10 (ueib <> etok '*' <> eic),
                      err 26 (ueib <> etok '_' <> eic),
-                     errFancy 32 (nonFlanking "_")
+                     errFancy 32 (unmatchedClosing "_")
                    ]
       it "tables have higher precedence than unordered lists" $ do
         "+ foo | bar\n------|----\n"
@@ -2288,6 +2307,10 @@ euric =
 -- or right- flanking position.
 nonFlanking :: Text -> EF MMarkErr
 nonFlanking = fancy . ErrorCustom . NonFlankingDelimiterRun . NE.fromList . T.unpack
+
+unmatchedClosing :: Text -> EF MMarkErr
+unmatchedClosing =
+  fancy . ErrorCustom . UnmatchedClosingDelimiterRun . NE.fromList . T.unpack
 
 -- | The error component complaining that the given starting index of an
 -- ordered list is too big.

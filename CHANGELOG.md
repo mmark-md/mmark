@@ -15,6 +15,32 @@
   continued lazily: a row that does not carry the block quote markers of the
   table it belongs to ends both the table and the quote.
 
+* Emphasis, strong emphasis, strikeout, subscript, and superscript can now
+  be applied to a part of a word. A delimiter run that could both open or
+  close markup used to be rejected; it is now taken to close the markup it
+  is inside of and to open new markup otherwise. Delimiter runs that lean
+  unambiguously one way or the other are classified exactly as before.
+
+* A delimiter run now opens all of its markup as one group, however long the
+  run is, instead of being split into nested groups of at most two frames
+  each. The delimiters of a run consequently close from the inside out at
+  any length, which only changes the result for runs of five characters and
+  more: `_____foo_____` is now `<em><strong><strong>foo</strong></strong></em>`
+  as in CommonMark, rather than `<strong><strong><em>foo</em></strong></strong>`.
+
+* A run of underscores surrounded by word characters is now literal text
+  rather than markup, so `snake_case` and `to_string()` no longer have to be
+  escaped. This is the only case in which a markup character does not have
+  to be backslash escaped to be taken literally.
+
+* Added the `UnmatchedClosingDelimiterRun` constructor to `MMarkErr`. A
+  delimiter run that can only close markup but has no markup to close used
+  to be reported as `NonFlankingDelimiterRun`; the latter is now reserved
+  for runs that have white space on both sides of them and so can neither
+  open nor close anything. Both errors are also reported at the beginning of
+  the whole delimiter run now, rather than at the beginning of the part of
+  it that MMark happened to recognize.
+
 * An unclosed code fence whose last line lacks a line ending is now reported
   as “expecting closing code fence or code block content” rather than as
   “expecting newline”.
