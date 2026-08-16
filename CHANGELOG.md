@@ -1,4 +1,4 @@
-## Unpublished
+## MMark 0.1.0.0
 
 * Transformations can now report errors. A transformation runs in the new
   `TransT` monad and can `report` an error at a `Span` and carry on, or
