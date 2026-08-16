@@ -1,7 +1,10 @@
 module Main (main) where
 
 import Test.Hspec
-import Text.MMarkSpec (spec)
+import Text.MMark.ExtensionSpec qualified as ExtensionSpec
+import Text.MMarkSpec qualified as MMarkSpec
 
 main :: IO ()
-main = hspec spec
+main = hspec $ do
+  MMarkSpec.spec
+  ExtensionSpec.spec

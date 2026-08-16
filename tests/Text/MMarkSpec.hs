@@ -4,9 +4,9 @@
 module Text.MMarkSpec (spec) where
 
 import Control.Foldl qualified as L
+import Control.Monad ((>=>))
 import Data.Aeson
 import Data.Char
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Monoid
 import Data.Text (Text)
@@ -15,12 +15,12 @@ import Data.Text.IO qualified as TIO
 import Lucid
 import Test.Hspec
 import Test.Hspec.Megaparsec
-import Text.MMark (MMarkErr (..))
+import Text.MMark (MMark, MMarkErr (..))
 import Text.MMark qualified as MMark
-import Text.MMark.Extension (Inline (..))
-import Text.MMark.Extension qualified as Ext
 import Text.MMark.TestUtils
-import Text.Megaparsec (ErrorFancy (..))
+import Text.MMark.Trans (Bni, Inline (..), Trans)
+import Text.MMark.Trans qualified as Trans
+import Text.Megaparsec (ErrorFancy (..), errorBundlePretty)
 
 -- NOTE This test suite is mostly based on (sometimes altered) examples from
 -- the CommonMark specification. We use the version 0.31.2 (2024-01-28),
@@ -2259,25 +2259,20 @@ spec = parallel $ do
     context "given a complete, comprehensive document"
       $ it "outputs expected the HTML fragment"
       $ withFiles "data/comprehensive.md" "data/comprehensive.html"
-  describe "useExtension" $
-    it "applies given extension" $ do
+  describe "runTrans" $
+    it "applies the given transformation" $ do
       doc <- mkDoc "Here we go."
-      toText (MMark.useExtension (append_ext "..") doc)
-        `shouldBe` "<p>Here we go...</p>\n"
-  describe "useExtensions" $
-    it "applies extensions in the right order" $ do
+      renderTrans (append_ext "..") doc
+        `shouldBe` Right "<p>Here we go...</p>\n"
+  describe "runTrans, several times" $
+    it "applies transformations in the order they are sequenced" $ do
       doc <- mkDoc "Here we go."
-      let exts =
-            [ append_ext "3",
-              append_ext "2",
-              append_ext "1"
-            ]
-      toText (MMark.useExtensions exts doc)
-        `shouldBe` "<p>Here we go.123</p>\n"
+      let f = append_ext "1" >=> append_ext "2" >=> append_ext "3"
+      renderTrans f doc `shouldBe` Right "<p>Here we go.123</p>\n"
   describe "runScanner and scanner" $
     it "extracts information from markdown document" $ do
       doc <- mkDoc "Here we go, pals."
-      let n = MMark.runScanner doc (length_scan (const True))
+      let n = MMark.runScanner (length_scan (const True)) doc
       n `shouldBe` 17
   describe "combining of scanners" $
     it "combines scanners" $ do
@@ -2287,7 +2282,7 @@ spec = parallel $ do
               <$> length_scan (const True)
               <*> length_scan isSpace
               <*> length_scan isPunctuation
-          r = MMark.runScanner doc scan
+          r = MMark.runScanner scan doc
       r `shouldBe` (17, 3, 2)
   describe "projectYaml" $ do
     context "when document does not contain a YAML section" $
@@ -2324,22 +2319,28 @@ spec = parallel $ do
 ----------------------------------------------------------------------------
 -- Testing extensions
 
--- | Append given text to all 'Plain' blocks.
-append_ext :: Text -> MMark.Extension
-append_ext y = Ext.inlineTrans $ \case
-  Plain x -> Plain (x <> y)
-  other -> other
+-- | Append given text to all 'Plain' inlines.
+append_ext :: Text -> Bni -> Trans Bni
+append_ext y = Trans.bottomUpInlines $ \case
+  Plain ann x -> return (Plain ann (x <> y))
+  other -> return other
+
+-- | Apply a transformation and render the result.
+renderTrans :: (Bni -> Trans Bni) -> MMark -> Either String Text
+renderTrans f doc = case MMark.runTrans f doc of
+  Left errs -> Left (errorBundlePretty errs)
+  Right doc' -> Right (toText doc')
 
 ----------------------------------------------------------------------------
 -- Testing scanners
 
 -- | Scan total number of characters satisfying a predicate in all 'Plain'
 -- inlines.
-length_scan :: (Char -> Bool) -> L.Fold (Ext.Block (NonEmpty Inline)) Int
-length_scan p = Ext.scanner 0 $ \n block ->
+length_scan :: (Char -> Bool) -> L.Fold Bni Int
+length_scan p = MMark.scanner 0 $ \n block ->
   getSum $ Sum n <> foldMap (foldMap f) block
   where
-    f (Plain txt) = (Sum . T.length) (T.filter p txt)
+    f (Plain _ txt) = (Sum . T.length) (T.filter p txt)
     f _ = mempty
 
 ----------------------------------------------------------------------------

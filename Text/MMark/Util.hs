@@ -34,16 +34,16 @@ import Text.URI qualified as URI
 -- @since 0.0.8.0
 asPlainText :: NonEmpty Inline -> Text
 asPlainText = foldMap $ \case
-  Plain txt -> txt
-  LineBreak -> "\n"
-  Emphasis xs -> asPlainText xs
-  Strong xs -> asPlainText xs
-  Strikeout xs -> asPlainText xs
-  Subscript xs -> asPlainText xs
-  Superscript xs -> asPlainText xs
-  CodeSpan txt -> txt
-  Link xs _ _ -> asPlainText xs
-  Image xs _ _ -> asPlainText xs
+  Plain _ txt -> txt
+  LineBreak _ -> "\n"
+  Emphasis _ xs -> asPlainText xs
+  Strong _ xs -> asPlainText xs
+  Strikeout _ xs -> asPlainText xs
+  Subscript _ xs -> asPlainText xs
+  Superscript _ xs -> asPlainText xs
+  CodeSpan _ txt -> txt
+  Link _ xs _ _ -> asPlainText xs
+  Image _ xs _ _ -> asPlainText xs
 
 -- | Generate the value of the id attribute for a given header. This is used
 -- during rendering and also can be used to get the id of a header for

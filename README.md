@@ -24,20 +24,18 @@ document passes the MMark parser, then it is likely to produce HTML output
 without quirks. This feature makes it a good choice for writers and
 bloggers.
 
-MMark in its current state features:
+MMark features:
 
 * A parser that produces high-quality error messages and does not choke on
   the first parse error. It is capable of reporting several parse errors
   simultaneously.
 
-* An extension system that allows us to create extensions that alter parsed
-  markdown document in some way.
+* An extension system that allows us to create extensions that alter a
+  parsed markdown document or the way it is rendered. Extensions can perform
+  effects and can report errors of their own, which are shown against the
+  source of the document just like parse errors are.
 
 * A [`lucid`](https://hackage.haskell.org/package/lucid)-based renderer.
-
-There is also a blog post announcing the project:
-
-https://markkarpov.com/post/announcing-mmark.html
 
 ## Quick start: MMark vs GitHub-flavored markdown
 
