@@ -32,7 +32,6 @@ flag dev
 library
     exposed-modules:
         Text.MMark
-        Text.MMark.Extension
         Text.MMark.Internal.Type
         Text.MMark.Render
         Text.MMark.Trans

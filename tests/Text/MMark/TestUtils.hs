@@ -4,6 +4,7 @@ module Text.MMark.TestUtils
   ( -- * Document creation and rendering
     mkDoc,
     toText,
+    toTextWith,
 
     -- * Parser expectations
     (~~->),
@@ -41,7 +42,11 @@ mkDoc input =
 
 -- | Render an 'MMark' document to 'Text'.
 toText :: MMark -> Text
-toText = TL.toStrict . L.renderText . MMark.render
+toText = toTextWith mempty
+
+-- | Render an 'MMark' document to 'Text' using the given render extension.
+toTextWith :: MMark.RenderExtension -> MMark -> Text
+toTextWith ext = TL.toStrict . L.renderText . MMark.render ext
 
 ----------------------------------------------------------------------------
 -- Parser expectations

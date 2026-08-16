@@ -1,5 +1,59 @@
 ## Unpublished
 
+* Transformations can now report errors. A transformation runs in the new
+  `TransT` monad and can `report` an error at a `Span` and carry on, or
+  `abort` and give up on the document. Errors are collected in a
+  `ParseErrorBundle Text TransError`, the same type the parser produces, so
+  `errorBundlePretty` renders them against the source of the document
+  exactly like parse errors.
+
+* Extensions can now perform effects. `TransT` is a monad transformer, so a
+  transformation may be run in `IO` or in any other monad, see `runTransM`.
+
+* Every block and inline now carries the `Span` of the source it derives
+  from, see `blockSpan` and `inlineSpan`. A node that an extension creates
+  in place of another one inherits its `Span`, and a node assembled from
+  several others should be given the `spanUnion` of theirs.
+
+* `runScanner` and `runScannerM` take the document as their second argument
+  now rather than their first, which is the order the rest of the pipeline
+  already used and which lets a scanner be partially applied:
+  `documentMetadata = runScanner metadataScanner`.
+
+* Added `runCheck` and `runCheckM`, which run a computation in the
+  transformation monad once against a document instead of applying it to
+  every top-level block. A check that concerns the document as a whole no
+  longer has to be written as a transformation of a block it has no
+  interest in.
+
+* Transformations are now applied to the document right away with `runTrans`
+  and `runTransM`, instead of being accumulated in an extension value and
+  applied just before rendering. `useExtension`, `useExtensions`,
+  `blockTrans`, and `inlineTrans` are gone, and so is the `Endo`-based
+  ordering that came with them: transformations are sequenced with `(>=>)`
+  and abort as soon as one of them reports an error.
+
+* Transformations are explicit and available in both directions:
+  `bottomUpBlocks`, `topDownBlocks`, `bottomUpInlines`, and
+  `topDownInlines`. The function given to `runTransM` is applied to
+  top-level blocks only, so the transformation that reaches the rest of the
+  document is the caller's choice.
+
+* Rendering extensions cannot fail. They are collected in a
+  `RenderExtension` value, which is now passed to `render` explicitly rather
+  than being stored in the document: `render :: RenderExtension -> MMark ->
+  Html ()`. Use `mempty` when there are none. Anything that can fail belongs
+  in a transformation.
+
+* Every constructor of `Block` and `Inline` now takes the `Span` of the
+  source it derives from as its first argument.
+
+* The `Text.MMark.Extension` module is gone. The two kinds of extension now
+  have a module each: `Text.MMark.Trans` for transformations and
+  `Text.MMark.Render` for render extensions. Both re-export the document
+  types, so writing either kind of extension takes one import. `scanner` and
+  `scannerM` moved to `Text.MMark`, next to `runScanner` and `runScannerM`.
+
 * Block quotes now follow the CommonMark specification. Every line of a
   block quote must begin with a `>` character, one per level of nesting,
   instead of the quote continuing for as long as its content is indented.
