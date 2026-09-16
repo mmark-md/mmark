@@ -55,9 +55,8 @@ import Text.Megaparsec.Char.Lexer qualified as L
 import Text.URI (URI)
 import Text.URI qualified as URI
 import Text.URI.Lens (uriPath)
-
 #if !defined(ghcjs_HOST_OS)
-import qualified Data.Yaml as Yaml
+import Data.Yaml qualified as Yaml
 #endif
 
 ----------------------------------------------------------------------------
@@ -1443,7 +1442,8 @@ splitYamlError = \case
   Yaml.UnknownAlias anchor -> (Nothing, "unknown alias \"" ++ anchor ++ "\"")
   Yaml.UnexpectedEvent exptd unexptd ->
     ( Nothing,
-      "unexpected event: expected " ++ show exptd
+      "unexpected event: expected "
+        ++ show exptd
         ++ ", but received "
         ++ show unexptd
     )
@@ -1461,7 +1461,8 @@ splitYamlError = \case
   Yaml.OtherParseException exc -> (Nothing, show exc)
   Yaml.NonStringKeyAlias anchor value ->
     ( Nothing,
-      "non-string key alias; anchor name: " ++ anchor
+      "non-string key alias; anchor name: "
+        ++ anchor
         ++ ", value: "
         ++ show value
     )
