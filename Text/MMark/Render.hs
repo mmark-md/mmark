@@ -77,7 +77,7 @@ import Text.URI qualified as URI
 --
 -- __Note__: the type of this function changed in /0.1.0.0/.
 render :: RenderExtension -> MMark -> Html ()
-render RenderExtension {..} MMark {..} =
+render RenderExtension{..} MMark{..} =
   mapM_ rBlock mmarkBlocks
   where
     rBlock = applyBlockRender extBlockRender . fmap rInlines
@@ -237,7 +237,7 @@ blockRender ::
     Html ()
   ) ->
   RenderExtension
-blockRender f = mempty {extBlockRender = Render f}
+blockRender f = mempty{extBlockRender = Render f}
 
 -- | Create an extension that replaces or augments rendering of 'Inline's of
 -- a markdown document. This works like 'blockRender'.
@@ -246,4 +246,4 @@ blockRender f = mempty {extBlockRender = Render f}
 inlineRender ::
   ((Inline -> Html ()) -> Inline -> Html ()) ->
   RenderExtension
-inlineRender f = mempty {extInlineRender = Render f}
+inlineRender f = mempty{extInlineRender = Render f}

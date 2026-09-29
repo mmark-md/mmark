@@ -255,12 +255,12 @@ note :: IORef [String] -> Bni -> TransT IO Bni
 note ref b = b <$ liftIO (modifyIORef ref (con b :))
   where
     con = \case
-      Blockquote {} -> "Blockquote"
-      UnorderedList {} -> "UnorderedList"
-      OrderedList {} -> "OrderedList"
-      Paragraph {} -> "Paragraph"
-      Naked {} -> "Naked"
-      Heading1 {} -> "Heading1"
+      Blockquote{} -> "Blockquote"
+      UnorderedList{} -> "UnorderedList"
+      OrderedList{} -> "OrderedList"
+      Paragraph{} -> "Paragraph"
+      Naked{} -> "Naked"
+      Heading1{} -> "Heading1"
       _ -> "other"
 
 -- | Add given class to all 'Emphasis' things.

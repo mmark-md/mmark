@@ -192,7 +192,7 @@ runScanner ::
   MMark ->
   -- | Result of scanning
   a
-runScanner f MMark {..} = L.fold f mmarkBlocks
+runScanner f MMark{..} = L.fold f mmarkBlocks
 
 -- | Like 'runScanner', but allows us to run scanners with monadic context.
 --
@@ -210,7 +210,7 @@ runScannerM ::
   MMark ->
   -- | Result of scanning
   m a
-runScannerM f MMark {..} = L.foldM f mmarkBlocks
+runScannerM f MMark{..} = L.foldM f mmarkBlocks
 
 -- | Extract contents of an optional YAML block that may have been parsed.
 projectYaml :: MMark -> Maybe Value
@@ -265,11 +265,11 @@ runTransM ::
   MMark ->
   -- | The transformed document, or the errors the transformation reported
   m (Either (ParseErrorBundle Text TransError) MMark)
-runTransM f mmark@MMark {..} =
+runTransM f mmark@MMark{..} =
   fmap (fmap replaceBlocks) . runTransT mmarkSource $
     traverse f mmarkBlocks
   where
-    replaceBlocks bs = mmark {mmarkBlocks = bs}
+    replaceBlocks bs = mmark{mmarkBlocks = bs}
 
 -- | Run a pure check against an 'MMark' document, see 'runCheckM'.
 --
@@ -309,4 +309,4 @@ runCheckM ::
   MMark ->
   -- | The result of the check, or the errors it reported
   m (Either (ParseErrorBundle Text TransError) a)
-runCheckM t MMark {..} = runTransT mmarkSource t
+runCheckM t MMark{..} = runTransT mmarkSource t

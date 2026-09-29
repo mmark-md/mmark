@@ -87,7 +87,7 @@ data MMark = MMark
   }
 
 instance NFData MMark where
-  rnf MMark {..} = rnf mmarkYaml `seq` rnf mmarkBlocks
+  rnf MMark{..} = rnf mmarkYaml `seq` rnf mmarkBlocks
 
 -- | Dummy instance.
 --
@@ -368,7 +368,7 @@ runTransT pstate (TransT m) = do
 --
 -- @since 0.1.0.0
 report :: (Monad m) => Span -> Text -> TransT m ()
-report Span {..} msg =
+report Span{..} msg =
   TransT . lift . modify' $
     (FancyError spanStart (E.singleton (ErrorCustom (TransError msg))) :)
 

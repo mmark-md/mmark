@@ -619,7 +619,7 @@ sourcePos' :: BParser SourcePos
 sourcePos' = do
   base <- lineBase
   p <- getSourcePos
-  return p {sourceColumn = toVirtual base (sourceColumn p)}
+  return p{sourceColumn = toVirtual base (sourceColumn p)}
 
 -- | Consume up to the given number of block quote markers starting at the
 -- beginning of the current line. Return the number of markers that were
@@ -1486,9 +1486,9 @@ normalizeListItems xs' =
     (x :| xs) = r xs'
     r = NE.reverse . fmap reverse
     isParagraph = \case
-      OrderedList {} -> False
-      UnorderedList {} -> False
-      Naked {} -> False
+      OrderedList{} -> False
+      UnorderedList{} -> False
+      Naked{} -> False
       _ -> True
     toParagraph (Naked ann inner) = Paragraph ann inner
     toParagraph other = other
